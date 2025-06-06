@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, type Dispatch, type SetStateAction, Fragment } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, type UseFormReturn, Controller, type Control } from "react-hook-form";
+import { useForm, type UseFormReturn, Controller, type Control, useFormContext } from "react-hook-form";
 import type { InventoryItemFormValues, InventoryCategory, PaperQualityType, UnitValue } from "@/lib/definitions";
 import { InventoryItemFormSchema, INVENTORY_CATEGORIES, PAPER_QUALITY_OPTIONS, VENDOR_OPTIONS, UNIT_OPTIONS, getPaperQualityLabel, getPaperQualityUnit, KAPPA_MDF_QUALITIES } from "@/lib/definitions";
 import { addInventoryItem } from "@/lib/actions/jobActions";
@@ -195,7 +195,7 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
   const { toast } = useToast();
   
   const currentItemForm = useForm<Partial<InventoryItemFormValues>>({
-    resolver: zodResolver(InventoryItemFormSchema.partial()), // Use partial schema for current item
+    resolver: zodResolver(InventoryItemFormSchema.sourceSchema.partial()), // Use partial schema for current item
     defaultValues: {
       category: undefined,
       quantity: 0,
