@@ -21,11 +21,10 @@ import type { LucideIcon } from "lucide-react";
 interface DepartmentTaskStep {
   name: string;
   icon: LucideIcon;
-  jobCount: number; // Placeholder for now
+  jobCount: number; 
   description: string;
 }
 
-// Mirrored from planning page, can be refactored to a shared source later
 const departmentSteps: DepartmentTaskStep[] = [
   { name: "Job Approval", icon: FileCheck2, jobCount: 0, description: "Jobs awaiting client or internal approval." },
   { name: "Cutter", icon: Scissors, jobCount: 0, description: "Paper cutting and preparation tasks." },
@@ -41,8 +40,6 @@ const departmentSteps: DepartmentTaskStep[] = [
 ];
 
 export default function TasksPage() {
-  // In a real app, jobCount would be fetched dynamically per department
-  // and tasks would be listed within or upon clicking a card.
 
   return (
     <div className="space-y-6">
@@ -61,7 +58,6 @@ export default function TasksPage() {
               <Card 
                 key={step.name} 
                 className="hover:shadow-2xl transition-all duration-300 ease-in-out transform hover:-translate-y-1 cursor-pointer bg-card/70 hover:bg-card/90 border-border/50 hover:border-primary/50"
-                // onClick={() => alert(`Navigate to ${step.name} task list`)} // Placeholder for navigation
               >
                 <CardHeader className="pb-3">
                   <CardTitle className="text-xl font-headline flex items-start gap-3">
@@ -74,7 +70,7 @@ export default function TasksPage() {
                     {step.jobCount}
                   </div>
                   <p className="text-sm text-muted-foreground font-body">
-                    Pending Jobs
+                    Planned Jobs
                   </p>
                   <Button variant="outline" size="sm" className="w-full font-body" disabled>
                     <CheckSquare className="mr-2 h-4 w-4" /> Mark Task Done (Soon)

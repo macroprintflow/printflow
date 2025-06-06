@@ -33,10 +33,10 @@ interface ProcessStep {
   name: string;
   slug: string;
   icon: LucideIcon;
-  jobCount: number; // Placeholder for now, will be updated by AI or other logic
+  jobCount: number; 
   description: string;
-  capacityPerDay?: number; // Optional: for AI planning input
-  currentQueueJobIds?: string[]; // Optional: for AI planning input
+  capacityPerDay?: number; 
+  currentQueueJobIds?: string[]; 
 }
 
 const initialProductionSteps: ProcessStep[] = [
@@ -65,9 +65,6 @@ export default function PlanningPage() {
     try {
       const allJobs = await getJobCards();
       
-      // Filter for jobs that need planning (e.g., status 'Pending Planning' or no current department)
-      // For now, we'll consider all jobs that don't have a "Completed" or "Billed" status for planning.
-      // This can be refined later with more granular job statuses.
       const jobsToPlan: JobCardData[] = allJobs.filter(job =>
         job.status !== 'Completed' && job.status !== 'To be Billed' && job.status !== 'Billed'
       );
@@ -81,42 +78,38 @@ export default function PlanningPage() {
         return;
       }
 
-      // Map JobCardData to PlanningJobSchema
       const planningJobsInput = jobsToPlan.map(job => ({
         id: job.id!,
         jobName: job.jobName,
         jobCardNumber: job.jobCardNumber || `JC-${job.id}`,
-        date: job.createdAt || job.date, // Prefer createdAt if available
+        date: job.createdAt || job.date, 
         customerName: job.customerName,
         netQuantity: job.netQuantity,
         dispatchDate: job.dispatchDate,
-        currentDepartment: job.currentDepartment, // This might be undefined for new jobs
+        currentDepartment: job.currentDepartment, 
         status: job.status || 'Pending Planning',
         linkedJobCardIds: job.linkedJobCardIds || [],
       }));
 
       const departmentStatusInput = productionSteps.map(step => ({
         departmentName: step.name,
-        // For now, currentQueueJobIds and capacityPerDay are placeholders from initialProductionSteps
-        // In a real app, this would come from a live data source.
         currentQueueJobIds: step.currentQueueJobIds || [],
-        capacityPerDay: step.capacityPerDay || 10, // Default capacity
+        capacityPerDay: step.capacityPerDay || 10, 
       }));
 
       const planningInput: ProductionPlanningInput = {
         jobsToPlan: planningJobsInput,
         departmentStatus: departmentStatusInput,
-        planningHorizonDays: 2, // Plan for today and tomorrow
+        planningHorizonDays: 2, 
         planningDate: new Date().toISOString().split('T')[0],
       };
 
       const suggestions = await suggestProductionPlan(planningInput);
       setAiSuggestions(suggestions);
 
-      // Update job counts on department cards based on suggestions
       const updatedSteps = initialProductionSteps.map(step => {
         const count = suggestions.suggestedAssignments.filter(
-          sa => sa.assignedDepartment === step.name && sa.targetDate === planningInput.planningDate // Count for today for simplicity
+          sa => sa.assignedDepartment === step.name && sa.targetDate === planningInput.planningDate 
         ).length;
         return { ...step, jobCount: count };
       });
@@ -171,7 +164,7 @@ export default function PlanningPage() {
                         {step.jobCount}
                       </div>
                       <p className="text-sm text-muted-foreground font-body">
-                        Planned Jobs
+                        Active Jobs
                       </p>
                     </div>
                     <p className="text-xs text-muted-foreground font-body mt-2">{step.description}</p>
@@ -239,5 +232,3 @@ export default function PlanningPage() {
     </div>
   );
 }
-
-    
