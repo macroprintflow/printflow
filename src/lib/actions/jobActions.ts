@@ -21,9 +21,6 @@ if (!global.__jobCards__) {
 if (typeof global.__jobCounter__ === 'undefined') {
   global.__jobCounter__ = 1;
 }
-// jobCards continues to use module scope as it's less complex for now.
-// let jobCards: JobCardData[] = global.__jobCards__; // Not directly used in this version of the file content
-
 
 const initialJobTemplates: JobTemplateData[] = [
     { id: 'template1', name: 'Golden Tray (Predefined)', kindOfJob: 'METPET', coating: 'VARNISH_GLOSS', hotFoilStamping: 'GOLDEN', paperQuality: 'GOLDEN_SHEET' },
@@ -37,8 +34,6 @@ if (!global.__jobTemplatesStore__) {
 if (typeof global.__templateCounter__ === 'undefined') {
   global.__templateCounter__ = initialJobTemplates.length + 1;
 }
-// jobTemplatesStore continues to use module scope.
-// let jobTemplatesStore: JobTemplateData[] = global.__jobTemplatesStore__; // Not directly used
 
 const initialInventoryItems: InventoryItem[] = [
   // Master Sheets with detailed properties
@@ -63,7 +58,6 @@ const initialInventoryItems: InventoryItem[] = [
   { id: 'inv010', name: 'Varnish Gloss', type: 'Other', itemGroup: 'Other Stock', specification: 'For Coating', availableStock: 100, unit: 'liters', reorderPoint: 20, dateOfEntry: new Date().toISOString() },
 ];
 
-// Ensure global store is initialized
 if (!global.__inventoryItemsStore__) {
   global.__inventoryItemsStore__ = [...initialInventoryItems];
 }
@@ -118,6 +112,8 @@ export async function getInventoryOptimizationSuggestions(
   try {
     const allInventory = await getInventoryItems(); // Uses global.__inventoryItemsStore__
     console.log('[InventoryOptimization] Full inventory fetched (first 5 items):', JSON.stringify(allInventory.slice(0,5).map(i => ({id: i.id, name: i.name, type: i.type, w: i.masterSheetSizeWidth, h: i.masterSheetSizeHeight, gsm: i.paperGsm, quality: i.paperQuality})), null, 2));
+    console.log(`[InventoryOptimization] Job Input: GSM=${jobInput.paperGsm}, Quality=${jobInput.paperQuality}, Size=${jobInput.jobSizeWidth}x${jobInput.jobSizeHeight}, Qty=${jobInput.netQuantity}`);
+
 
     const { paperGsm: targetGsm, paperQuality: targetQuality } = jobInput;
 
@@ -132,8 +128,8 @@ export async function getInventoryOptimizationSuggestions(
           return false;
         }
 
-        // Paper Quality Check: Must match target quality exactly
-        if (item.paperQuality !== targetQuality) {
+        // Paper Quality Check: Case-insensitive match
+        if (item.paperQuality.toLowerCase() !== targetQuality.toLowerCase()) {
           console.log(`[InventoryOptimization] Filtering out item ${item.id} ('${item.name}') due to quality mismatch. ItemQ: ${item.paperQuality}, TargetQ: ${targetQuality}`);
           return false;
         }
@@ -141,17 +137,19 @@ export async function getInventoryOptimizationSuggestions(
         // GSM Tolerance Check
         const gsmDiff = Math.abs(item.paperGsm - targetGsm);
         const highToleranceQualities: PaperQualityType[] = ['SBS', 'ART_PAPER_GLOSS', 'ART_PAPER_MATT', 'GREYBACK', 'WHITEBACK'];
-        let gsmTolerance = 5; // Default tolerance
-        if (highToleranceQualities.includes(item.paperQuality as PaperQualityType)) {
-          gsmTolerance = 20;
+        let gsmTolerance = 5; 
+        // Check if item.paperQuality is one of the high tolerance types
+        if (highToleranceQualities.some(hq => hq.toLowerCase() === item.paperQuality!.toLowerCase())) {
+            gsmTolerance = 20;
         }
+
 
         if (gsmDiff > gsmTolerance) {
           console.log(`[InventoryOptimization] Filtering out item ${item.id} ('${item.name}') due to GSM mismatch. ItemGSM: ${item.paperGsm}, TargetGSM: ${targetGsm}, Diff: ${gsmDiff}, Tolerance: ${gsmTolerance}`);
           return false;
         }
         
-        // If all checks pass, include the item
+        console.log(`[InventoryOptimization] Item ${item.id} ('${item.name}') PASSED filters. W: ${item.masterSheetSizeWidth}, H: ${item.masterSheetSizeHeight}, GSM: ${item.paperGsm}, Q: ${item.paperQuality}`);
         return true;
       })
       .map(item => ({ // Map to the structure expected by the AI flow
@@ -178,7 +176,6 @@ export async function getInventoryOptimizationSuggestions(
     };
 
     const result = await optimizeInventory(aiInput);
-    // Log the raw AI output for debugging
     console.log('[InventoryOptimization] Raw AI Output:', JSON.stringify(result, null, 2));
     return result;
 
@@ -238,14 +235,13 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
 
 
     if (data.category === 'PAPER') {
-      // These are now guaranteed by schema validation in definitions.ts
       masterSheetSizeWidth = data.paperMasterSheetSizeWidth!;
       masterSheetSizeHeight = data.paperMasterSheetSizeHeight!;
       paperGsm = data.paperGsm!;
       paperQuality = data.paperQuality as PaperQualityType;
       
-      itemType = 'Master Sheet'; // Always Master Sheet if dimensions are provided
-      itemGroup = getPaperQualityLabel(paperQuality) as ItemGroupType;
+      itemType = 'Master Sheet';
+      itemGroup = getPaperQualityLabel(paperQuality) as ItemGroupType; // Ensure this is a valid ItemGroupType
 
       specificName = `${getPaperQualityLabel(paperQuality)} ${paperGsm}GSM ${masterSheetSizeWidth.toFixed(2)}x${masterSheetSizeHeight.toFixed(2)}in`.trim();
       specificSpecification = `${paperGsm}GSM ${getPaperQualityLabel(paperQuality)}, ${masterSheetSizeWidth.toFixed(2)}in x ${masterSheetSizeHeight.toFixed(2)}in`;
@@ -265,7 +261,6 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
       itemType = 'Magnet';
       itemGroup = 'Magnets';
     }
-    // For 'OTHER' category, itemName and itemSpecification from form are used by default.
 
 
     const newItem: InventoryItem = {
@@ -300,3 +295,6 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
     return { success: false, message: 'Failed to add inventory item.' };
   }
 }
+
+
+    
