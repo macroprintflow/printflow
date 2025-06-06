@@ -1,9 +1,8 @@
 
 'use server';
 
-import type { JobCardFormValues, JobCardData, JobTemplateData, JobTemplateFormValues, InventoryItem, PaperQualityType, InventorySuggestion, InventoryItemFormValues, InventoryItemType, ItemGroupType, UnitValue, OptimizeInventoryOutput } from '@/lib/definitions';
+import type { JobCardFormValues, JobCardData, JobTemplateData, JobTemplateFormValues, InventoryItem, PaperQualityType, InventorySuggestion, InventoryItemFormValues, InventoryItemType, ItemGroupType, UnitValue, OptimizeInventoryOutput, InventoryAdjustment } from '@/lib/definitions';
 import { PAPER_QUALITY_OPTIONS, getPaperQualityLabel, INVENTORY_ADJUSTMENT_REASONS } from '@/lib/definitions';
-// Removed AI flow import: import { optimizeInventory, type OptimizeInventoryInput, type AvailableSheet } from '@/ai/flows/inventory-optimization';
 import { calculateUps } from '@/lib/calculateUps';
 import { revalidatePath } from 'next/cache';
 
@@ -14,7 +13,7 @@ declare global {
   var __templateCounter__: number | undefined;
   var __inventoryItemsStore__: InventoryItem[] | undefined;
   var __inventoryCounter__: number | undefined;
-  var __inventoryAdjustmentsStore__: any[] | undefined; // Using 'any' for now, replace with InventoryAdjustment[]
+  var __inventoryAdjustmentsStore__: InventoryAdjustment[] | undefined;
   var __adjustmentCounter__: number | undefined;
 }
 
@@ -67,7 +66,7 @@ export async function createJobCard(data: JobCardFormValues): Promise<{ success:
   try {
     const currentJobCounter = global.__jobCounter__!;
     const newJobCard: JobCardData = {
-      ...data, // Includes sheetsPerMasterSheet and totalMasterSheetsNeeded from form
+      ...data,
       id: currentJobCounter.toString(),
       jobCardNumber: generateJobCardNumber(),
       date: new Date().toISOString().split('T')[0],
@@ -84,7 +83,7 @@ export async function createJobCard(data: JobCardFormValues): Promise<{ success:
       if (inventoryItemIndex !== -1) {
         global.__inventoryItemsStore__![inventoryItemIndex].availableStock -= data.totalMasterSheetsNeeded;
 
-        const adjustment = {
+        const adjustment: InventoryAdjustment = {
           id: `adj${global.__adjustmentCounter__!++}`,
           inventoryItemId: data.sourceInventoryItemId,
           date: new Date().toISOString(),
@@ -94,9 +93,9 @@ export async function createJobCard(data: JobCardFormValues): Promise<{ success:
           notes: `Used for job: ${newJobCard.jobName}`,
         };
         global.__inventoryAdjustmentsStore__!.push(adjustment);
-        revalidatePath('/inventory'); // Revalidate inventory page due to stock change
+        revalidatePath('/inventory');
       } else {
-        console.warn(`[JobActions] Inventory item ID ${data.sourceInventoryItemId} not found for stock deduction.`);
+        console.warn(`[JobActions] Inventory item ID ${data.sourceInventoryItemId} not found for stock deduction for job ${newJobCard.jobCardNumber}.`);
       }
     }
 
@@ -170,12 +169,11 @@ export async function getInventoryOptimizationSuggestions(
         const usedArea = layoutInfo.ups * jobArea;
         
         let wastagePercentage = 0;
-        if (sheetArea > 0) { // Avoid division by zero if sheetArea is somehow 0
+        if (sheetArea > 0) {
             wastagePercentage = 100 - (usedArea / sheetArea) * 100;
         } else {
-            wastagePercentage = 100; // Or handle as an error/invalid sheet
+            wastagePercentage = 100; 
         }
-
 
         const totalMasterSheetsNeeded = Math.ceil(jobInput.netQuantity / layoutInfo.ups);
 
@@ -193,7 +191,7 @@ export async function getInventoryOptimizationSuggestions(
         console.log(`[JobActions TS Calc] Processed sheet ID ${sheet.id}: Ups: ${layoutInfo.ups}, Wastage: ${suggestion.wastagePercentage}%, Layout: ${suggestion.cuttingLayoutDescription}`);
         return suggestion;
       })
-      .filter((s): s is InventorySuggestion => s !== null) // Type guard to filter out nulls and satisfy TypeScript
+      .filter((s): s is InventorySuggestion => s !== null)
       .sort((a, b) => {
         if (a.wastagePercentage === b.wastagePercentage) {
           return a.totalMasterSheetsNeeded - b.totalMasterSheetsNeeded;
@@ -358,8 +356,7 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
     global.__inventoryItemsStore__!.push(newItem);
     global.__inventoryCounter__ = currentInventoryCounter + 1;
 
-    // Create "Initial Stock" adjustment
-    const initialAdjustment = {
+    const initialAdjustment: InventoryAdjustment = {
         id: `adj${global.__adjustmentCounter__!++}`,
         inventoryItemId: newItem.id,
         date: new Date().toISOString(),
@@ -381,9 +378,11 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
   }
 }
 
-export async function getInventoryAdjustmentsForItem(inventoryItemId: string): Promise<any[]> {
+export async function getInventoryAdjustmentsForItem(inventoryItemId: string): Promise<InventoryAdjustment[]> {
   if (!global.__inventoryAdjustmentsStore__) {
     return [];
   }
-  return global.__inventoryAdjustmentsStore__.filter(adj => adj.inventoryItemId === inventoryItemId);
+  return global.__inventoryAdjustmentsStore__
+    .filter(adj => adj.inventoryItemId === inventoryItemId)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); // Sort by date descending
 }

@@ -3,7 +3,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Archive, PlusCircle, Search } from "lucide-react";
+import { Archive, PlusCircle, Search, History } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getInventoryItems } from "@/lib/actions/jobActions";
@@ -14,12 +14,17 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { AddItemDialog } from "@/components/inventory/AddItemDialog";
+import { InventoryAdjustmentsDialog } from "@/components/inventory/InventoryAdjustmentsDialog"; // Import the new dialog
 
 export default function InventoryPage() {
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<ItemGroupType>(ITEM_GROUP_TYPES[0]); 
   const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false);
+  
+  // State for adjustments dialog
+  const [isAdjustmentsDialogOpen, setIsAdjustmentsDialogOpen] = useState(false);
+  const [selectedItemForAdjustments, setSelectedItemForAdjustments] = useState<InventoryItem | null>(null);
 
   const fetchInventory = useCallback(async () => {
     setIsLoading(true);
@@ -38,6 +43,11 @@ export default function InventoryPage() {
     }
     return inventoryItems.filter(item => item.itemGroup === activeTab);
   }, [activeTab, inventoryItems]);
+
+  const handleViewAdjustments = (item: InventoryItem) => {
+    setSelectedItemForAdjustments(item);
+    setIsAdjustmentsDialogOpen(true);
+  };
 
   const renderInventoryTable = useCallback((items: InventoryItem[]) => {
     if (isLoading) {
@@ -75,12 +85,18 @@ export default function InventoryPage() {
             <TableHead className="font-headline text-right">Available Stock</TableHead>
             <TableHead className="font-headline text-right">Unit</TableHead>
             <TableHead className="font-headline text-right">Reorder Point</TableHead>
+            <TableHead className="font-headline text-center">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {items.map((item) => (
             <TableRow key={item.id}>
-              <TableCell className="font-medium font-body">{item.name}</TableCell>
+              <TableCell 
+                className="font-medium font-body hover:underline cursor-pointer"
+                onClick={() => handleViewAdjustments(item)}
+              >
+                {item.name}
+              </TableCell>
               <TableCell>
                 <Badge variant={
                   item.type === 'Master Sheet' ? 'secondary' :
@@ -101,12 +117,17 @@ export default function InventoryPage() {
               <TableCell className="font-body text-right">{item.availableStock.toLocaleString()}</TableCell>
               <TableCell className="font-body text-right">{item.unit}</TableCell>
               <TableCell className="font-body text-right">{item.reorderPoint ? item.reorderPoint.toLocaleString() : '-'}</TableCell>
+              <TableCell className="text-center">
+                <Button variant="ghost" size="icon" onClick={() => handleViewAdjustments(item)} title="View Stock History">
+                  <History className="h-4 w-4" />
+                </Button>
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
     );
-  }, [isLoading, inventoryItems]); // Added inventoryItems to dependencies for re-render when it changes.
+  }, [isLoading, inventoryItems]);
 
 
   return (
@@ -118,7 +139,7 @@ export default function InventoryPage() {
               <Archive className="mr-2 h-6 w-6 text-primary" /> Inventory Management
             </CardTitle>
             <CardDescription className="font-body">
-              View and manage your stock of paper, master sheets, and other materials.
+              View and manage your stock of paper, master sheets, and other materials. Click item name for stock history.
             </CardDescription>
           </div>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
@@ -152,6 +173,11 @@ export default function InventoryPage() {
         isOpen={isAddItemDialogOpen} 
         setIsOpen={setIsAddItemDialogOpen} 
         onItemAdded={fetchInventory} 
+      />
+      <InventoryAdjustmentsDialog
+        isOpen={isAdjustmentsDialogOpen}
+        setIsOpen={setIsAdjustmentsDialogOpen}
+        item={selectedItemForAdjustments}
       />
     </div>
   );
