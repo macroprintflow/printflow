@@ -1,7 +1,7 @@
 
 'use server';
 
-import type { JobCardFormValues, JobCardData, JobTemplateData, JobTemplateFormValues, InventoryItem, PaperQualityType, InventorySuggestion, InventoryItemFormValues, InventoryItemType, ItemGroupType } from '@/lib/definitions';
+import type { JobCardFormValues, JobCardData, JobTemplateData, JobTemplateFormValues, InventoryItem, PaperQualityType, InventorySuggestion, InventoryItemFormValues, InventoryItemType, ItemGroupType, UnitValue } from '@/lib/definitions';
 import { PAPER_QUALITY_OPTIONS, getPaperQualityLabel } from '@/lib/definitions';
 import { optimizeInventory, type OptimizeInventoryInput, type OptimizeInventoryOutput, type AvailableSheet } from '@/ai/flows/inventory-optimization';
 import { revalidatePath } from 'next/cache';
@@ -41,21 +41,21 @@ let jobTemplatesStore: JobTemplateData[] = global.__jobTemplatesStore__;
 
 const initialInventoryItems: InventoryItem[] = [
   // Master Sheets with detailed properties
-  { id: 'inv001', name: 'SBS Master 27.56x39.37in 300GSM', type: 'Master Sheet', itemGroup: 'SBS', specification: '27.56in x 39.37in, 300 GSM SBS', paperGsm: 300, paperQuality: 'SBS', masterSheetSizeWidth: 27.56, masterSheetSizeHeight: 39.37, availableStock: 5000, unit: 'sheets', reorderPoint: 1000, dateOfEntry: new Date().toISOString() },
-  { id: 'inv002', name: 'Art Paper Gloss Master 28.35x40.16in 250GSM', type: 'Master Sheet', itemGroup: 'Art Paper Gloss', specification: '28.35in x 40.16in, 250 GSM Art Paper Gloss', paperGsm: 250, paperQuality: 'ART_PAPER_GLOSS', masterSheetSizeWidth: 28.35, masterSheetSizeHeight: 40.16, availableStock: 3000, unit: 'sheets', reorderPoint: 500, dateOfEntry: new Date().toISOString() },
-  { id: 'inv003', name: 'Greyback Master 25.59x35.43in 350GSM', type: 'Master Sheet', itemGroup: 'Greyback', specification: '25.59in x 35.43in, 350 GSM Greyback', paperGsm: 350, paperQuality: 'GREYBACK', masterSheetSizeWidth: 25.59, masterSheetSizeHeight: 35.43, availableStock: 4500, unit: 'sheets', reorderPoint: 800, dateOfEntry: new Date().toISOString() },
-  { id: 'inv011', name: 'SBS Master 25.20x18.90in 280GSM', type: 'Master Sheet', itemGroup: 'SBS', specification: '25.20in x 18.90in, 280 GSM SBS', paperGsm: 280, paperQuality: 'SBS', masterSheetSizeWidth: 25.20, masterSheetSizeHeight: 18.90, availableStock: 2000, unit: 'sheets', reorderPoint: 400, dateOfEntry: new Date().toISOString() },
-  { id: 'inv012', name: 'WG Kappa Master 19.69x27.56in 400GSM', type: 'Master Sheet', itemGroup: 'WG Kappa', specification: '19.69in x 27.56in, 400 GSM WG Kappa', paperGsm: 400, paperQuality: 'WG_KAPPA', masterSheetSizeWidth: 19.69, masterSheetSizeHeight: 27.56, availableStock: 1500, unit: 'sheets', reorderPoint: 300, dateOfEntry: new Date().toISOString() },
-  { id: 'inv013', name: 'SBS Master 27.56x39.37in 280GSM', type: 'Master Sheet', itemGroup: 'SBS', specification: '27.56in x 39.37in, 280 GSM SBS', paperGsm: 280, paperQuality: 'SBS', masterSheetSizeWidth: 27.56, masterSheetSizeHeight: 39.37, availableStock: 500, unit: 'sheets', reorderPoint: 100, dateOfEntry: new Date().toISOString() },
-  { id: 'inv015', name: 'GG Kappa Master 20x30in 320GSM', type: 'Master Sheet', itemGroup: 'GG Kappa', specification: '20in x 30in, 320 GSM GG Kappa', paperGsm: 320, paperQuality: 'GG_KAPPA', masterSheetSizeWidth: 20, masterSheetSizeHeight: 30, availableStock: 1800, unit: 'sheets', reorderPoint: 350, dateOfEntry: new Date().toISOString() },
+  { id: 'inv001', name: 'SBS Master 27.56x39.37in 300GSM', type: 'Master Sheet', itemGroup: 'SBS', specification: '27.56in x 39.37in, 300 GSM SBS', paperGsm: 300, paperQuality: 'SBS', masterSheetSizeWidth: 27.56, masterSheetSizeHeight: 39.37, availableStock: 5000, unit: 'inches', reorderPoint: 1000, dateOfEntry: new Date().toISOString() },
+  { id: 'inv002', name: 'Art Paper Gloss Master 28.35x40.16in 250GSM', type: 'Master Sheet', itemGroup: 'Art Paper Gloss', specification: '28.35in x 40.16in, 250 GSM Art Paper Gloss', paperGsm: 250, paperQuality: 'ART_PAPER_GLOSS', masterSheetSizeWidth: 28.35, masterSheetSizeHeight: 40.16, availableStock: 3000, unit: 'inches', reorderPoint: 500, dateOfEntry: new Date().toISOString() },
+  { id: 'inv003', name: 'Greyback Master 25.59x35.43in 350GSM', type: 'Master Sheet', itemGroup: 'Greyback', specification: '25.59in x 35.43in, 350 GSM Greyback', paperGsm: 350, paperQuality: 'GREYBACK', masterSheetSizeWidth: 25.59, masterSheetSizeHeight: 35.43, availableStock: 4500, unit: 'inches', reorderPoint: 800, dateOfEntry: new Date().toISOString() },
+  { id: 'inv011', name: 'SBS Master 25.20x18.90in 280GSM', type: 'Master Sheet', itemGroup: 'SBS', specification: '25.20in x 18.90in, 280 GSM SBS', paperGsm: 280, paperQuality: 'SBS', masterSheetSizeWidth: 25.20, masterSheetSizeHeight: 18.90, availableStock: 2000, unit: 'inches', reorderPoint: 400, dateOfEntry: new Date().toISOString() },
+  { id: 'inv012', name: 'WG Kappa Master 19.69x27.56in 400GSM', type: 'Master Sheet', itemGroup: 'WG Kappa', specification: '19.69in x 27.56in, 400 GSM WG Kappa', paperGsm: 400, paperQuality: 'WG_KAPPA', masterSheetSizeWidth: 19.69, masterSheetSizeHeight: 27.56, availableStock: 1500, unit: 'inches', reorderPoint: 300, dateOfEntry: new Date().toISOString() },
+  { id: 'inv013', name: 'SBS Master 27.56x39.37in 280GSM', type: 'Master Sheet', itemGroup: 'SBS', specification: '27.56in x 39.37in, 280 GSM SBS', paperGsm: 280, paperQuality: 'SBS', masterSheetSizeWidth: 27.56, masterSheetSizeHeight: 39.37, availableStock: 500, unit: 'inches', reorderPoint: 100, dateOfEntry: new Date().toISOString() },
+  { id: 'inv015', name: 'GG Kappa Master 20x30in 320GSM', type: 'Master Sheet', itemGroup: 'GG Kappa', specification: '20in x 30in, 320 GSM GG Kappa', paperGsm: 320, paperQuality: 'GG_KAPPA', masterSheetSizeWidth: 20, masterSheetSizeHeight: 30, availableStock: 1800, unit: 'inches', reorderPoint: 350, dateOfEntry: new Date().toISOString() },
 
 
   // Paper Stock (can also be used as master sheets if dimensions are suitable)
-  { id: 'inv004', name: 'Art Card Paper 300GSM', type: 'Paper Stock', itemGroup: 'Art Paper Matt', specification: '300 GSM, Art Paper Matt', paperGsm: 300, paperQuality: 'ART_PAPER_MATT', availableStock: 10000, unit: 'sheets', reorderPoint: 2000, dateOfEntry: new Date().toISOString() },
-  { id: 'inv005', name: 'Kraft Paper 120GSM', type: 'Paper Stock', itemGroup: 'Kraft Paper', specification: '120 GSM, Uncoated', paperGsm: 120, paperQuality: 'KRAFT_PAPER', availableStock: 8000, unit: 'sheets', reorderPoint: 1500, dateOfEntry: new Date().toISOString() },
-  { id: 'inv008', name: 'SBS Board 280GSM', type: 'Paper Stock', itemGroup: 'SBS', specification: '280 GSM, C1S', paperGsm: 280, paperQuality: 'SBS', availableStock: 7000, unit: 'sheets', reorderPoint: 1200, dateOfEntry: new Date().toISOString() },
-  { id: 'inv009', name: 'Greyback Board 400GSM', type: 'Paper Stock', itemGroup: 'Greyback', specification: '400 GSM, Coated', paperGsm: 400, paperQuality: 'GREYBACK', availableStock: 6000, unit: 'sheets', reorderPoint: 1000, dateOfEntry: new Date().toISOString() },
-  { id: 'inv014', name: 'GG Kappa Board 350GSM', type: 'Paper Stock', itemGroup: 'GG Kappa', specification: '350 GSM', paperGsm: 350, paperQuality: 'GG_KAPPA', availableStock: 2500, unit: 'sheets', reorderPoint: 500, dateOfEntry: new Date().toISOString() },
+  { id: 'inv004', name: 'Art Card Paper 300GSM', type: 'Paper Stock', itemGroup: 'Art Paper Matt', specification: '300 GSM, Art Paper Matt', paperGsm: 300, paperQuality: 'ART_PAPER_MATT', availableStock: 10000, unit: 'inches', reorderPoint: 2000, dateOfEntry: new Date().toISOString() },
+  { id: 'inv005', name: 'Kraft Paper 120GSM', type: 'Paper Stock', itemGroup: 'Kraft Paper', specification: '120 GSM, Uncoated', paperGsm: 120, paperQuality: 'KRAFT_PAPER', availableStock: 8000, unit: 'inches', reorderPoint: 1500, dateOfEntry: new Date().toISOString() },
+  { id: 'inv008', name: 'SBS Board 280GSM', type: 'Paper Stock', itemGroup: 'SBS', specification: '280 GSM, C1S', paperGsm: 280, paperQuality: 'SBS', availableStock: 7000, unit: 'inches', reorderPoint: 1200, dateOfEntry: new Date().toISOString() },
+  { id: 'inv009', name: 'Greyback Board 400GSM', type: 'Paper Stock', itemGroup: 'Greyback', specification: '400 GSM, Coated', paperGsm: 400, paperQuality: 'GREYBACK', availableStock: 6000, unit: 'inches', reorderPoint: 1000, dateOfEntry: new Date().toISOString() },
+  { id: 'inv014', name: 'GG Kappa Board 350GSM', type: 'Paper Stock', itemGroup: 'GG Kappa', specification: '350 GSM', paperGsm: 350, paperQuality: 'GG_KAPPA', availableStock: 2500, unit: 'inches', reorderPoint: 500, dateOfEntry: new Date().toISOString() },
 
 
   // Other items
@@ -132,10 +132,9 @@ export async function getInventoryOptimizationSuggestions(
         const highToleranceQualities: PaperQualityType[] = ['SBS', 'ART_PAPER_GLOSS', 'ART_PAPER_MATT', 'GREYBACK', 'WHITEBACK'];
 
         if (highToleranceQualities.includes(item.paperQuality as PaperQualityType)) {
-          if (gsmDiff > 20) return false; // Increased tolerance to +/- 20 GSM
+          if (gsmDiff > 20) return false; 
         } else { 
-          // For other paper qualities (Kraft, Kappa, Golden, Japanese, Imported etc.)
-          if (gsmDiff > 5) return false; // Allow a small tolerance of +/- 5 GSM
+          if (gsmDiff > 5) return false;
         }
         return true;
       })
@@ -210,9 +209,7 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
 
     if (data.category === 'PAPER') {
       itemType = data.paperMasterSheetSizeWidth && data.paperMasterSheetSizeHeight ? 'Master Sheet' : 'Paper Stock';
-      // For itemGroup with paper, we should store the value (e.g., 'SBS') not the label.
-      // getPaperQualityLabel returns the display label. The actual value is in data.paperQuality.
-      itemGroup = data.paperQuality ? data.paperQuality as ItemGroupType : 'Other Stock';
+      itemGroup = data.paperQuality ? getPaperQualityLabel(data.paperQuality as PaperQualityType) as ItemGroupType : 'Other Stock';
       specificName = `${getPaperQualityLabel(data.paperQuality as PaperQualityType)} ${data.paperGsm}GSM ${data.paperMasterSheetSizeWidth ? `${data.paperMasterSheetSizeWidth}x${data.paperMasterSheetSizeHeight}in` : ''}`.trim();
       specificSpecification = `${data.paperGsm}GSM ${getPaperQualityLabel(data.paperQuality as PaperQualityType)}`;
       if (data.paperMasterSheetSizeWidth && data.paperMasterSheetSizeHeight) {
@@ -246,7 +243,7 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
       masterSheetSizeWidth: data.category === 'PAPER' ? data.paperMasterSheetSizeWidth : undefined,
       masterSheetSizeHeight: data.category === 'PAPER' ? data.paperMasterSheetSizeHeight : undefined,
       availableStock: data.availableStock,
-      unit: data.unit,
+      unit: data.unit as UnitValue,
       reorderPoint: data.reorderPoint,
       purchaseBillNo: data.purchaseBillNo,
       vendorName: data.vendorName === 'OTHER' ? data.otherVendorName : data.vendorName,
@@ -264,3 +261,4 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
     return { success: false, message: 'Failed to add inventory item.' };
   }
 }
+

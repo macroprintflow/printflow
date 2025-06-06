@@ -245,7 +245,7 @@ export type InventoryItemType =
   | 'Other';
 
 export const UNIT_OPTIONS = [
-  { value: 'sheets', label: 'Sheets' },
+  { value: 'inches', label: 'Inches' },
   { value: 'kg', label: 'Kg' },
   { value: 'liters', label: 'Liters' },
   { value: 'pieces', label: 'Pieces' },
@@ -342,3 +342,4 @@ export const InventoryItemFormSchema = z.object({
 });
 
 export type InventoryItemFormValues = z.infer<typeof InventoryItemFormSchema>;
+

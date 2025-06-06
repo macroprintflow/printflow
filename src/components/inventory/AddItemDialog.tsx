@@ -4,7 +4,7 @@
 import React, { useState, type Dispatch, type SetStateAction, Fragment } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, type UseFormReturn, type Control } from "react-hook-form";
-import type { InventoryItemFormValues, InventoryCategory, PaperQualityType } from "@/lib/definitions";
+import type { InventoryItemFormValues, InventoryCategory, PaperQualityType, UnitValue } from "@/lib/definitions";
 import { InventoryItemFormSchema, INVENTORY_CATEGORIES, PAPER_QUALITY_OPTIONS, VENDOR_OPTIONS, UNIT_OPTIONS, getPaperQualityLabel } from "@/lib/definitions";
 import { addInventoryItem } from "@/lib/actions/jobActions";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,7 @@ interface AddItemDialogProps {
   onItemAdded?: () => void;
 }
 
+// Helper components defined at the top level of the module
 const PaperFields = ({ control }: { control: Control<InventoryItemFormValues> }) => (
   <>
     <FormField control={control} name="itemName" render={({ field }) => (<FormItem className="hidden"><FormControl><Input type="hidden" {...field} /></FormControl><FormMessage /></FormItem>)} />
@@ -129,12 +130,11 @@ const CommonFields = ({ form }: { form: UseFormReturn<InventoryItemFormValues> }
               </FormControl>
               <FormMessage />
             </FormItem>
-          )}
-        />
+          )} />
         <FormField control={form.control} name="unit" render={({ field }) => (
           <FormItem>
             <FormLabel>Unit</FormLabel>
-            <Select onValueChange={field.onChange} value={field.value || "sheets"}>
+            <Select onValueChange={field.onChange} value={field.value || "pieces"}>
               <FormControl><SelectTrigger className="font-body"><SelectValue placeholder="Select unit" /></SelectTrigger></FormControl>
               <SelectContent>{UNIT_OPTIONS.map(opt => (<SelectItem key={opt.value} value={opt.value} className="font-body">{opt.label}</SelectItem>))}</SelectContent>
             </Select>
@@ -203,7 +203,6 @@ const CommonFields = ({ form }: { form: UseFormReturn<InventoryItemFormValues> }
   );
 };
 
-
 export function AddItemDialog({ isOpen, setIsOpen, onItemAdded }: AddItemDialogProps) {
   const [step, setStep] = useState(1);
   const [selectedCategory, setSelectedCategory] = useState<InventoryCategory | null>(null);
@@ -221,7 +220,7 @@ export function AddItemDialog({ isOpen, setIsOpen, onItemAdded }: AddItemDialogP
     itemName: "",
     itemSpecification: "",
     availableStock: 0,
-    unit: "sheets", 
+    unit: "pieces" as UnitValue, // Changed default unit
     purchaseBillNo: "",
     vendorName: undefined,
     otherVendorName: "",
@@ -229,22 +228,35 @@ export function AddItemDialog({ isOpen, setIsOpen, onItemAdded }: AddItemDialogP
     reorderPoint: undefined,
   };
 
-  const form = useForm<InventoryItemFormValues>({
+  const form: UseFormReturn<InventoryItemFormValues> = useForm<InventoryItemFormValues>({
     resolver: zodResolver(InventoryItemFormSchema),
     defaultValues: formDefaultValues,
   });
 
   const handleCategorySelect = (category: InventoryCategory) => {
-    form.reset(formDefaultValues); // Reset form when category changes to clear irrelevant fields
+    form.reset(formDefaultValues); // Reset form when category changes
     setSelectedCategory(category);
     form.setValue("category", category);
     
-    if (category === 'PAPER') form.setValue("itemName", "Paper Stock"); // Default name, can be refined
-    else if (category === 'INKS') form.setValue("itemName", "Ink"); // Default name
-    else if (category === 'PLASTIC_TRAY') form.setValue("itemName", "Plastic Tray");
-    else if (category === 'GLASS_JAR') form.setValue("itemName", "Glass Jar");
-    else if (category === 'MAGNET') form.setValue("itemName", "Magnet");
-    else form.setValue("itemName", ""); // User defined for 'Other'
+    if (category === 'PAPER') {
+      form.setValue("itemName", "Paper Stock"); // Default name
+      form.setValue("unit", "inches" as UnitValue); // Set unit to inches for paper
+    } else if (category === 'INKS') {
+      form.setValue("itemName", "Ink"); // Default name
+      form.setValue("unit", "kg" as UnitValue); // Set unit to kg for inks
+    } else if (category === 'PLASTIC_TRAY') {
+      form.setValue("itemName", "Plastic Tray");
+      form.setValue("unit", "pieces" as UnitValue);
+    } else if (category === 'GLASS_JAR') {
+      form.setValue("itemName", "Glass Jar");
+      form.setValue("unit", "pieces" as UnitValue);
+    } else if (category === 'MAGNET') {
+      form.setValue("itemName", "Magnet");
+      form.setValue("unit", "pieces" as UnitValue);
+    } else { // OTHER
+      form.setValue("itemName", ""); 
+      form.setValue("unit", "units" as UnitValue);
+    }
 
     setStep(2);
   };
@@ -349,3 +361,4 @@ export function AddItemDialog({ isOpen, setIsOpen, onItemAdded }: AddItemDialogP
     </Dialog>
   );
 }
+
