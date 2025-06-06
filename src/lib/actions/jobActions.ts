@@ -129,14 +129,13 @@ export async function getInventoryOptimizationSuggestions(
         if (item.paperQuality !== targetQuality) return false;
 
         const gsmDiff = Math.abs(item.paperGsm - targetGsm);
-        const artPaperQualities: PaperQualityType[] = ['ART_PAPER_GLOSS', 'ART_PAPER_MATT'];
+        const highToleranceQualities: PaperQualityType[] = ['SBS', 'ART_PAPER_GLOSS', 'ART_PAPER_MATT', 'GREYBACK', 'WHITEBACK'];
 
-        if (item.paperQuality === 'SBS' || artPaperQualities.includes(item.paperQuality)) {
-          if (gsmDiff > 10) return false;
-        } else if (item.paperQuality === 'GREYBACK' || item.paperQuality === 'WHITEBACK') {
-          if (gsmDiff > 20) return false;
+        if (highToleranceQualities.includes(item.paperQuality as PaperQualityType)) {
+          if (gsmDiff > 20) return false; // Increased tolerance to +/- 20 GSM
         } else { 
-          if (gsmDiff !== 0) return false;
+          // For other paper qualities (Kraft, Kappa, Golden, Japanese, Imported etc.)
+          if (gsmDiff > 5) return false; // Allow a small tolerance of +/- 5 GSM
         }
         return true;
       })
@@ -211,9 +210,11 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
 
     if (data.category === 'PAPER') {
       itemType = data.paperMasterSheetSizeWidth && data.paperMasterSheetSizeHeight ? 'Master Sheet' : 'Paper Stock';
-      itemGroup = data.paperQuality ? getPaperQualityLabel(data.paperQuality) : 'Other Stock';
-      specificName = `${itemGroup} ${data.paperGsm}GSM ${data.paperMasterSheetSizeWidth ? `${data.paperMasterSheetSizeWidth}x${data.paperMasterSheetSizeHeight}in` : ''}`.trim();
-      specificSpecification = `${data.paperGsm}GSM ${itemGroup}`;
+      // For itemGroup with paper, we should store the value (e.g., 'SBS') not the label.
+      // getPaperQualityLabel returns the display label. The actual value is in data.paperQuality.
+      itemGroup = data.paperQuality ? data.paperQuality as ItemGroupType : 'Other Stock';
+      specificName = `${getPaperQualityLabel(data.paperQuality as PaperQualityType)} ${data.paperGsm}GSM ${data.paperMasterSheetSizeWidth ? `${data.paperMasterSheetSizeWidth}x${data.paperMasterSheetSizeHeight}in` : ''}`.trim();
+      specificSpecification = `${data.paperGsm}GSM ${getPaperQualityLabel(data.paperQuality as PaperQualityType)}`;
       if (data.paperMasterSheetSizeWidth && data.paperMasterSheetSizeHeight) {
         specificSpecification += `, ${data.paperMasterSheetSizeWidth}in x ${data.paperMasterSheetSizeHeight}in`;
       }
@@ -241,7 +242,7 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
       itemGroup: itemGroup,
       specification: specificSpecification,
       paperGsm: data.category === 'PAPER' ? data.paperGsm : undefined,
-      paperQuality: data.category === 'PAPER' ? data.paperQuality : undefined,
+      paperQuality: data.category === 'PAPER' ? data.paperQuality as PaperQualityType : undefined,
       masterSheetSizeWidth: data.category === 'PAPER' ? data.paperMasterSheetSizeWidth : undefined,
       masterSheetSizeHeight: data.category === 'PAPER' ? data.paperMasterSheetSizeHeight : undefined,
       availableStock: data.availableStock,
