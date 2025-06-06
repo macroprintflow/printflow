@@ -2,62 +2,161 @@
 "use client";
 
 import Link from 'next/link';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { 
-  FileCheck2, 
-  Scissors, 
-  Printer, 
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Button } from '@/components/ui/button';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from '@/components/ui/badge';
+import {
+  FileCheck2,
+  Scissors,
+  Printer,
   Wand2,
-  Film, 
-  Crop, 
-  Sparkles, 
-  ClipboardPaste, 
-  Box, 
+  Film,
+  Crop,
+  Sparkles,
+  ClipboardPaste,
+  Box,
   Package,
   FileSpreadsheet,
-  Workflow
+  Workflow,
+  Brain,
+  Loader2
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { useState } from 'react';
+import { getJobCards } from '@/lib/actions/jobActions';
+import { suggestProductionPlan, type ProductionPlanningInput, type ProductionPlanningOutput } from '@/ai/flows/production-planning-flow';
+import type { JobCardData } from '@/lib/definitions';
+import { useToast } from '@/hooks/use-toast';
 
 interface ProcessStep {
   name: string;
   slug: string;
   icon: LucideIcon;
-  jobCount: number; // Placeholder for now
+  jobCount: number; // Placeholder for now, will be updated by AI or other logic
   description: string;
+  capacityPerDay?: number; // Optional: for AI planning input
+  currentQueueJobIds?: string[]; // Optional: for AI planning input
 }
 
-const productionSteps: ProcessStep[] = [
-  { name: "Job Approval", slug: "job-approval", icon: FileCheck2, jobCount: 2, description: "Jobs awaiting client or internal approval." },
-  { name: "Cutter", slug: "cutter", icon: Scissors, jobCount: 7, description: "Paper cutting and preparation." },
-  { name: "Printing", slug: "printing", icon: Printer, jobCount: 12, description: "Offset and digital printing jobs." },
-  { name: "Texture UV", slug: "texture-uv", icon: Wand2, jobCount: 6, description: "Applying texture UV finishes." },
-  { name: "Lamination", slug: "lamination", icon: Film, jobCount: 8, description: "Applying lamination films." },
-  { name: "Die Cutting", slug: "die-cutting", icon: Crop, jobCount: 15, description: "Cutting and creasing sheets to shape." },
-  { name: "Foil Stamping", slug: "foil-stamping", icon: Sparkles, jobCount: 4, description: "Applying metallic foils." },
-  { name: "Pasting", slug: "pasting", icon: ClipboardPaste, jobCount: 9, description: "Folder-gluer and manual pasting." },
-  { name: "Box Making & Assembly", slug: "box-making-assembly", icon: Box, jobCount: 7, description: "Rigid box and other assembly." },
-  { name: "Packing", slug: "packing", icon: Package, jobCount: 10, description: "Final packing of finished goods." },
-  { name: "To be Billed", slug: "to-be-billed", icon: FileSpreadsheet, jobCount: 5, description: "Jobs completed and awaiting invoicing." },
+const initialProductionSteps: ProcessStep[] = [
+  { name: "Job Approval", slug: "job-approval", icon: FileCheck2, jobCount: 0, description: "Jobs awaiting client or internal approval.", capacityPerDay: 10, currentQueueJobIds: [] },
+  { name: "Cutter", slug: "cutter", icon: Scissors, jobCount: 0, description: "Paper cutting and preparation.", capacityPerDay: 20, currentQueueJobIds: [] },
+  { name: "Printing", slug: "printing", icon: Printer, jobCount: 0, description: "Offset and digital printing jobs.", capacityPerDay: 15, currentQueueJobIds: [] },
+  { name: "Texture UV", slug: "texture-uv", icon: Wand2, jobCount: 0, description: "Applying texture UV finishes.", capacityPerDay: 8, currentQueueJobIds: [] },
+  { name: "Lamination", slug: "lamination", icon: Film, jobCount: 0, description: "Applying lamination films.", capacityPerDay: 10, currentQueueJobIds: [] },
+  { name: "Die Cutting", slug: "die-cutting", icon: Crop, jobCount: 0, description: "Cutting and creasing sheets to shape.", capacityPerDay: 25, currentQueueJobIds: [] },
+  { name: "Foil Stamping", slug: "foil-stamping", icon: Sparkles, jobCount: 0, description: "Applying metallic foils.", capacityPerDay: 5, currentQueueJobIds: [] },
+  { name: "Pasting", slug: "pasting", icon: ClipboardPaste, jobCount: 0, description: "Folder-gluer and manual pasting.", capacityPerDay: 12, currentQueueJobIds: [] },
+  { name: "Box Making & Assembly", slug: "box-making-assembly", icon: Box, jobCount: 0, description: "Rigid box and other assembly.", capacityPerDay: 10, currentQueueJobIds: [] },
+  { name: "Packing", slug: "packing", icon: Package, jobCount: 0, description: "Final packing of finished goods.", capacityPerDay: 30, currentQueueJobIds: [] },
+  { name: "To be Billed", slug: "to-be-billed", icon: FileSpreadsheet, jobCount: 0, description: "Jobs completed and awaiting invoicing.", capacityPerDay: 50, currentQueueJobIds: [] },
 ];
 
 export default function PlanningPage() {
+  const [productionSteps, setProductionSteps] = useState<ProcessStep[]>(initialProductionSteps);
+  const [isLoading, setIsLoading] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState<ProductionPlanningOutput | null>(null);
+  const { toast } = useToast();
+
+  const handleGeneratePlan = async () => {
+    setIsLoading(true);
+    setAiSuggestions(null);
+    try {
+      const allJobs = await getJobCards();
+      
+      // Filter for jobs that need planning (e.g., status 'Pending Planning' or no current department)
+      // For now, we'll consider all jobs that don't have a "Completed" or "Billed" status for planning.
+      // This can be refined later with more granular job statuses.
+      const jobsToPlan: JobCardData[] = allJobs.filter(job =>
+        job.status !== 'Completed' && job.status !== 'To be Billed' && job.status !== 'Billed'
+      );
+
+      if (jobsToPlan.length === 0) {
+        toast({
+          title: "No Jobs to Plan",
+          description: "There are no active jobs currently requiring production planning.",
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Map JobCardData to PlanningJobSchema
+      const planningJobsInput = jobsToPlan.map(job => ({
+        id: job.id!,
+        jobName: job.jobName,
+        jobCardNumber: job.jobCardNumber || `JC-${job.id}`,
+        date: job.createdAt || job.date, // Prefer createdAt if available
+        customerName: job.customerName,
+        netQuantity: job.netQuantity,
+        dispatchDate: job.dispatchDate,
+        currentDepartment: job.currentDepartment, // This might be undefined for new jobs
+        status: job.status || 'Pending Planning',
+        linkedJobCardIds: job.linkedJobCardIds || [],
+      }));
+
+      const departmentStatusInput = productionSteps.map(step => ({
+        departmentName: step.name,
+        // For now, currentQueueJobIds and capacityPerDay are placeholders from initialProductionSteps
+        // In a real app, this would come from a live data source.
+        currentQueueJobIds: step.currentQueueJobIds || [],
+        capacityPerDay: step.capacityPerDay || 10, // Default capacity
+      }));
+
+      const planningInput: ProductionPlanningInput = {
+        jobsToPlan: planningJobsInput,
+        departmentStatus: departmentStatusInput,
+        planningHorizonDays: 2, // Plan for today and tomorrow
+        planningDate: new Date().toISOString().split('T')[0],
+      };
+
+      const suggestions = await suggestProductionPlan(planningInput);
+      setAiSuggestions(suggestions);
+
+      // Update job counts on department cards based on suggestions
+      const updatedSteps = initialProductionSteps.map(step => {
+        const count = suggestions.suggestedAssignments.filter(
+          sa => sa.assignedDepartment === step.name && sa.targetDate === planningInput.planningDate // Count for today for simplicity
+        ).length;
+        return { ...step, jobCount: count };
+      });
+      setProductionSteps(updatedSteps);
+
+
+      toast({
+        title: "AI Plan Generated",
+        description: suggestions.planningSummary || "Review the suggested assignments below.",
+      });
+
+    } catch (error) {
+      console.error("Error generating production plan:", error);
+      toast({
+        title: "Error",
+        description: "Failed to generate production plan. " + (error instanceof Error ? error.message : "Please try again."),
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <Card className="shadow-xl">
         <CardHeader>
           <CardTitle className="font-headline flex items-center text-2xl">
             <Workflow className="mr-3 h-8 w-8 text-primary" /> Production Pipeline Overview
           </CardTitle>
           <CardDescription className="font-body">
-            Track and manage jobs across all production stages. Click on a stage to view detailed tasks and assignments.
+            Track jobs across production stages. Generate an AI-powered plan or click a stage to view details.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
             {productionSteps.map((step) => (
               <Link key={step.slug} href={`/planning/${step.slug}`} passHref>
-                <Card 
+                <Card
                   className="hover:shadow-2xl transition-all duration-300 ease-in-out transform hover:-translate-y-1 cursor-pointer bg-card/70 hover:bg-card/90 border-border/50 hover:border-primary/50 h-full flex flex-col"
                 >
                   <CardHeader className="pb-3">
@@ -72,7 +171,7 @@ export default function PlanningPage() {
                         {step.jobCount}
                       </div>
                       <p className="text-sm text-muted-foreground font-body">
-                        Active Jobs
+                        Planned Jobs
                       </p>
                     </div>
                     <p className="text-xs text-muted-foreground font-body mt-2">{step.description}</p>
@@ -82,7 +181,63 @@ export default function PlanningPage() {
             ))}
           </div>
         </CardContent>
+        <CardFooter className="border-t pt-6">
+            <Button onClick={handleGeneratePlan} disabled={isLoading} size="lg" className="w-full md:w-auto">
+              {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Brain className="mr-2 h-5 w-5" />}
+              {isLoading ? "Generating Plan..." : "Generate Production Plan with AI"}
+            </Button>
+        </CardFooter>
       </Card>
+
+      {aiSuggestions && (
+        <Card className="shadow-lg">
+          <CardHeader>
+            <CardTitle className="font-headline">AI Suggested Production Plan</CardTitle>
+            {aiSuggestions.planningSummary && (
+              <CardDescription className="font-body">{aiSuggestions.planningSummary}</CardDescription>
+            )}
+          </CardHeader>
+          <CardContent>
+            {aiSuggestions.suggestedAssignments.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="font-headline">Job ID / Number</TableHead>
+                    <TableHead className="font-headline">Assigned Department</TableHead>
+                    <TableHead className="font-headline">Target Date</TableHead>
+                    <TableHead className="font-headline text-center">Priority</TableHead>
+                    <TableHead className="font-headline">Reasoning</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {aiSuggestions.suggestedAssignments.map((assignment, index) => (
+                    <TableRow key={assignment.jobId + index}>
+                      <TableCell className="font-mono text-xs font-body">
+                        {assignment.jobCardNumber || assignment.jobId}
+                      </TableCell>
+                      <TableCell className="font-body">
+                        <Badge variant="secondary">{assignment.assignedDepartment}</Badge>
+                      </TableCell>
+                      <TableCell className="font-body">{new Date(assignment.targetDate + 'T00:00:00').toLocaleDateString()}</TableCell>
+                      <TableCell className="font-body text-center">{assignment.priority}</TableCell>
+                      <TableCell className="font-body text-xs">{assignment.reasoning}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <p className="text-muted-foreground font-body">No specific job assignments were suggested by the AI for the current set of jobs and parameters.</p>
+            )}
+          </CardContent>
+           <CardFooter className="border-t pt-4">
+            <p className="text-xs text-muted-foreground font-body">
+              Note: This is an AI-generated suggestion. Review and adjust as needed before finalizing. Finalizing and forwarding actions are not yet implemented.
+            </p>
+          </CardFooter>
+        </Card>
+      )}
     </div>
   );
 }
+
+    

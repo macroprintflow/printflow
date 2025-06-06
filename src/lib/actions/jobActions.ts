@@ -11,10 +11,10 @@ declare global {
   var __jobCounter__: number | undefined;
   var __jobTemplatesStore__: JobTemplateData[] | undefined;
   var __templateCounter__: number | undefined;
-  var __inventoryItemsStore__: InventoryItem[] | undefined; 
-  var __inventoryCounter__: number | undefined; 
-  var __inventoryAdjustmentsStore__: InventoryAdjustment[] | undefined; 
-  var __adjustmentCounter__: number | undefined; 
+  var __inventoryItemsStore__: InventoryItem[] | undefined;
+  var __inventoryCounter__: number | undefined;
+  var __inventoryAdjustmentsStore__: InventoryAdjustment[] | undefined;
+  var __adjustmentCounter__: number | undefined;
 }
 
 if (global.__jobCards__ === undefined) global.__jobCards__ = [];
@@ -61,7 +61,7 @@ export async function createJobCard(data: JobCardFormValues): Promise<{ success:
       ...data,
       id: currentJobCounter.toString(),
       jobCardNumber: generateJobCardNumber(),
-      date: new Date().toISOString().split('T')[0],
+      date: new Date().toISOString().split('T')[0], // Only date part
       cuttingLayoutDescription: data.cuttingLayoutDescription,
       sheetsPerMasterSheet: data.sheetsPerMasterSheet,
       totalMasterSheetsNeeded: data.totalMasterSheetsNeeded,
@@ -71,6 +71,7 @@ export async function createJobCard(data: JobCardFormValues): Promise<{ success:
       selectedMasterSheetThicknessMm: KAPPA_MDF_QUALITIES.includes(data.selectedMasterSheetQuality as PaperQualityType) ? data.selectedMasterSheetThicknessMm : undefined,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      status: 'Pending Planning', // Default status for new jobs
     };
     global.__jobCards__!.push(newJobCard);
     global.__jobCounter__ = currentJobCounter + 1;
@@ -82,7 +83,7 @@ export async function createJobCard(data: JobCardFormValues): Promise<{ success:
           id: `adj${global.__adjustmentCounter__!++}`,
           inventoryItemId: data.sourceInventoryItemId,
           date: new Date().toISOString(),
-          quantityChange: -data.totalMasterSheetsNeeded, 
+          quantityChange: -data.totalMasterSheetsNeeded,
           reason: 'JOB_USAGE',
           reference: newJobCard.jobCardNumber,
           notes: `Used for job: ${newJobCard.jobName}`,
@@ -97,7 +98,8 @@ export async function createJobCard(data: JobCardFormValues): Promise<{ success:
     console.log('[JobActions] Created job card:', newJobCard.jobCardNumber);
     revalidatePath('/jobs');
     revalidatePath('/jobs/new');
-    revalidatePath('/inventory'); 
+    revalidatePath('/inventory');
+    revalidatePath('/planning');
     return { success: true, message: 'Job card created successfully!', jobCard: newJobCard };
   } catch (error) {
     console.error('[JobActions Error] Error creating job card:', error);
@@ -105,6 +107,11 @@ export async function createJobCard(data: JobCardFormValues): Promise<{ success:
     return { success: false, message: `Failed to create job card: ${errorMessage}` };
   }
 }
+
+export async function getJobCards(): Promise<JobCardData[]> {
+  return [...(global.__jobCards__ || [])];
+}
+
 
 export async function getInventoryOptimizationSuggestions(
   jobInput: {
@@ -139,7 +146,7 @@ export async function getInventoryOptimizationSuggestions(
         return { suggestions: [], optimalSuggestion: undefined };
     }
     
-    const allInventoryMasterItems = await getInventoryItems(); 
+    const allInventoryMasterItems = await getInventoryItems();
     console.log(`[JobActions TS Calc] Full inventory fetched (${allInventoryMasterItems.length} master items).`);
 
     const targetQualityLower = jobInput.paperQuality.toLowerCase();
@@ -150,14 +157,14 @@ export async function getInventoryOptimizationSuggestions(
       .filter(item => {
         const itemQualityUnit = getPaperQualityUnit(item.paperQuality as PaperQualityType);
         const hasRequiredSheetFields =
-          item.type === 'Master Sheet' && 
+          item.type === 'Master Sheet' &&
           item.masterSheetSizeWidth && item.masterSheetSizeWidth > 0 &&
           item.masterSheetSizeHeight && item.masterSheetSizeHeight > 0 &&
           item.paperQuality && item.paperQuality !== '' &&
           itemQualityUnit !== null; // Ensure the item has a known unit
         
         if (!hasRequiredSheetFields) return false;
-        if ((item.availableStock || 0) <= 0) { 
+        if ((item.availableStock || 0) <= 0) {
           console.log(`[JobActions TS Calc] Sheet ID ${item.id} (${item.name}) has 0 or less available stock. Skipping.`);
           return false;
         }
@@ -195,7 +202,7 @@ export async function getInventoryOptimizationSuggestions(
         const usedArea = layoutInfo.ups * jobArea;
         
         let wastagePercentage = 100;
-        if (sheetArea > 0) { 
+        if (sheetArea > 0) {
             wastagePercentage = 100 - (usedArea / sheetArea) * 100;
         }
 
@@ -216,7 +223,7 @@ export async function getInventoryOptimizationSuggestions(
         console.log(`[JobActions TS Calc] Processed sheet ID ${sheet.id}: Ups: ${layoutInfo.ups}, Wastage: ${suggestion.wastagePercentage}%, Layout: ${suggestion.cuttingLayoutDescription}`);
         return suggestion;
       })
-      .filter((s): s is InventorySuggestion => s !== null) 
+      .filter((s): s is InventorySuggestion => s !== null)
       .sort((a, b) => {
         if (a.wastagePercentage === b.wastagePercentage) {
           return a.totalMasterSheetsNeeded - b.totalMasterSheetsNeeded;
@@ -335,7 +342,7 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
     if (existingItem) {
       console.log(`[InventoryManagement] Existing item found (ID: ${existingItem.id}, Key: ${itemTypeKey}). Adding stock.`);
       inventoryItemId = existingItem.id;
-      adjustmentReason = 'PURCHASE_RECEIVED'; 
+      adjustmentReason = 'PURCHASE_RECEIVED';
       if (data.reorderPoint && (!existingItem.reorderPoint || data.reorderPoint > existingItem.reorderPoint)) {
         existingItem.reorderPoint = data.reorderPoint;
       }
@@ -347,7 +354,7 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
       
       let itemType: InventoryItemType = 'Other';
       let itemGroup: ItemGroupType = 'Other Stock';
-      let specificName = data.itemName; 
+      let specificName = data.itemName;
       let specificSpecification = data.itemSpecification || '';
       let masterSheetSizeWidth_val: number | undefined = undefined;
       let masterSheetSizeHeight_val: number | undefined = undefined;
@@ -361,7 +368,7 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
         paperQuality_val = data.paperQuality as PaperQualityType;
         itemType = 'Master Sheet';
         const qualityLabel = getPaperQualityLabel(paperQuality_val);
-        itemGroup = qualityLabel as ItemGroupType; 
+        itemGroup = qualityLabel as ItemGroupType;
         
         const unit = getPaperQualityUnit(paperQuality_val);
         if (unit === 'mm') {
@@ -376,10 +383,10 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
       } else if (data.category === 'INKS') {
         itemType = 'Ink';
         itemGroup = 'Inks';
-        specificName = data.inkName!; 
+        specificName = data.inkName!;
         specificSpecification = data.inkSpecification || 'N/A';
-      } else { 
-        specificName = data.itemName; 
+      } else {
+        specificName = data.itemName;
         itemType = data.category === 'PLASTIC_TRAY' ? 'Plastic Tray' :
                      data.category === 'GLASS_JAR' ? 'Glass Jar' :
                      data.category === 'MAGNET' ? 'Magnet' : 'Other';
@@ -403,18 +410,18 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
         reorderPoint: data.reorderPoint,
         purchaseBillNo: data.purchaseBillNo,
         vendorName: data.vendorName === 'OTHER' ? data.otherVendorName : data.vendorName,
-        dateOfEntry: data.dateOfEntry, 
+        dateOfEntry: data.dateOfEntry,
       };
       global.__inventoryItemsStore__!.push(newItemMaster);
-      itemForMessage = newItemMaster; 
+      itemForMessage = newItemMaster;
     }
 
-    if (data.quantity > 0) { 
+    if (data.quantity > 0) {
         const adjustment: InventoryAdjustment = {
             id: `adj${global.__adjustmentCounter__!++}`,
             inventoryItemId: inventoryItemId,
-            date: data.dateOfEntry, 
-            quantityChange: data.quantity, 
+            date: data.dateOfEntry,
+            quantityChange: data.quantity,
             reason: adjustmentReason,
             reference: data.purchaseBillNo || (adjustmentReason === 'INITIAL_STOCK' ? 'Initial Entry' : 'Stock Added'),
             notes: adjustmentReason === 'INITIAL_STOCK' ? 'Initial stock for new item type.' : `Added stock. Bill: ${data.purchaseBillNo || 'N/A'}`,
@@ -426,8 +433,8 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
         const adjustment: InventoryAdjustment = {
             id: `adj${global.__adjustmentCounter__!++}`,
             inventoryItemId: inventoryItemId,
-            date: data.dateOfEntry, 
-            quantityChange: 0, 
+            date: data.dateOfEntry,
+            quantityChange: 0,
             reason: 'INITIAL_STOCK',
             reference: 'Item type defined',
             notes: 'New item type defined with zero initial stock.',
