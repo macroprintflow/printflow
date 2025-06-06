@@ -3,18 +3,19 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Archive, PlusCircle, Search, History, ArrowLeft, Printer, Paintbrush, Box, Package, MagnetIcon, FileText, Newspaper } from "lucide-react";
+import { Archive, PlusCircle, Search, History, ArrowLeft, Printer, Paintbrush, Box, Package, MagnetIcon, FileText, Newspaper, ShoppingCart } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { AddItemDialog } from "@/components/inventory/AddItemDialog";
+import { EnterPurchaseDialog } from "@/components/inventory/EnterPurchaseDialog";
 import { InventoryAdjustmentsDialog } from "@/components/inventory/InventoryAdjustmentsDialog";
 import { getInventoryItems } from "@/lib/actions/jobActions";
 import type { InventoryItem, PaperQualityType, PaperSubCategoryFilterValue } from "@/lib/definitions";
 import { PAPER_QUALITY_OPTIONS, PAPER_SUB_CATEGORIES, KAPPA_MDF_QUALITIES } from "@/lib/definitions";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation"; // Added useRouter
 
 const getCategoryDisplayName = (slug: string | string[] | undefined): string => {
   if (typeof slug !== 'string') return "Inventory";
@@ -52,12 +53,14 @@ const paperCategoryIcons: Record<PaperSubCategoryFilterValue, React.ElementType>
 
 export default function CategorizedInventoryPage() {
   const params = useParams();
+  const router = useRouter(); // Added useRouter
   const categorySlug = params.category as string;
   const categoryDisplayName = getCategoryDisplayName(categorySlug);
 
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false);
+  const [isEnterPurchaseDialogOpen, setIsEnterPurchaseDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   
   const [isAdjustmentsDialogOpen, setIsAdjustmentsDialogOpen] = useState(false);
@@ -75,6 +78,11 @@ export default function CategorizedInventoryPage() {
   useEffect(() => {
     fetchInventory();
   }, [fetchInventory]);
+
+  const handleInventoryUpdate = () => {
+    fetchInventory(); // Re-fetch inventory data
+    router.refresh(); // Optionally trigger a hard refresh if needed for other parts of the page
+  };
 
   const paperQualityValues = useMemo(() => PAPER_QUALITY_OPTIONS.map(opt => opt.label), []);
 
@@ -192,7 +200,7 @@ export default function CategorizedInventoryPage() {
               : `There are no inventory items in the ${currentCategoryName.toLowerCase()} category.`
             }
           </p>
-           <Button className="mt-6" onClick={() => setIsAddItemDialogOpen(true)}>
+           <Button className="mt-6 font-body" onClick={() => setIsAddItemDialogOpen(true)}>
             <PlusCircle className="mr-2 h-4 w-4" /> Add New Item to {currentCategoryName}
           </Button>
         </div>
@@ -292,8 +300,11 @@ export default function CategorizedInventoryPage() {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            <Button className="w-full sm:w-auto" onClick={() => setIsAddItemDialogOpen(true)}>
-              <PlusCircle className="mr-2 h-4 w-4" /> Add Item
+             <Button className="w-full sm:w-auto font-body" variant="outline" onClick={() => setIsAddItemDialogOpen(true)}>
+              <PlusCircle className="mr-2 h-4 w-4" /> Add Single Item
+            </Button>
+            <Button className="w-full sm:w-auto font-body" onClick={() => setIsEnterPurchaseDialogOpen(true)}>
+              <ShoppingCart className="mr-2 h-4 w-4" /> Enter Purchase
             </Button>
           </div>
         </CardHeader>
@@ -304,7 +315,12 @@ export default function CategorizedInventoryPage() {
       <AddItemDialog 
         isOpen={isAddItemDialogOpen} 
         setIsOpen={setIsAddItemDialogOpen} 
-        onItemAdded={fetchInventory} 
+        onItemAdded={handleInventoryUpdate} 
+      />
+      <EnterPurchaseDialog
+        isOpen={isEnterPurchaseDialogOpen}
+        setIsOpen={setIsEnterPurchaseDialogOpen}
+        onItemAdded={handleInventoryUpdate}
       />
       <InventoryAdjustmentsDialog
         isOpen={isAdjustmentsDialogOpen}
@@ -314,5 +330,3 @@ export default function CategorizedInventoryPage() {
     </div>
   );
 }
-
-    

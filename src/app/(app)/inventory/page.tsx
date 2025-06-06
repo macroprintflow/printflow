@@ -4,7 +4,10 @@
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Archive, Printer, Paintbrush, Box, Package, MagnetIcon } from "lucide-react"; // Assuming appropriate icons
+import { Archive, Printer, Paintbrush, Box, Package, MagnetIcon, ShoppingCart, PlusCircle } from "lucide-react";
+import { useState } from "react";
+import { EnterPurchaseDialog } from "@/components/inventory/EnterPurchaseDialog";
+import { AddItemDialog } from '@/components/inventory/AddItemDialog'; // Keep for single item
 
 const mainCategories = [
   { name: "Paper", slug: "paper", icon: Printer, description: "Master sheets and paper stock." },
@@ -16,18 +19,37 @@ const mainCategories = [
 ];
 
 export default function InventoryCategorySelectionPage() {
+  const [isEnterPurchaseDialogOpen, setIsEnterPurchaseDialogOpen] = useState(false);
+  const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false); // For single item
+
+  // Dummy onItemAdded, replace with actual data refresh if needed
+  const handleInventoryUpdate = () => {
+    console.log("Inventory updated, refresh would happen here.");
+    // e.g., router.refresh() or re-fetch data
+  };
+
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader>
-          <CardTitle className="font-headline flex items-center">
-            <Archive className="mr-2 h-6 w-6 text-primary" /> Inventory Management
-          </CardTitle>
-          <CardDescription className="font-body">
-            Select a category to view and manage its stock.
-          </CardDescription>
+        <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+                <CardTitle className="font-headline flex items-center">
+                    <Archive className="mr-2 h-6 w-6 text-primary" /> Inventory Management
+                </CardTitle>
+                <CardDescription className="font-body">
+                    Select a category to view stock or enter a new purchase bill.
+                </CardDescription>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                <Button onClick={() => setIsAddItemDialogOpen(true)} variant="outline" className="w-full sm:w-auto font-body">
+                    <PlusCircle className="mr-2 h-4 w-4" /> Add Single Item
+                </Button>
+                <Button onClick={() => setIsEnterPurchaseDialogOpen(true)} className="w-full sm:w-auto font-body">
+                    <ShoppingCart className="mr-2 h-4 w-4" /> Enter Purchase Bill
+                </Button>
+            </div>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 pt-6">
           {mainCategories.map((category) => (
             <Card key={category.slug} className="hover:shadow-lg transition-shadow">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -46,6 +68,16 @@ export default function InventoryCategorySelectionPage() {
           ))}
         </CardContent>
       </Card>
+      <EnterPurchaseDialog 
+        isOpen={isEnterPurchaseDialogOpen} 
+        setIsOpen={setIsEnterPurchaseDialogOpen} 
+        onItemAdded={handleInventoryUpdate} 
+      />
+      <AddItemDialog
+        isOpen={isAddItemDialogOpen}
+        setIsOpen={setIsAddItemDialogOpen}
+        onItemAdded={handleInventoryUpdate}
+      />
     </div>
   );
 }
