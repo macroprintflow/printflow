@@ -328,7 +328,13 @@ export const InventoryItemFormSchema = z.object({
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Paper quality is required for paper items.", path: ["paperQuality"] });
     }
     if (data.paperGsm === undefined || data.paperGsm <= 0) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Valid Paper GSM is required for paper items.", path: ["paperGsm"] });
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Valid Paper GSM (must be > 0) is required for paper items.", path: ["paperGsm"] });
+    }
+    if (data.paperMasterSheetSizeWidth === undefined || data.paperMasterSheetSizeWidth <= 0) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Valid Paper Width (must be > 0) is required for paper items.", path: ["paperMasterSheetSizeWidth"] });
+    }
+    if (data.paperMasterSheetSizeHeight === undefined || data.paperMasterSheetSizeHeight <= 0) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Valid Paper Height (must be > 0) is required for paper items.", path: ["paperMasterSheetSizeHeight"] });
     }
   }
   if (data.category === 'INKS') {
