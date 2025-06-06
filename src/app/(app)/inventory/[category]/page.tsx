@@ -151,18 +151,13 @@ export default function CategorizedInventoryPage() {
                 <Button 
                   key={subCat.filterValue} 
                   variant="outline" 
-                  className="h-20 p-4 flex flex-col items-start justify-start text-left hover:shadow-md transition-shadow"
+                  className="h-16 p-4 flex flex-col items-start justify-center text-left hover:shadow-md transition-shadow"
                   onClick={() => setSelectedPaperQuality(subCat.filterValue)}
                 >
-                  <div className="flex items-center mb-1">
+                  <div className="flex items-center">
                     <IconComponent className="mr-2 h-5 w-5 text-muted-foreground" />
                     <span className="font-medium font-body">{subCat.name}</span>
                   </div>
-                  <p className="text-xs text-muted-foreground font-body truncate">
-                    {subCat.filterValue === "__ALL_PAPER__" ? "View all paper stock" : 
-                     subCat.filterValue === "OTHER_PAPER_GROUP" ? "Miscellaneous paper types" :
-                     `View ${subCat.name.toLowerCase()} stock`}
-                  </p>
                 </Button>
               );
             })}
@@ -316,5 +311,3 @@ export default function CategorizedInventoryPage() {
     </div>
   );
 }
-
-    
