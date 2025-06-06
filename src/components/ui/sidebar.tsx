@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -176,6 +177,12 @@ const Sidebar = React.forwardRef<
     ref
   ) => {
     const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
+    const [mounted, setMounted] = React.useState(false)
+
+    React.useEffect(() => {
+      setMounted(true)
+    }, [])
+
 
     if (collapsible === "none") {
       return (
@@ -192,7 +199,7 @@ const Sidebar = React.forwardRef<
       )
     }
 
-    if (isMobile) {
+    if (mounted && isMobile) {
       return (
         <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
           <SheetContent
@@ -211,6 +218,10 @@ const Sidebar = React.forwardRef<
         </Sheet>
       )
     }
+    
+    // Fallback for SSR or when not mobile (or not yet mounted)
+    // This ensures the server and initial client render match for the desktop structure.
+    if (!mounted && isMobile) return null; // Don't render desktop structure if it will switch to mobile sheet
 
     return (
       <div
@@ -322,7 +333,7 @@ const SidebarInset = React.forwardRef<
     <main
       ref={ref}
       className={cn(
-        "relative flex min-h-svh flex-1 flex-col bg-background",
+        "relative flex min-h-svh flex-1 flex-col", // Removed bg-background
         "peer-data-[variant=inset]:min-h-[calc(100svh-theme(spacing.4))] md:peer-data-[variant=inset]:m-2 md:peer-data-[state=collapsed]:peer-data-[variant=inset]:ml-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow",
         className
       )}
