@@ -1,6 +1,7 @@
+
 'use server';
 
-import type { JobCardFormValues, JobCardData } from '@/lib/definitions';
+import type { JobCardFormValues, JobCardData, JobTemplateData, JobTemplateFormValues, InventoryItem } from '@/lib/definitions';
 import { optimizeInventory, type OptimizeInventoryInput, type OptimizeInventoryOutput } from '@/ai/flows/inventory-optimization';
 import { revalidatePath } from 'next/cache';
 
@@ -8,31 +9,49 @@ import { revalidatePath } from 'next/cache';
 let jobCards: JobCardData[] = [];
 let jobCounter = 1;
 
+let jobTemplatesStore: JobTemplateData[] = [
+    { id: 'template1', name: 'Golden Tray (Predefined)', kindOfJob: 'METPET', coating: 'VARNISH_GLOSS', hotFoilStamping: 'GOLDEN' },
+    { id: 'template2', name: 'Rigid Top and Bottom Box (Predefined)', boxMaking: 'COMBINED', pasting: 'YES' },
+    { id: 'template3', name: 'Monocarton Box (Predefined)', kindOfJob: 'NORMAL' },
+];
+let templateCounter = jobTemplatesStore.length + 1;
+
+
+let inventoryItemsStore: InventoryItem[] = [
+  { id: 'inv001', name: 'Master Sheet 700x1000', type: 'Master Sheet', specification: '700mm x 1000mm', availableStock: 5000, unit: 'sheets', reorderPoint: 1000 },
+  { id: 'inv002', name: 'Master Sheet 720x1020', type: 'Master Sheet', specification: '720mm x 1020mm', availableStock: 3000, unit: 'sheets', reorderPoint: 500 },
+  { id: 'inv003', name: 'Master Sheet 650x900', type: 'Master Sheet', specification: '650mm x 900mm', availableStock: 4500, unit: 'sheets', reorderPoint: 800 },
+  { id: 'inv004', name: 'Art Card Paper', type: 'Paper Stock', specification: '300 GSM, Coated', availableStock: 10000, unit: 'sheets', reorderPoint: 2000 },
+  { id: 'inv005', name: 'Kraft Paper', type: 'Paper Stock', specification: '120 GSM, Uncoated', availableStock: 8000, unit: 'sheets', reorderPoint: 1500 },
+  { id: 'inv006', name: 'Black Ink', type: 'Ink', specification: 'Process Black', availableStock: 50, unit: 'kg', reorderPoint: 10 },
+  { id: 'inv007', name: 'Pantone 185C', type: 'Ink', specification: 'Red', availableStock: 20, unit: 'kg', reorderPoint: 5 },
+];
+
+
 function generateJobCardNumber(): string {
   const now = new Date();
   const year = now.getFullYear().toString().slice(-2);
   const month = (now.getMonth() + 1).toString().padStart(2, '0');
   const day = now.getDate().toString().padStart(2, '0');
-  const randomNumber = Math.floor(1000 + Math.random() * 9000); // Random 4-digit number
+  const randomNumber = Math.floor(1000 + Math.random() * 9000);
   return `JC-${year}${month}${day}-${randomNumber}`;
 }
 
 
 export async function createJobCard(data: JobCardFormValues): Promise<{ success: boolean; message: string; jobCard?: JobCardData }> {
   try {
-    // Simulate database insertion
     const newJobCard: JobCardData = {
       ...data,
       id: (jobCounter++).toString(),
       jobCardNumber: generateJobCardNumber(),
-      date: new Date().toISOString().split('T')[0], // Current date
+      date: new Date().toISOString().split('T')[0], 
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
     jobCards.push(newJobCard);
     console.log('Created job card:', newJobCard);
-    revalidatePath('/jobs'); // Revalidate the jobs list page
-    revalidatePath('/jobs/new'); // Revalidate the new job page (e.g. for clearing form or redirecting)
+    revalidatePath('/jobs'); 
+    revalidatePath('/jobs/new'); 
     return { success: true, message: 'Job card created successfully!', jobCard: newJobCard };
   } catch (error) {
     console.error('Error creating job card:', error);
@@ -50,11 +69,30 @@ export async function getInventoryOptimizationSuggestions(input: OptimizeInvento
   }
 }
 
-// Placeholder for fetching job templates
-export async function getJobTemplates() {
-  return [
-    { id: 'template1', name: 'Golden Tray', kindOfJob: 'METPET', coating: 'VARNISH_GLOSS', hotFoilStamping: 'GOLDEN' },
-    { id: 'template2', name: 'Rigid Top and Bottom Box', boxMaking: 'COMBINED', pasting: 'YES' },
-    { id: 'template3', name: 'Monocarton Box', kindOfJob: 'NORMAL' },
-  ];
+export async function getJobTemplates(): Promise<JobTemplateData[]> {
+  // Simulate fetching from a database
+  return [...jobTemplatesStore];
+}
+
+export async function createJobTemplate(data: JobTemplateFormValues): Promise<{ success: boolean; message: string; template?: JobTemplateData }> {
+  try {
+    const newTemplate: JobTemplateData = {
+      ...data,
+      id: `template${templateCounter++}`,
+    };
+    jobTemplatesStore.push(newTemplate);
+    console.log('Created job template:', newTemplate);
+    revalidatePath('/templates');
+    revalidatePath('/templates/new');
+    revalidatePath('/jobs/new'); // To refresh template list in job card form
+    return { success: true, message: 'Job template created successfully!', template: newTemplate };
+  } catch (error) {
+    console.error('Error creating job template:', error);
+    return { success: false, message: 'Failed to create job template.' };
+  }
+}
+
+export async function getInventoryItems(): Promise<InventoryItem[]> {
+  // Simulate fetching from a database
+  return [...inventoryItemsStore];
 }

@@ -3,7 +3,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import type { JobCardFormValues, InventorySuggestion, JobTemplate } from "@/lib/definitions";
+import type { JobCardFormValues, InventorySuggestion, JobTemplateData } from "@/lib/definitions";
 import { JobCardSchema, KINDS_OF_JOB_OPTIONS, PRINTING_MACHINE_OPTIONS, COATING_OPTIONS, DIE_OPTIONS, DIE_MACHINE_OPTIONS, HOT_FOIL_OPTIONS, YES_NO_OPTIONS, BOX_MAKING_OPTIONS } from "@/lib/definitions";
 import { createJobCard, getJobTemplates } from "@/lib/actions/jobActions";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,7 @@ import { useRouter } from "next/navigation";
 
 export function JobCardForm() {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [templates, setTemplates] = useState<JobTemplate[]>([]);
+  const [templates, setTemplates] = useState<JobTemplateData[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
@@ -72,8 +72,21 @@ export function JobCardForm() {
     setSelectedTemplate(templateId);
     const template = templates.find(t => t.id === templateId);
     if (template) {
+      // Preserve user-entered basic info and paper specs
+      const currentValues = form.getValues();
       form.reset({
-        ...form.getValues(), // Keep existing values not in template
+        jobName: currentValues.jobName,
+        customerName: currentValues.customerName,
+        jobSizeWidth: currentValues.jobSizeWidth,
+        jobSizeHeight: currentValues.jobSizeHeight,
+        netQuantity: currentValues.netQuantity,
+        grossQuantity: currentValues.grossQuantity,
+        paperGsm: currentValues.paperGsm,
+        paperQuality: currentValues.paperQuality,
+        masterSheetSizeWidth: currentValues.masterSheetSizeWidth,
+        masterSheetSizeHeight: currentValues.masterSheetSizeHeight,
+        wastagePercentage: currentValues.wastagePercentage,
+        // Apply template values for processes
         kindOfJob: template.kindOfJob || "",
         printingFront: template.printingFront || "",
         printingBack: template.printingBack || "",
@@ -83,6 +96,11 @@ export function JobCardForm() {
         emboss: template.emboss || "",
         pasting: template.pasting || "",
         boxMaking: template.boxMaking || "",
+        // Preserve other fields if needed, or set to template defaults
+        specialInks: currentValues.specialInks, // Or template.specialInks if you add it
+        assignedDieMachine: currentValues.assignedDieMachine, // Or template.assignedDieMachine
+        remarks: currentValues.remarks, // Or template.remarks
+        dispatchDate: currentValues.dispatchDate, // Or template.dispatchDate
       });
     }
   };
@@ -102,8 +120,9 @@ export function JobCardForm() {
         title: "Success!",
         description: result.message,
       });
-      form.reset(); // Reset form after successful submission
-      router.push(`/jobs`); // Optionally redirect to jobs list or the created job's page
+      form.reset(); 
+      setSelectedTemplate(''); // Clear selected template
+      router.push(`/jobs`); 
     } else {
       toast({
         title: "Error",
@@ -121,13 +140,26 @@ export function JobCardForm() {
     netQuantity: form.watch("netQuantity"),
   };
 
+  const processFields = [
+    { name: "kindOfJob", label: "Kind of Job", options: KINDS_OF_JOB_OPTIONS },
+    { name: "printingFront", label: "Printing Front", options: PRINTING_MACHINE_OPTIONS },
+    { name: "printingBack", label: "Printing Back", options: PRINTING_MACHINE_OPTIONS },
+    { name: "coating", label: "Coating", options: COATING_OPTIONS },
+    { name: "die", label: "Die", options: DIE_OPTIONS },
+    { name: "assignedDieMachine", label: "Assign Die Machine", options: DIE_MACHINE_OPTIONS },
+    { name: "hotFoilStamping", label: "Hot Foil Stamping", options: HOT_FOIL_OPTIONS },
+    { name: "emboss", label: "Emboss", options: YES_NO_OPTIONS },
+    { name: "pasting", label: "Pasting", options: YES_NO_OPTIONS },
+    { name: "boxMaking", label: "Box Making", options: BOX_MAKING_OPTIONS },
+  ] as const;
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
         <Card>
           <CardHeader>
             <CardTitle className="font-headline">Job Templates</CardTitle>
-            <CardDescription className="font-body">Select a pre-made template to quickly fill in common job specifications.</CardDescription>
+            <CardDescription className="font-body">Select a pre-made template to quickly fill in process specifications.</CardDescription>
           </CardHeader>
           <CardContent>
             <Select onValueChange={handleTemplateChange} value={selectedTemplate}>
@@ -135,6 +167,7 @@ export function JobCardForm() {
                 <SelectValue placeholder="Select a job template" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="" className="font-body italic">None (Manual Entry)</SelectItem>
                 {templates.map(template => (
                   <SelectItem key={template.id} value={template.id} className="font-body">{template.name}</SelectItem>
                 ))}
@@ -173,7 +206,7 @@ export function JobCardForm() {
             <FormField control={form.control} name="paperGsm" render={({ field }) => (
               <FormItem>
                 <FormLabel>Paper GSM</FormLabel>
-                <FormControl><Input type="number" placeholder="e.g., 300" {...field} className="font-body"/></FormControl>
+                <FormControl><Input type="number" placeholder="e.g., 300" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} className="font-body"/></FormControl>
                 <FormMessage />
               </FormItem>
             )} />
@@ -188,14 +221,14 @@ export function JobCardForm() {
               <FormField control={form.control} name="netQuantity" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Net Quantity</FormLabel>
-                  <FormControl><Input type="number" placeholder="e.g., 1000" {...field} className="font-body"/></FormControl>
+                  <FormControl><Input type="number" placeholder="e.g., 1000" {...field} onChange={e => field.onChange(parseInt(e.target.value) || undefined)} className="font-body"/></FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
               <FormField control={form.control} name="grossQuantity" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Gross Quantity</FormLabel>
-                  <FormControl><Input type="number" placeholder="e.g., 1100" {...field} className="font-body"/></FormControl>
+                  <FormControl><Input type="number" placeholder="e.g., 1100" {...field} onChange={e => field.onChange(parseInt(e.target.value) || undefined)} className="font-body"/></FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
@@ -204,14 +237,14 @@ export function JobCardForm() {
                 <FormField control={form.control} name="jobSizeWidth" render={({ field }) => (
                     <FormItem>
                         <FormLabel>Job Size Width (mm)</FormLabel>
-                        <FormControl><Input type="number" placeholder="e.g., 210" {...field} className="font-body"/></FormControl>
+                        <FormControl><Input type="number" placeholder="e.g., 210" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} className="font-body"/></FormControl>
                         <FormMessage />
                     </FormItem>
                 )} />
                 <FormField control={form.control} name="jobSizeHeight" render={({ field }) => (
                     <FormItem>
                         <FormLabel>Job Size Height (mm)</FormLabel>
-                        <FormControl><Input type="number" placeholder="e.g., 297" {...field} className="font-body"/></FormControl>
+                        <FormControl><Input type="number" placeholder="e.g., 297" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} className="font-body"/></FormControl>
                         <FormMessage />
                     </FormItem>
                 )} />
@@ -222,21 +255,21 @@ export function JobCardForm() {
             <FormField control={form.control} name="masterSheetSizeWidth" render={({ field }) => (
                 <FormItem>
                     <FormLabel>Master Sheet Width (mm)</FormLabel>
-                    <FormControl><Input type="number" placeholder="Optimized or manual" {...field} className="font-body"/></FormControl>
+                    <FormControl><Input type="number" placeholder="Optimized or manual" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} className="font-body"/></FormControl>
                     <FormMessage />
                 </FormItem>
             )} />
             <FormField control={form.control} name="masterSheetSizeHeight" render={({ field }) => (
                 <FormItem>
                     <FormLabel>Master Sheet Height (mm)</FormLabel>
-                    <FormControl><Input type="number" placeholder="Optimized or manual" {...field} className="font-body"/></FormControl>
+                    <FormControl><Input type="number" placeholder="Optimized or manual" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} className="font-body"/></FormControl>
                     <FormMessage />
                 </FormItem>
             )} />
             <FormField control={form.control} name="wastagePercentage" render={({ field }) => (
                 <FormItem>
                     <FormLabel>Wastage (%)</FormLabel>
-                    <FormControl><Input type="number" placeholder="Calculated" {...field} readOnly className="font-body bg-muted"/></FormControl>
+                    <FormControl><Input type="number" placeholder="Calculated" {...field} readOnly onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} className="font-body bg-muted"/></FormControl>
                     <FormMessage />
                 </FormItem>
             )} />
@@ -255,18 +288,7 @@ export function JobCardForm() {
             <CardTitle className="font-headline">Process Specifications</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[
-              { name: "kindOfJob", label: "Kind of Job", options: KINDS_OF_JOB_OPTIONS },
-              { name: "printingFront", label: "Printing Front", options: PRINTING_MACHINE_OPTIONS },
-              { name: "printingBack", label: "Printing Back", options: PRINTING_MACHINE_OPTIONS },
-              { name: "coating", label: "Coating", options: COATING_OPTIONS },
-              { name: "die", label: "Die", options: DIE_OPTIONS },
-              { name: "assignedDieMachine", label: "Assign Die Machine", options: DIE_MACHINE_OPTIONS },
-              { name: "hotFoilStamping", label: "Hot Foil Stamping", options: HOT_FOIL_OPTIONS },
-              { name: "emboss", label: "Emboss", options: YES_NO_OPTIONS },
-              { name: "pasting", label: "Pasting", options: YES_NO_OPTIONS },
-              { name: "boxMaking", label: "Box Making", options: BOX_MAKING_OPTIONS },
-            ].map(item => (
+            {processFields.map(item => (
               <FormField
                 key={item.name}
                 control={form.control}
@@ -274,14 +296,13 @@ export function JobCardForm() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>{item.label}</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value as string || ""}>
+                    <Select onValueChange={field.onChange} value={field.value || ""}>
                       <FormControl>
                         <SelectTrigger className="font-body">
                           <SelectValue placeholder={`Select ${item.label.toLowerCase()}`} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {/* <SelectItem value="" className="font-body">None</SelectItem> */} {/* This line caused the error */}
                         {item.options.map(option => (
                           <SelectItem key={option.value} value={option.value} className="font-body">{option.label}</SelectItem>
                         ))}
@@ -336,7 +357,6 @@ export function JobCardForm() {
           </CardContent>
         </Card>
         
-        {/* Placeholder for Interlinked Job Cards */}
         <Card>
             <CardHeader>
                 <CardTitle className="font-headline">Interlinked Job Cards</CardTitle>
@@ -350,7 +370,7 @@ export function JobCardForm() {
         </Card>
 
         <div className="flex justify-end gap-4">
-          <Button type="button" variant="outline" onClick={() => form.reset()} disabled={isSubmitting} className="font-body">
+          <Button type="button" variant="outline" onClick={() => { form.reset(); setSelectedTemplate(''); }} disabled={isSubmitting} className="font-body">
             Cancel
           </Button>
           <Button type="submit" disabled={isSubmitting} className="font-body">
@@ -362,4 +382,3 @@ export function JobCardForm() {
     </Form>
   );
 }
-

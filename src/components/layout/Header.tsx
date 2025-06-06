@@ -1,3 +1,4 @@
+
 "use client";
 import type { ReactNode } from 'react';
 import { SidebarTrigger } from '@/components/ui/sidebar';
@@ -12,11 +13,14 @@ interface HeaderProps {
 }
 
 function getTitleFromPath(pathname: string): string {
-  if (pathname.startsWith('/jobs/new')) return 'Create New Job';
-  if (pathname.startsWith('/jobs')) return 'Jobs';
+  if (pathname.startsWith('/jobs/new')) return 'Create New Job Card';
+  if (pathname.startsWith('/jobs')) return 'All Job Cards';
   if (pathname.startsWith('/dashboard')) return 'Dashboard';
+  if (pathname.startsWith('/templates/new')) return 'Create New Job Template';
+  if (pathname.startsWith('/templates')) return 'Manage Job Templates';
   if (pathname.startsWith('/planning')) return 'Production Planning';
   if (pathname.startsWith('/tasks')) return 'Departmental Tasks';
+  if (pathname.startsWith('/inventory')) return 'Inventory Management';
   return 'PrintFlow';
 }
 
@@ -34,7 +38,14 @@ export function Header({ title, children }: HeaderProps) {
         {pathname === '/jobs' && (
           <Button asChild size="sm">
             <Link href="/jobs/new">
-              <PlusCircle className="mr-2 h-4 w-4" /> Create Job
+              <PlusCircle className="mr-2 h-4 w-4" /> Create Job Card
+            </Link>
+          </Button>
+        )}
+        {pathname === '/templates' && (
+          <Button asChild size="sm">
+            <Link href="/templates/new">
+              <PlusCircle className="mr-2 h-4 w-4" /> Create Template
             </Link>
           </Button>
         )}
