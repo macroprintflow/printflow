@@ -14,15 +14,15 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { AddItemDialog } from "@/components/inventory/AddItemDialog";
-import { InventoryAdjustmentsDialog } from "@/components/inventory/InventoryAdjustmentsDialog"; // Import the new dialog
+import { InventoryAdjustmentsDialog } from "@/components/inventory/InventoryAdjustmentsDialog";
 
 export default function InventoryPage() {
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<ItemGroupType>(ITEM_GROUP_TYPES[0]); 
   const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   
-  // State for adjustments dialog
   const [isAdjustmentsDialogOpen, setIsAdjustmentsDialogOpen] = useState(false);
   const [selectedItemForAdjustments, setSelectedItemForAdjustments] = useState<InventoryItem | null>(null);
 
@@ -38,11 +38,28 @@ export default function InventoryPage() {
   }, [fetchInventory]);
 
   const filteredItems = useMemo(() => {
-    if (activeTab === "All") {
-      return inventoryItems;
+    let itemsToFilter = inventoryItems;
+
+    if (activeTab !== "All") {
+      itemsToFilter = itemsToFilter.filter(item => item.itemGroup === activeTab);
     }
-    return inventoryItems.filter(item => item.itemGroup === activeTab);
-  }, [activeTab, inventoryItems]);
+
+    if (searchQuery.trim() !== "") {
+      const lowerCaseQuery = searchQuery.toLowerCase();
+      itemsToFilter = itemsToFilter.filter(item => {
+        return (
+          item.name.toLowerCase().includes(lowerCaseQuery) ||
+          item.type.toLowerCase().includes(lowerCaseQuery) ||
+          (item.itemGroup && item.itemGroup.toLowerCase().includes(lowerCaseQuery)) ||
+          (item.specification && item.specification.toLowerCase().includes(lowerCaseQuery)) ||
+          (item.paperGsm && item.paperGsm.toString().includes(lowerCaseQuery)) ||
+          (item.paperQuality && getPaperQualityLabel(item.paperQuality as PaperQualityType).toLowerCase().includes(lowerCaseQuery)) ||
+          (item.id && item.id.toLowerCase().includes(lowerCaseQuery))
+        );
+      });
+    }
+    return itemsToFilter;
+  }, [activeTab, inventoryItems, searchQuery]);
 
   const handleViewAdjustments = (item: InventoryItem) => {
     setSelectedItemForAdjustments(item);
@@ -62,9 +79,14 @@ export default function InventoryPage() {
       return (
         <div className="text-center py-12">
           <Archive className="mx-auto h-12 w-12 text-muted-foreground" />
-          <h3 className="mt-4 text-xl font-semibold font-headline">No Items in this Group</h3>
+          <h3 className="mt-4 text-xl font-semibold font-headline">
+            {searchQuery.trim() !== "" ? "No Items Match Your Search" : "No Items in this Group"}
+          </h3>
           <p className="mt-1 text-sm text-muted-foreground font-body">
-            There are no inventory items matching the selected group, or the inventory is empty.
+            {searchQuery.trim() !== "" 
+              ? "Try adjusting your search terms or clearing the search."
+              : "There are no inventory items matching the selected group, or the inventory is empty."
+            }
           </p>
            <Button className="mt-6" onClick={() => setIsAddItemDialogOpen(true)}>
             <PlusCircle className="mr-2 h-4 w-4" /> Add New Item
@@ -114,7 +136,7 @@ export default function InventoryPage() {
               <TableCell className="font-body text-sm text-muted-foreground">{item.specification}</TableCell>
               <TableCell className="font-body">{item.paperGsm || '-'}</TableCell>
               <TableCell className="font-body">{item.paperQuality ? getPaperQualityLabel(item.paperQuality as PaperQualityType) : '-'}</TableCell>
-              <TableCell className="font-body text-right">{item.availableStock.toLocaleString()}</TableCell>
+              <TableCell className="font-body text-right">{item.availableStock?.toLocaleString() ?? 0}</TableCell>
               <TableCell className="font-body text-right">{item.unit}</TableCell>
               <TableCell className="font-body text-right">{item.reorderPoint ? item.reorderPoint.toLocaleString() : '-'}</TableCell>
               <TableCell className="text-center">
@@ -127,7 +149,7 @@ export default function InventoryPage() {
         </TableBody>
       </Table>
     );
-  }, [isLoading, inventoryItems]);
+  }, [isLoading, searchQuery]); // Removed inventoryItems from dependency array as filteredItems covers it.
 
 
   return (
@@ -145,7 +167,12 @@ export default function InventoryPage() {
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
             <div className="relative flex-grow sm:flex-grow-0">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search inventory..." className="pl-10 w-full sm:w-64 font-body" disabled />
+              <Input 
+                placeholder="Search inventory..." 
+                className="pl-10 w-full sm:w-64 font-body" 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
             </div>
             <Button className="w-full sm:w-auto" onClick={() => setIsAddItemDialogOpen(true)}>
               <PlusCircle className="mr-2 h-4 w-4" /> Add Item
