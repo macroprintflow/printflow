@@ -2,7 +2,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, type UseFormReturn } from "react-hook-form";
 import type { InventoryItemFormValues, InventoryCategory } from "@/lib/definitions";
 import { InventoryItemFormSchema, INVENTORY_CATEGORIES, PAPER_QUALITY_OPTIONS, VENDOR_OPTIONS, UNIT_OPTIONS } from "@/lib/definitions";
 import { addInventoryItem } from "@/lib/actions/jobActions";
@@ -30,7 +30,7 @@ export function AddItemDialog({ isOpen, setIsOpen }: AddItemDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
-  const form = useForm<InventoryItemFormValues>({
+  const form: UseFormReturn<InventoryItemFormValues> = useForm<InventoryItemFormValues>({
     resolver: zodResolver(InventoryItemFormSchema),
     defaultValues: {
       category: undefined,
@@ -60,12 +60,12 @@ export function AddItemDialog({ isOpen, setIsOpen }: AddItemDialogProps) {
     else if (category === 'PLASTIC_TRAY') form.setValue("itemName", "Plastic Tray");
     else if (category === 'GLASS_JAR') form.setValue("itemName", "Glass Jar");
     else if (category === 'MAGNET') form.setValue("itemName", "Magnet");
-    else form.setValue("itemName", "");
+    else form.setValue("itemName", ""); // For 'OTHER' category
     setStep(2);
   };
 
   async function onSubmit(values: InventoryItemFormValues) {
-    if (!selectedCategory) return; 
+    if (!selectedCategory) return;
     
     setIsSubmitting(true);
     const result = await addInventoryItem({...values, category: selectedCategory});
@@ -125,7 +125,7 @@ export function AddItemDialog({ isOpen, setIsOpen }: AddItemDialogProps) {
         ))}
       </div>
       <DialogFooter>
-        <Button type="button" variant="outline" onClick={() => { resetDialogState(); setIsOpen(false); }}>Cancel</Button>
+        <Button type="button" variant="outline" onClick={() => { resetDialogState(); setIsOpen(false); }} className="font-body">Cancel</Button>
       </DialogFooter>
     </Fragment>
   );
@@ -143,9 +143,10 @@ export function AddItemDialog({ isOpen, setIsOpen }: AddItemDialogProps) {
             <DialogDescription className="font-body">Enter the details for the new {categoryLabel.toLowerCase()}.</DialogDescription>
           </DialogHeader>
 
-          {selectedCategory === 'PAPER' && (
+          {/* ==== SECTION FOR PAPER ==== */}
+          {/* {selectedCategory === 'PAPER' && (
             <React.Fragment key="paper-fields">
-              <FormField control={form.control} name="itemName" render={({ field }) => (<FormItem><FormControl><Input type="hidden" {...field} /></FormControl></FormItem>)} />
+              <FormField control={form.control} name="itemName" render={({ field }) => (<FormItem><FormControl><Input type="hidden" {...field} /></FormControl><FormMessage /></FormItem>)} />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField control={form.control} name="paperMasterSheetSizeWidth" render={({ field }) => (
                   <FormItem>
@@ -180,11 +181,12 @@ export function AddItemDialog({ isOpen, setIsOpen }: AddItemDialogProps) {
                 </FormItem>
               )} />
             </React.Fragment>
-          )}
+          )} */}
 
-          {selectedCategory === 'INKS' && (
+          {/* ==== SECTION FOR INKS ==== */}
+          {/* {selectedCategory === 'INKS' && (
              <React.Fragment key="ink-fields">
-                <FormField control={form.control} name="itemName" render={({ field }) => (<FormItem><FormControl><Input type="hidden" {...field} /></FormControl></FormItem>)} />
+                <FormField control={form.control} name="itemName" render={({ field }) => (<FormItem><FormControl><Input type="hidden" {...field} /></FormControl><FormMessage /></FormItem>)} />
                 <FormField control={form.control} name="inkName" render={({ field }) => (
                     <FormItem>
                         <FormLabel>Ink Name/Type</FormLabel>
@@ -200,9 +202,10 @@ export function AddItemDialog({ isOpen, setIsOpen }: AddItemDialogProps) {
                     </FormItem>
                 )} />
              </React.Fragment>
-          )}
+          )} */}
 
-          {(selectedCategory !== 'PAPER' && selectedCategory !== 'INKS') && (
+          {/* ==== SECTION FOR OTHER CATEGORIES ==== */}
+          {/* {(selectedCategory !== 'PAPER' && selectedCategory !== 'INKS') && (
             <React.Fragment key="other-category-fields">
               <FormField control={form.control} name="itemName" render={({ field }) => (
                 <FormItem>
@@ -219,9 +222,10 @@ export function AddItemDialog({ isOpen, setIsOpen }: AddItemDialogProps) {
                 </FormItem>
               )} />
             </React.Fragment>
-          )}
+          )} */}
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* ==== COMMON FIELDS ==== */}
+          {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField control={form.control} name="availableStock" render={({ field }) => (
               <FormItem>
                 <FormLabel>Quantity</FormLabel>
@@ -239,25 +243,25 @@ export function AddItemDialog({ isOpen, setIsOpen }: AddItemDialogProps) {
                 <FormMessage />
               </FormItem>
             )} />
-          </div>
+          </div> */}
 
-           <FormField control={form.control} name="reorderPoint" render={({ field }) => (
+           {/* <FormField control={form.control} name="reorderPoint" render={({ field }) => (
               <FormItem>
                 <FormLabel>Reorder Point (Optional)</FormLabel>
                 <FormControl><Input type="number" placeholder="e.g., 100" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="font-body"/></FormControl>
                 <FormMessage />
               </FormItem>
-            )} />
+            )} /> */}
 
-          <FormField control={form.control} name="purchaseBillNo" render={({ field }) => (
+          {/* <FormField control={form.control} name="purchaseBillNo" render={({ field }) => (
             <FormItem>
               <FormLabel>Purchase Bill No. (Optional)</FormLabel>
               <FormControl><Input placeholder="e.g., INV-2024-001" {...field} className="font-body"/></FormControl>
               <FormMessage />
             </FormItem>
-          )} />
+          )} /> */}
           
-          <FormField control={form.control} name="vendorName" render={({ field }) => (
+          {/* <FormField control={form.control} name="vendorName" render={({ field }) => (
             <FormItem>
               <FormLabel>Vendor Name (Optional)</FormLabel>
               <Select onValueChange={field.onChange} value={field.value || ""}>
@@ -266,9 +270,9 @@ export function AddItemDialog({ isOpen, setIsOpen }: AddItemDialogProps) {
               </Select>
               <FormMessage />
             </FormItem>
-          )} />
+          )} /> */}
 
-          {watchedVendor === 'OTHER' && (
+          {/* {watchedVendor === 'OTHER' && (
             <FormField control={form.control} name="otherVendorName" render={({ field }) => (
               <FormItem>
                 <FormLabel>Specify Vendor Name</FormLabel>
@@ -276,9 +280,9 @@ export function AddItemDialog({ isOpen, setIsOpen }: AddItemDialogProps) {
                 <FormMessage />
               </FormItem>
             )}
-          )}
+          )} */}
 
-          <FormField control={form.control} name="dateOfEntry" render={({ field }) => (
+          {/* <FormField control={form.control} name="dateOfEntry" render={({ field }) => (
             <FormItem className="flex flex-col">
               <FormLabel>Date of Entry</FormLabel>
               <Popover>
@@ -296,7 +300,7 @@ export function AddItemDialog({ isOpen, setIsOpen }: AddItemDialogProps) {
               </Popover>
               <FormMessage />
             </FormItem>
-          )} />
+          )} /> */}
           
           <DialogFooter className="pt-4">
             <Button type="button" variant="outline" onClick={() => setStep(1)} disabled={isSubmitting} className="font-body">Back</Button>
