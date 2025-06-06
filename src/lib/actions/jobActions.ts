@@ -5,19 +5,45 @@ import type { JobCardFormValues, JobCardData, JobTemplateData, JobTemplateFormVa
 import { optimizeInventory, type OptimizeInventoryInput, type OptimizeInventoryOutput } from '@/ai/flows/inventory-optimization';
 import { revalidatePath } from 'next/cache';
 
-// Placeholder for database interactions
-let jobCards: JobCardData[] = [];
-let jobCounter = 1;
+// Augment the global type for TypeScript to avoid errors
+declare global {
+  var __jobCards__: JobCardData[] | undefined;
+  var __jobCounter__: number | undefined;
+  var __jobTemplatesStore__: JobTemplateData[] | undefined;
+  var __templateCounter__: number | undefined;
+  var __inventoryItemsStore__: InventoryItem[] | undefined;
+}
 
-let jobTemplatesStore: JobTemplateData[] = [
+// Initialize jobCards and jobCounter on globalThis if they don't exist
+if (!global.__jobCards__) {
+  global.__jobCards__ = [];
+}
+if (typeof global.__jobCounter__ === 'undefined') {
+  global.__jobCounter__ = 1;
+}
+let jobCards: JobCardData[] = global.__jobCards__;
+// jobCounter will be managed directly via global.__jobCounter__ where used
+
+// Initial data for jobTemplatesStore
+const initialJobTemplates: JobTemplateData[] = [
     { id: 'template1', name: 'Golden Tray (Predefined)', kindOfJob: 'METPET', coating: 'VARNISH_GLOSS', hotFoilStamping: 'GOLDEN' },
     { id: 'template2', name: 'Rigid Top and Bottom Box (Predefined)', boxMaking: 'COMBINED', pasting: 'YES' },
     { id: 'template3', name: 'Monocarton Box (Predefined)', kindOfJob: 'NORMAL' },
 ];
-let templateCounter = jobTemplatesStore.length + 1;
+
+// Initialize jobTemplatesStore and templateCounter on globalThis
+if (!global.__jobTemplatesStore__) {
+  global.__jobTemplatesStore__ = [...initialJobTemplates];
+}
+if (typeof global.__templateCounter__ === 'undefined') {
+  global.__templateCounter__ = initialJobTemplates.length + 1;
+}
+let jobTemplatesStore: JobTemplateData[] = global.__jobTemplatesStore__;
+// templateCounter will be managed directly via global.__templateCounter__ where used
 
 
-let inventoryItemsStore: InventoryItem[] = [
+// Initial data for inventoryItemsStore
+const initialInventoryItems: InventoryItem[] = [
   { id: 'inv001', name: 'Master Sheet 700x1000', type: 'Master Sheet', itemGroup: 'Master Sheets', specification: '700mm x 1000mm', availableStock: 5000, unit: 'sheets', reorderPoint: 1000 },
   { id: 'inv002', name: 'Master Sheet 720x1020', type: 'Master Sheet', itemGroup: 'Master Sheets', specification: '720mm x 1020mm', availableStock: 3000, unit: 'sheets', reorderPoint: 500 },
   { id: 'inv003', name: 'Master Sheet 650x900', type: 'Master Sheet', itemGroup: 'Master Sheets', specification: '650mm x 900mm', availableStock: 4500, unit: 'sheets', reorderPoint: 800 },
@@ -29,6 +55,12 @@ let inventoryItemsStore: InventoryItem[] = [
   { id: 'inv009', name: 'Greyback Board 400GSM', type: 'Paper Stock', itemGroup: 'Greyback', specification: '400 GSM, Coated', availableStock: 6000, unit: 'sheets', reorderPoint: 1000 },
   { id: 'inv010', name: 'Varnish Gloss', type: 'Other', itemGroup: 'Other Stock', specification: 'For Coating', availableStock: 100, unit: 'liters', reorderPoint: 20 },
 ];
+
+// Initialize inventoryItemsStore on globalThis
+if (!global.__inventoryItemsStore__) {
+  global.__inventoryItemsStore__ = [...initialInventoryItems];
+}
+let inventoryItemsStore: InventoryItem[] = global.__inventoryItemsStore__;
 
 
 function generateJobCardNumber(): string {
@@ -43,18 +75,21 @@ function generateJobCardNumber(): string {
 
 export async function createJobCard(data: JobCardFormValues): Promise<{ success: boolean; message: string; jobCard?: JobCardData }> {
   try {
+    const currentJobCounter = global.__jobCounter__!;
     const newJobCard: JobCardData = {
       ...data,
-      id: (jobCounter++).toString(),
+      id: currentJobCounter.toString(),
       jobCardNumber: generateJobCardNumber(),
-      date: new Date().toISOString().split('T')[0], 
+      date: new Date().toISOString().split('T')[0],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-    jobCards.push(newJobCard);
+    jobCards.push(newJobCard); // jobCards refers to global.__jobCards__
+    global.__jobCounter__ = currentJobCounter + 1; // Increment the counter on globalThis
+
     console.log('Created job card:', newJobCard);
-    revalidatePath('/jobs'); 
-    revalidatePath('/jobs/new'); 
+    revalidatePath('/jobs');
+    revalidatePath('/jobs/new');
     return { success: true, message: 'Job card created successfully!', jobCard: newJobCard };
   } catch (error) {
     console.error('Error creating job card:', error);
@@ -74,16 +109,19 @@ export async function getInventoryOptimizationSuggestions(input: OptimizeInvento
 
 export async function getJobTemplates(): Promise<JobTemplateData[]> {
   // Simulate fetching from a database
-  return [...jobTemplatesStore];
+  return [...jobTemplatesStore]; // jobTemplatesStore refers to global.__jobTemplatesStore__
 }
 
 export async function createJobTemplate(data: JobTemplateFormValues): Promise<{ success: boolean; message: string; template?: JobTemplateData }> {
   try {
+    const currentTemplateCounter = global.__templateCounter__!;
     const newTemplate: JobTemplateData = {
       ...data,
-      id: `template${templateCounter++}`,
+      id: `template${currentTemplateCounter}`,
     };
-    jobTemplatesStore.push(newTemplate);
+    jobTemplatesStore.push(newTemplate); // jobTemplatesStore refers to global.__jobTemplatesStore__
+    global.__templateCounter__ = currentTemplateCounter + 1; // Increment the counter on globalThis
+
     console.log('Created job template:', newTemplate);
     revalidatePath('/templates');
     revalidatePath('/templates/new');
@@ -97,5 +135,5 @@ export async function createJobTemplate(data: JobTemplateFormValues): Promise<{ 
 
 export async function getInventoryItems(): Promise<InventoryItem[]> {
   // Simulate fetching from a database
-  return [...inventoryItemsStore];
+  return [...inventoryItemsStore]; // inventoryItemsStore refers to global.__inventoryItemsStore__
 }
