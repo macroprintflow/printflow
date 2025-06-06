@@ -39,10 +39,10 @@ if (typeof global.__templateCounter__ === 'undefined') {
 const initialInventoryItems: InventoryItem[] = [];
 
 if (!global.__inventoryItemsStore__) {
-  global.__inventoryItemsStore__ = [...initialInventoryItems];
+  global.__inventoryItemsStore__ = [...initialInventoryItems]; // Initialize with an empty array
 }
 if (typeof global.__inventoryCounter__ === 'undefined') {
-    global.__inventoryCounter__ = initialInventoryItems.length + 1;
+    global.__inventoryCounter__ = 1; // Start counter at 1 for new items
 }
 
 function generateJobCardNumber(): string {
@@ -90,31 +90,35 @@ export async function getInventoryOptimizationSuggestions(
   }
 ): Promise<OptimizeInventoryOutput | { error: string }> {
   try {
-    console.log(`[InventoryOptimization Debug] Job Input: GSM=${jobInput.paperGsm}, Quality=${jobInput.paperQuality}, Size=${jobInput.jobSizeWidth}x${jobInput.jobSizeHeight}, Qty=${jobInput.netQuantity}`);
+    const targetQuality = jobInput.paperQuality;
+    const targetGsm = jobInput.paperGsm;
+
+    console.log(`[InventoryOptimization Debug] Job Input: GSM=${targetGsm}, Quality=${targetQuality}, Size=${jobInput.jobSizeWidth}x${jobInput.jobSizeHeight}, Qty=${jobInput.netQuantity}`);
     
     const allInventory = await getInventoryItems();
     console.log('[InventoryOptimization Debug] Full inventory fetched:', JSON.stringify(allInventory.map(i => ({id: i.id, name: i.name, w: i.masterSheetSizeWidth, h: i.masterSheetSizeHeight, gsm: i.paperGsm, quality: i.paperQuality})), null, 2));
     
-    // No JS pre-filtering for quality/GSM - sending all valid dimensioned sheets to AI
-    const availableMasterSheets: AvailableSheet[] = allInventory
-      .filter(item => {
-        if (!item.masterSheetSizeWidth || item.masterSheetSizeWidth <= 0 ||
-            !item.masterSheetSizeHeight || item.masterSheetSizeHeight <= 0 ||
-            !item.paperGsm || item.paperGsm <= 0 ||
-            !item.paperQuality || item.paperQuality === '') {
-          console.log(`[InventoryOptimization Debug] Filtering out item ${item.id} ('${item.name}') due to missing/invalid critical master sheet fields. W: ${item.masterSheetSizeWidth}, H: ${item.masterSheetSizeHeight}, GSM: ${item.paperGsm}, Q: ${item.paperQuality}`);
-          return false;
-        }
-        console.log(`[InventoryOptimization Debug] Item ${item.id} ('${item.name}') PASSED basic property checks. W: ${item.masterSheetSizeWidth}, H: ${item.masterSheetSizeHeight}, GSM: ${item.paperGsm}, Q: ${item.paperQuality}`);
-        return true;
-      })
-      .map(item => ({ 
+    const availableMasterSheets: AvailableSheet[] = [];
+
+    for (const item of allInventory) {
+      // Basic check for essential master sheet properties
+      if (!item.masterSheetSizeWidth || item.masterSheetSizeWidth <= 0 ||
+          !item.masterSheetSizeHeight || item.masterSheetSizeHeight <= 0 ||
+          !item.paperGsm || item.paperGsm <= 0 ||
+          !item.paperQuality || item.paperQuality === '') {
+        console.log(`[InventoryOptimization Debug] Filtering out item ${item.id} ('${item.name}') due to missing/invalid critical master sheet fields. W: ${item.masterSheetSizeWidth}, H: ${item.masterSheetSizeHeight}, GSM: ${item.paperGsm}, Q: ${item.paperQuality}`);
+        continue; 
+      }
+      // No more JS-based filtering for quality or GSM. All valid sheets go to AI.
+      console.log(`[InventoryOptimization Debug] Item ${item.id} ('${item.name}') PASSED basic property checks and WILL BE SENT TO AI. W: ${item.masterSheetSizeWidth}, H: ${item.masterSheetSizeHeight}, GSM: ${item.paperGsm}, Q: ${item.paperQuality}`);
+      availableMasterSheets.push({
         id: item.id,
-        masterSheetSizeWidth: item.masterSheetSizeWidth!,
-        masterSheetSizeHeight: item.masterSheetSizeHeight!,
-        paperGsm: item.paperGsm!,
-        paperQuality: item.paperQuality!,
-      }));
+        masterSheetSizeWidth: item.masterSheetSizeWidth,
+        masterSheetSizeHeight: item.masterSheetSizeHeight,
+        paperGsm: item.paperGsm,
+        paperQuality: item.paperQuality,
+      });
+    }
 
     console.log('[InventoryOptimization Debug] Available master sheets being sent to AI (NO JS pre-filtering by quality/GSM):', JSON.stringify(availableMasterSheets, null, 2));
     
@@ -174,9 +178,9 @@ export async function createJobTemplate(data: JobTemplateFormValues): Promise<{ 
 
 export async function getInventoryItems(): Promise<InventoryItem[]> {
   if (!global.__inventoryItemsStore__) {
-      global.__inventoryItemsStore__ = [];
+      global.__inventoryItemsStore__ = []; // Ensure it's initialized if somehow not
   }
-  return [...global.__inventoryItemsStore__];
+  return [...global.__inventoryItemsStore__!]; // Return a copy
 }
 
 export async function addInventoryItem(data: InventoryItemFormValues): Promise<{ success: boolean; message: string; item?: InventoryItem }> {
@@ -195,15 +199,15 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
 
 
     if (data.category === 'PAPER') {
+      // These are now guaranteed by schema validation if category is PAPER
       masterSheetSizeWidth = data.paperMasterSheetSizeWidth!;
       masterSheetSizeHeight = data.paperMasterSheetSizeHeight!;
       paperGsm = data.paperGsm!;
       paperQuality = data.paperQuality as PaperQualityType;
       
-      itemType = 'Master Sheet'; // Defaulting to Master Sheet for now if dimensions are provided
+      itemType = 'Master Sheet';
       itemGroup = getPaperQualityLabel(paperQuality) as ItemGroupType; 
 
-      // Standardize name and specification for paper items
       specificName = `${getPaperQualityLabel(paperQuality)} ${paperGsm}GSM ${masterSheetSizeWidth.toFixed(2)}x${masterSheetSizeHeight.toFixed(2)}in`.trim();
       specificSpecification = `${paperGsm}GSM ${getPaperQualityLabel(paperQuality)}, ${masterSheetSizeWidth.toFixed(2)}in x ${masterSheetSizeHeight.toFixed(2)}in`;
     
@@ -215,12 +219,19 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
     } else if (data.category === 'PLASTIC_TRAY') {
       itemType = 'Plastic Tray';
       itemGroup = 'Plastic Trays';
+      specificName = data.itemName || "Plastic Tray";
     } else if (data.category === 'GLASS_JAR') {
       itemType = 'Glass Jar';
       itemGroup = 'Glass Jars';
+      specificName = data.itemName || "Glass Jar";
     } else if (data.category === 'MAGNET') {
       itemType = 'Magnet';
       itemGroup = 'Magnets';
+      specificName = data.itemName || "Magnet";
+    } else { // OTHER
+        itemType = 'Other';
+        itemGroup = 'Other Stock';
+        specificName = data.itemName || "Miscellaneous Item";
     }
 
 
