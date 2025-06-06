@@ -54,7 +54,7 @@ export default function InventoryPage() {
           <p className="mt-1 text-sm text-muted-foreground font-body">
             There are no inventory items matching the selected group, or the inventory is empty.
           </p>
-           <Button disabled className="mt-6"> {/* Placeholder for future add item */}
+           <Button className="mt-6">
             <PlusCircle className="mr-2 h-4 w-4" /> Add New Item
           </Button>
         </div>
@@ -123,7 +123,7 @@ export default function InventoryPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input placeholder="Search inventory..." className="pl-10 w-full sm:w-64 font-body" disabled />
             </div>
-            <Button disabled className="w-full sm:w-auto">
+            <Button className="w-full sm:w-auto">
               <PlusCircle className="mr-2 h-4 w-4" /> Add Item
             </Button>
           </div>
