@@ -1,17 +1,17 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
-  Palette, 
-  Layers, 
-  Printer, 
-  Film, 
+  FileCheck2, 
   Scissors, 
+  Printer, 
+  Wand2,
+  Film, 
+  Crop, 
   Sparkles, 
-  ChevronsUpDown, 
-  ClipboardPaste, // Changed from Glue
+  ClipboardPaste, 
   Box, 
-  ShieldCheck, 
-  Truck,
+  Package,
+  FileSpreadsheet,
   Workflow
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -24,17 +24,17 @@ interface ProcessStep {
 }
 
 const productionSteps: ProcessStep[] = [
-  { name: "Pre-press & Design", icon: Palette, jobCount: 5, description: "Artwork finalization and proofing." },
-  { name: "Plate Making", icon: Layers, jobCount: 3, description: "Creating printing plates." },
+  { name: "Job Approval", icon: FileCheck2, jobCount: 2, description: "Jobs awaiting client or internal approval." },
+  { name: "Cutter", icon: Scissors, jobCount: 7, description: "Paper cutting and preparation." },
   { name: "Printing", icon: Printer, jobCount: 12, description: "Offset and digital printing jobs." },
-  { name: "Coating & Lamination", icon: Film, jobCount: 8, description: "Applying finishes like UV, varnish, lamination." },
-  { name: "Die Cutting & Creasing", icon: Scissors, jobCount: 15, description: "Cutting and creasing sheets to shape." },
+  { name: "Texture UV", icon: Wand2, jobCount: 6, description: "Applying texture UV finishes." },
+  { name: "Lamination", icon: Film, jobCount: 8, description: "Applying lamination films." },
+  { name: "Die Cutting", icon: Crop, jobCount: 15, description: "Cutting and creasing sheets to shape." },
   { name: "Foil Stamping", icon: Sparkles, jobCount: 4, description: "Applying metallic foils." },
-  { name: "Embossing & Debossing", icon: ChevronsUpDown, jobCount: 2, description: "Creating raised or recessed designs." },
-  { name: "Pasting & Gluing", icon: ClipboardPaste, jobCount: 9, description: "Folder-gluer and manual pasting." }, // Changed icon here
+  { name: "Pasting", icon: ClipboardPaste, jobCount: 9, description: "Folder-gluer and manual pasting." },
   { name: "Box Making & Assembly", icon: Box, jobCount: 7, description: "Rigid box and other assembly." },
-  { name: "Quality Check", icon: ShieldCheck, jobCount: 22, description: "Final inspection of finished goods." },
-  { name: "Dispatch", icon: Truck, jobCount: 18, description: "Jobs ready for delivery or awaiting pickup." },
+  { name: "Packing", icon: Package, jobCount: 10, description: "Final packing of finished goods." },
+  { name: "To be Billed", icon: FileSpreadsheet, jobCount: 5, description: "Jobs completed and awaiting invoicing." },
 ];
 
 export default function PlanningPage() {
@@ -50,7 +50,7 @@ export default function PlanningPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
             {productionSteps.map((step) => (
               <Card 
                 key={step.name} 
