@@ -3,10 +3,11 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import type { JobCardFormValues, InventorySuggestion, JobTemplateData, PaperQualityType } from "@/lib/definitions";
-import { JobCardSchema, KINDS_OF_JOB_OPTIONS, PRINTING_MACHINE_OPTIONS, COATING_OPTIONS, DIE_OPTIONS, DIE_MACHINE_OPTIONS, HOT_FOIL_OPTIONS, YES_NO_OPTIONS, BOX_MAKING_OPTIONS, PAPER_QUALITY_OPTIONS, getPaperQualityLabel, getPaperQualityUnit, KAPPA_MDF_QUALITIES } from "@/lib/definitions";
+import type { JobCardFormValues, InventorySuggestion, JobTemplateData, PaperQualityType, WorkflowProcessStepDefinition, WorkflowStep } from "@/lib/definitions";
+import { JobCardSchema, KINDS_OF_JOB_OPTIONS, PRINTING_MACHINE_OPTIONS, COATING_OPTIONS, DIE_OPTIONS, DIE_MACHINE_OPTIONS, HOT_FOIL_OPTIONS, YES_NO_OPTIONS, BOX_MAKING_OPTIONS, PAPER_QUALITY_OPTIONS, getPaperQualityLabel, getPaperQualityUnit, PRODUCTION_PROCESS_STEPS } from "@/lib/definitions";
 import { createJobCard, getJobTemplates } from "@/lib/actions/jobActions";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -15,20 +16,25 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { CalendarIcon, Wand2, Link2, PlusCircle, Loader2 } from "lucide-react";
+import { CalendarIcon, Wand2, Link2, PlusCircle, Loader2, RotateCcw, ListOrdered } from "lucide-react";
 import { format } from "date-fns";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { InventoryOptimizationModal } from "./InventoryOptimizationModal";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 
+interface DisplayWorkflowStep extends WorkflowProcessStepDefinition {
+  order: number;
+}
+
 export function JobCardForm() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [templates, setTemplates] = useState<JobTemplateData[]>([]);
-  const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
+  const [currentWorkflowSteps, setCurrentWorkflowSteps] = useState<DisplayWorkflowStep[]>([]);
 
   const form = useForm<JobCardFormValues>({
     resolver: zodResolver(JobCardSchema),
@@ -65,6 +71,7 @@ export function JobCardForm() {
       boxMaking: "",
       remarks: "",
       dispatchDate: undefined,
+      workflowSteps: [],
     },
   });
 
@@ -79,8 +86,23 @@ export function JobCardForm() {
   const watchedPaperQuality = form.watch("paperQuality");
   const targetPaperUnit = getPaperQualityUnit(watchedPaperQuality as PaperQualityType);
 
+  const applyTemplateWorkflow = useCallback((template?: JobTemplateData) => {
+    if (template?.predefinedWorkflow && template.predefinedWorkflow.length > 0) {
+      const displayWorkflow = template.predefinedWorkflow
+        .map(ws => {
+          const stepDef = PRODUCTION_PROCESS_STEPS.find(s => s.slug === ws.stepSlug);
+          return stepDef ? { ...stepDef, order: ws.order } : null;
+        })
+        .filter((s): s is DisplayWorkflowStep => s !== null)
+        .sort((a, b) => a.order - b.order);
+      setCurrentWorkflowSteps(displayWorkflow);
+    } else {
+      setCurrentWorkflowSteps([]);
+    }
+  }, []);
+
   const handleTemplateChange = (templateId: string) => {
-    setSelectedTemplate(templateId);
+    setSelectedTemplateId(templateId);
     const template = templates.find(t => t.id === templateId);
     if (template) {
       const currentValues = form.getValues();
@@ -88,45 +110,56 @@ export function JobCardForm() {
       const templateUnit = getPaperQualityUnit(templatePaperQuality as PaperQualityType);
 
       form.reset({
-        jobName: currentValues.jobName,
-        customerName: currentValues.customerName,
-        jobSizeWidth: currentValues.jobSizeWidth,
-        jobSizeHeight: currentValues.jobSizeHeight,
-        netQuantity: currentValues.netQuantity,
-        grossQuantity: currentValues.grossQuantity,
-        
+        ...currentValues, // Keep most current values
         paperQuality: templatePaperQuality,
-        paperGsm: templateUnit === 'gsm' ? currentValues.paperGsm : undefined, // Keep if relevant, else clear
-        targetPaperThicknessMm: templateUnit === 'mm' ? currentValues.targetPaperThicknessMm : undefined, // Keep if relevant, else clear
-
-        masterSheetSizeWidth: currentValues.masterSheetSizeWidth,
-        masterSheetSizeHeight: currentValues.masterSheetSizeHeight,
-        wastagePercentage: currentValues.wastagePercentage,
-        cuttingLayoutDescription: currentValues.cuttingLayoutDescription,
-        selectedMasterSheetGsm: currentValues.selectedMasterSheetGsm,
-        selectedMasterSheetThicknessMm: currentValues.selectedMasterSheetThicknessMm,
-        selectedMasterSheetQuality: currentValues.selectedMasterSheetQuality,
-        sourceInventoryItemId: currentValues.sourceInventoryItemId,
-        sheetsPerMasterSheet: currentValues.sheetsPerMasterSheet,
-        totalMasterSheetsNeeded: currentValues.totalMasterSheetsNeeded,
-
-        kindOfJob: template.kindOfJob || "",
-        printingFront: template.printingFront || "",
-        printingBack: template.printingBack || "",
-        coating: template.coating || "",
-        die: template.die || "",
-        hotFoilStamping: template.hotFoilStamping || "",
-        emboss: template.emboss || "",
-        pasting: template.pasting || "",
-        boxMaking: template.boxMaking || "",
-
-        specialInks: currentValues.specialInks,
-        assignedDieMachine: currentValues.assignedDieMachine,
-        remarks: currentValues.remarks,
-        dispatchDate: currentValues.dispatchDate,
+        paperGsm: templateUnit === 'gsm' ? (template.paperQuality ? currentValues.paperGsm : undefined) : undefined,
+        targetPaperThicknessMm: templateUnit === 'mm' ? (template.paperQuality ? currentValues.targetPaperThicknessMm : undefined) : undefined,
+        kindOfJob: template.kindOfJob || currentValues.kindOfJob || "",
+        printingFront: template.printingFront || currentValues.printingFront || "",
+        printingBack: template.printingBack || currentValues.printingBack || "",
+        coating: template.coating || currentValues.coating || "",
+        die: template.die || currentValues.die || "",
+        hotFoilStamping: template.hotFoilStamping || currentValues.hotFoilStamping || "",
+        emboss: template.emboss || currentValues.emboss || "",
+        pasting: template.pasting || currentValues.pasting || "",
+        boxMaking: template.boxMaking || currentValues.boxMaking || "",
+        workflowSteps: template.predefinedWorkflow || currentValues.workflowSteps || [],
       });
+      applyTemplateWorkflow(template);
+    } else {
+      // If "Select a job template" (empty value) is chosen, clear template-specific fields but keep job details
+      const { 
+        kindOfJob, printingFront, printingBack, coating, die, hotFoilStamping, emboss, pasting, boxMaking, workflowSteps, paperQuality, paperGsm, targetPaperThicknessMm, ...restOfValues 
+      } = form.getValues();
+      form.reset({
+        ...restOfValues,
+        kindOfJob: "", printingFront: "", printingBack: "", coating: "", die: "", hotFoilStamping: "", emboss: "", pasting: "", boxMaking: "",
+        // Do not clear paperQuality or related paperGsm/targetPaperThicknessMm here, let user manage.
+        // paperQuality: "", paperGsm: undefined, targetPaperThicknessMm: undefined, 
+      });
+      setCurrentWorkflowSteps([]);
     }
   };
+
+  const handleWorkflowStepClick = (step: WorkflowProcessStepDefinition) => {
+    setCurrentWorkflowSteps(prev => {
+      const existingStep = prev.find(s => s.slug === step.slug);
+      if (existingStep) {
+        return prev.filter(s => s.slug !== step.slug).map((s, index) => ({ ...s, order: index + 1 }));
+      } else {
+        return [...prev, { ...step, order: prev.length + 1 }];
+      }
+    });
+  };
+
+  const handleClearWorkflow = () => {
+    setCurrentWorkflowSteps([]);
+  };
+  
+  useEffect(() => {
+    form.setValue('workflowSteps', currentWorkflowSteps.map(s => ({ stepSlug: s.slug, order: s.order })));
+  }, [currentWorkflowSteps, form]);
+
 
   const handleSuggestionSelect = (suggestion: InventorySuggestion) => {
     form.setValue("masterSheetSizeWidth", suggestion.masterSheetSizeWidth);
@@ -153,7 +186,11 @@ export function JobCardForm() {
 
   async function onSubmit(values: JobCardFormValues) {
     setIsSubmitting(true);
-    const result = await createJobCard(values);
+    const valuesToSubmit = {
+      ...values,
+      workflowSteps: currentWorkflowSteps.map(s => ({ stepSlug: s.slug, order: s.order }))
+    };
+    const result = await createJobCard(valuesToSubmit);
     setIsSubmitting(false);
     if (result.success) {
       toast({
@@ -161,7 +198,8 @@ export function JobCardForm() {
         description: result.message,
       });
       form.reset();
-      setSelectedTemplate('');
+      setSelectedTemplateId('');
+      setCurrentWorkflowSteps([]);
       router.push(`/jobs`);
     } else {
       toast({
@@ -195,11 +233,8 @@ export function JobCardForm() {
   ] as const;
 
   const cuttingLayoutDescription = form.watch("cuttingLayoutDescription");
-  const selectedMasterSheetGsm = form.watch("selectedMasterSheetGsm");
-  const selectedMasterSheetThicknessMm = form.watch("selectedMasterSheetThicknessMm");
   const selectedMasterSheetQuality = form.watch("selectedMasterSheetQuality");
   const selectedMasterSheetUnit = getPaperQualityUnit(selectedMasterSheetQuality as PaperQualityType);
-  const sheetsPerMaster = form.watch("sheetsPerMasterSheet");
 
 
   return (
@@ -208,10 +243,10 @@ export function JobCardForm() {
         <Card>
           <CardHeader>
             <CardTitle className="font-headline">Job Templates</CardTitle>
-            <CardDescription className="font-body">Select a pre-made template to quickly fill in process specifications.</CardDescription>
+            <CardDescription className="font-body">Select a pre-made template to quickly fill in process specifications and workflow.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Select onValueChange={handleTemplateChange} value={selectedTemplate}>
+            <Select onValueChange={handleTemplateChange} value={selectedTemplateId}>
               <SelectTrigger className="w-full md:w-1/2 font-body">
                 <SelectValue placeholder="Select a job template" />
               </SelectTrigger>
@@ -434,10 +469,58 @@ export function JobCardForm() {
             isOpen={isModalOpen}
             setIsOpen={setIsModalOpen}
         />
+        
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-headline flex items-center"><ListOrdered className="mr-2 h-5 w-5 text-primary"/>Define Job Workflow</CardTitle>
+            <CardDescription className="font-body">Click production steps to add them to this job's specific workflow in order. Click again to remove. This can be pre-filled by a template.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mb-4">
+              {PRODUCTION_PROCESS_STEPS.map((step) => {
+                const selectedStep = currentWorkflowSteps.find(s => s.slug === step.slug);
+                return (
+                  <Button
+                    key={step.slug}
+                    type="button"
+                    variant={selectedStep ? "secondary" : "outline"}
+                    onClick={() => handleWorkflowStepClick(step)}
+                    className="font-body text-xs h-auto py-2 flex flex-col items-start text-left"
+                  >
+                     <div className="flex items-center">
+                       {selectedStep && <span className="font-bold mr-1">{selectedStep.order}.</span>}
+                       <step.icon className={`mr-1.5 h-4 w-4 ${selectedStep ? 'text-primary' : 'text-muted-foreground'}`} />
+                       {step.name}
+                    </div>
+                  </Button>
+                );
+              })}
+            </div>
+            {currentWorkflowSteps.length > 0 && (
+              <div className="mb-4">
+                <h4 className="font-medium mb-1 text-sm">Selected Workflow:</h4>
+                <div className="flex flex-wrap gap-2">
+                  {currentWorkflowSteps.sort((a,b) => a.order - b.order).map(step => (
+                    <Badge key={step.slug} variant="secondary" className="font-body">
+                      {step.order}. {step.name}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+            <Button type="button" variant="ghost" size="sm" onClick={handleClearWorkflow} className="font-body text-destructive hover:text-destructive">
+              <RotateCcw className="mr-2 h-4 w-4" /> Clear Workflow
+            </Button>
+            <FormField control={form.control} name="workflowSteps" render={({ field }) => (
+              <FormItem className="hidden"><FormMessage /></FormItem>
+            )} />
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>
             <CardTitle className="font-headline">Process Specifications</CardTitle>
+             <CardDescription className="font-body">These can be pre-filled by a selected template.</CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {processFields.map(item => (
@@ -448,7 +531,7 @@ export function JobCardForm() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>{item.label}</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value || ""}>
+                    <Select onValueChange={field.onChange} value={String(field.value || "")}>
                       <FormControl><SelectTrigger className="font-body"><SelectValue placeholder={`Select ${item.label.toLowerCase()}`} /></SelectTrigger></FormControl>
                       <SelectContent>
                         {item.options.filter(opt => opt.value !== "").map(option => (
@@ -516,7 +599,7 @@ export function JobCardForm() {
         </Card>
 
         <div className="flex justify-end gap-4">
-          <Button type="button" variant="outline" onClick={() => { form.reset(); setSelectedTemplate(''); }} disabled={isSubmitting} className="font-body">
+          <Button type="button" variant="outline" onClick={() => { form.reset(); setSelectedTemplateId(''); setCurrentWorkflowSteps([]); }} disabled={isSubmitting} className="font-body">
             Cancel
           </Button>
           <Button type="submit" disabled={isSubmitting} className="font-body">

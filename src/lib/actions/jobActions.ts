@@ -1,7 +1,7 @@
 
 'use server';
 
-import type { JobCardFormValues, JobCardData, JobTemplateData, JobTemplateFormValues, InventoryItem, PaperQualityType, InventorySuggestion, InventoryItemFormValues, InventoryItemType, ItemGroupType, UnitValue, OptimizeInventoryOutput, InventoryAdjustment, InventoryAdjustmentReasonValue } from '@/lib/definitions';
+import type { JobCardFormValues, JobCardData, JobTemplateData, JobTemplateFormValues, InventoryItem, PaperQualityType, InventorySuggestion, InventoryItemFormValues, InventoryItemType, ItemGroupType, UnitValue, OptimizeInventoryOutput, InventoryAdjustment, InventoryAdjustmentReasonValue, WorkflowStep } from '@/lib/definitions';
 import { PAPER_QUALITY_OPTIONS, getPaperQualityLabel, INVENTORY_ADJUSTMENT_REASONS, KAPPA_MDF_QUALITIES, getPaperQualityUnit } from '@/lib/definitions';
 import { calculateUps } from '@/lib/calculateUps';
 import { revalidatePath } from 'next/cache';
@@ -21,9 +21,9 @@ if (global.__jobCards__ === undefined) global.__jobCards__ = [];
 if (global.__jobCounter__ === undefined) global.__jobCounter__ = 1;
 
 const initialJobTemplates: JobTemplateData[] = [
-    { id: 'template1', name: 'Golden Tray (Predefined)', kindOfJob: 'METPET', coating: 'VARNISH_GLOSS', hotFoilStamping: 'GOLDEN', paperQuality: 'GOLDEN_SHEET' },
-    { id: 'template2', name: 'Rigid Top and Bottom Box (Predefined)', boxMaking: 'COMBINED', pasting: 'YES', paperQuality: 'WG_KAPPA' },
-    { id: 'template3', name: 'Monocarton Box (Predefined)', kindOfJob: 'NORMAL', paperQuality: 'SBS' },
+    { id: 'template1', name: 'Golden Tray (Predefined)', kindOfJob: 'METPET', coating: 'VARNISH_GLOSS', hotFoilStamping: 'GOLDEN', paperQuality: 'GOLDEN_SHEET', predefinedWorkflow: [] },
+    { id: 'template2', name: 'Rigid Top and Bottom Box (Predefined)', boxMaking: 'COMBINED', pasting: 'YES', paperQuality: 'WG_KAPPA', predefinedWorkflow: [] },
+    { id: 'template3', name: 'Monocarton Box (Predefined)', kindOfJob: 'NORMAL', paperQuality: 'SBS', predefinedWorkflow: [] },
 ];
 if (global.__jobTemplatesStore__ === undefined) global.__jobTemplatesStore__ = [...initialJobTemplates];
 if (global.__templateCounter__ === undefined) global.__templateCounter__ = initialJobTemplates.length + 1;
@@ -61,7 +61,7 @@ export async function createJobCard(data: JobCardFormValues): Promise<{ success:
       ...data,
       id: currentJobCounter.toString(),
       jobCardNumber: generateJobCardNumber(),
-      date: new Date().toISOString().split('T')[0], // Only date part
+      date: new Date().toISOString().split('T')[0], 
       cuttingLayoutDescription: data.cuttingLayoutDescription,
       sheetsPerMasterSheet: data.sheetsPerMasterSheet,
       totalMasterSheetsNeeded: data.totalMasterSheetsNeeded,
@@ -71,7 +71,8 @@ export async function createJobCard(data: JobCardFormValues): Promise<{ success:
       selectedMasterSheetThicknessMm: KAPPA_MDF_QUALITIES.includes(data.selectedMasterSheetQuality as PaperQualityType) ? data.selectedMasterSheetThicknessMm : undefined,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      status: 'Pending Planning', // Default status for new jobs
+      status: 'Pending Planning', 
+      workflowSteps: data.workflowSteps || [],
     };
     global.__jobCards__!.push(newJobCard);
     global.__jobCounter__ = currentJobCounter + 1;
@@ -95,7 +96,7 @@ export async function createJobCard(data: JobCardFormValues): Promise<{ success:
       }
     }
 
-    console.log('[JobActions] Created job card:', newJobCard.jobCardNumber);
+    console.log('[JobActions] Created job card:', newJobCard.jobCardNumber, 'with workflow:', newJobCard.workflowSteps);
     revalidatePath('/jobs');
     revalidatePath('/jobs/new');
     revalidatePath('/inventory');
@@ -150,8 +151,8 @@ export async function getInventoryOptimizationSuggestions(
     console.log(`[JobActions TS Calc] Full inventory fetched (${allInventoryMasterItems.length} master items).`);
 
     const targetQualityLower = jobInput.paperQuality.toLowerCase();
-    const THICKNESS_TOLERANCE = 0.1; // e.g., +/- 0.1mm for thickness matching
-    const GSM_TOLERANCE_PERCENT = 5; // e.g., +/- 5% for GSM matching
+    const THICKNESS_TOLERANCE = 0.1; 
+    const GSM_TOLERANCE_PERCENT = 5; 
 
     const processedSuggestions: InventorySuggestion[] = allInventoryMasterItems
       .filter(item => {
@@ -161,7 +162,7 @@ export async function getInventoryOptimizationSuggestions(
           item.masterSheetSizeWidth && item.masterSheetSizeWidth > 0 &&
           item.masterSheetSizeHeight && item.masterSheetSizeHeight > 0 &&
           item.paperQuality && item.paperQuality !== '' &&
-          itemQualityUnit !== null; // Ensure the item has a known unit
+          itemQualityUnit !== null; 
         
         if (!hasRequiredSheetFields) return false;
         if ((item.availableStock || 0) <= 0) {
@@ -170,9 +171,9 @@ export async function getInventoryOptimizationSuggestions(
         }
 
         const itemQualityLower = item.paperQuality!.toLowerCase();
-        if (itemQualityLower !== targetQualityLower) return false; // Strict quality match
+        if (itemQualityLower !== targetQualityLower) return false; 
 
-        // Match based on unit
+        
         if (targetQualityUnit === 'mm' && itemQualityUnit === 'mm') {
             if (item.paperThicknessMm === undefined || jobInput.paperThicknessMm === undefined) return false;
             return Math.abs(item.paperThicknessMm - jobInput.paperThicknessMm) <= THICKNESS_TOLERANCE;
@@ -182,7 +183,7 @@ export async function getInventoryOptimizationSuggestions(
             const upperBound = jobInput.paperGsm * (1 + GSM_TOLERANCE_PERCENT / 100);
             return item.paperGsm >= lowerBound && item.paperGsm <= upperBound;
         }
-        return false; // If units don't match or aren't handled
+        return false; 
       })
       .map(sheet => {
         const layoutInfo = calculateUps({
@@ -263,11 +264,12 @@ export async function createJobTemplate(data: JobTemplateFormValues): Promise<{ 
     const newTemplate: JobTemplateData = {
       ...data,
       id: `template${currentTemplateCounter}`,
+      predefinedWorkflow: data.predefinedWorkflow || [],
     };
     global.__jobTemplatesStore__!.push(newTemplate);
     global.__templateCounter__ = currentTemplateCounter + 1;
 
-    console.log('[JobActions] Created job template:', newTemplate.name);
+    console.log('[JobActions] Created job template:', newTemplate.name, 'with workflow:', newTemplate.predefinedWorkflow);
     revalidatePath('/templates');
     revalidatePath('/templates/new');
     revalidatePath('/jobs/new');
@@ -289,7 +291,7 @@ function generateItemTypeKey(data: InventoryItemFormValues): string {
         if (unit === 'mm') {
             const thickness = data.paperThicknessMm || 0;
             return `paper_${quality}_${thickness}mm_${width.toFixed(2)}x${height.toFixed(2)}`.toLowerCase();
-        } else { // Default to GSM
+        } else { 
             const gsm = data.paperGsm || 0;
             return `paper_${quality}_${gsm}gsm_${width.toFixed(2)}x${height.toFixed(2)}`.toLowerCase();
         }
@@ -328,7 +330,7 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
             return existingKey === itemTypeKey;
         } else if (data.category !== 'PAPER' && data.category !== 'INKS') {
              const normalizedItemName = (item.name || "unknown_item").toLowerCase().replace(/\s+/g, '_');
-             const originalCategoryGuess = item.itemGroup === 'Other Stock' ? 'OTHER' : item.itemGroup; // This might need refinement if itemGroups are more varied
+             const originalCategoryGuess = item.itemGroup === 'Other Stock' ? 'OTHER' : item.itemGroup; 
              const existingKey = `other_${originalCategoryGuess}_${normalizedItemName}`.toLowerCase();
              return existingKey === itemTypeKey;
         }
@@ -446,7 +448,7 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
 
 
     console.log(`[InventoryManagement] ${existingItem ? 'Added to' : 'Created'} item: ${itemForMessage!.name}. Transaction Quantity: ${data.quantity}`);
-    revalidatePath('/inventory'); // Revalidate specific category paths too if needed
+    revalidatePath('/inventory'); 
     revalidatePath(`/inventory/${data.category.toLowerCase()}`);
     return { success: true, message: `Stock updated for: ${itemForMessage!.name}. Quantity added: ${data.quantity}`, item: itemForMessage };
   } catch (error) {
@@ -481,5 +483,3 @@ export async function getInventoryAdjustmentsForItem(inventoryItemId: string): P
   console.log(`[InventoryManagement] Found ${adjustments.length} adjustments for item ID ${inventoryItemId}`);
   return adjustments;
 }
-
-    

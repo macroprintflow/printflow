@@ -3,22 +3,28 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import type { JobTemplateFormValues } from "@/lib/definitions";
-import { JobTemplateSchema, KINDS_OF_JOB_OPTIONS, PRINTING_MACHINE_OPTIONS, COATING_OPTIONS, DIE_OPTIONS, HOT_FOIL_OPTIONS, YES_NO_OPTIONS, BOX_MAKING_OPTIONS, PAPER_QUALITY_OPTIONS } from "@/lib/definitions";
+import type { JobTemplateFormValues, WorkflowStep, WorkflowProcessStepDefinition } from "@/lib/definitions";
+import { JobTemplateSchema, KINDS_OF_JOB_OPTIONS, PRINTING_MACHINE_OPTIONS, COATING_OPTIONS, DIE_OPTIONS, HOT_FOIL_OPTIONS, YES_NO_OPTIONS, BOX_MAKING_OPTIONS, PAPER_QUALITY_OPTIONS, PRODUCTION_PROCESS_STEPS } from "@/lib/definitions";
 import { createJobTemplate } from "@/lib/actions/jobActions";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { PlusCircle, Loader2 } from "lucide-react";
-import { useState } from "react";
+import { PlusCircle, Loader2, RotateCcw, ListOrdered } from "lucide-react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
+
+interface DisplayWorkflowStep extends WorkflowProcessStepDefinition {
+  order: number;
+}
 
 export function JobTemplateForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
+  const [currentWorkflowSteps, setCurrentWorkflowSteps] = useState<DisplayWorkflowStep[]>([]);
 
   const form = useForm<JobTemplateFormValues>({
     resolver: zodResolver(JobTemplateSchema),
@@ -34,12 +40,38 @@ export function JobTemplateForm() {
       emboss: "",
       pasting: "",
       boxMaking: "",
+      predefinedWorkflow: [],
     },
   });
 
+  useEffect(() => {
+    form.setValue('predefinedWorkflow', currentWorkflowSteps.map(s => ({ stepSlug: s.slug, order: s.order })));
+  }, [currentWorkflowSteps, form]);
+
+  const handleWorkflowStepClick = (step: WorkflowProcessStepDefinition) => {
+    setCurrentWorkflowSteps(prev => {
+      const existingStep = prev.find(s => s.slug === step.slug);
+      if (existingStep) {
+        // If step already exists, remove it (toggle off)
+        return prev.filter(s => s.slug !== step.slug).map((s, index) => ({ ...s, order: index + 1 }));
+      } else {
+        // Add new step
+        return [...prev, { ...step, order: prev.length + 1 }];
+      }
+    });
+  };
+
+  const handleClearWorkflow = () => {
+    setCurrentWorkflowSteps([]);
+  };
+
   async function onSubmit(values: JobTemplateFormValues) {
     setIsSubmitting(true);
-    const result = await createJobTemplate(values);
+    const valuesToSubmit = {
+      ...values,
+      predefinedWorkflow: currentWorkflowSteps.map(s => ({ stepSlug: s.slug, order: s.order }))
+    };
+    const result = await createJobTemplate(valuesToSubmit);
     setIsSubmitting(false);
     if (result.success) {
       toast({
@@ -47,6 +79,7 @@ export function JobTemplateForm() {
         description: "Job template created successfully.",
       });
       form.reset();
+      setCurrentWorkflowSteps([]);
       router.push(`/templates`);
     } else {
       toast({
@@ -80,14 +113,57 @@ export function JobTemplateForm() {
           render={({ field }) => (
             <FormItem>
               <FormLabel>Template Name</FormLabel>
-              <FormControl>
-                <Input placeholder="e.g., Standard Monocarton with UV" {...field} className="font-body" />
-              </FormControl>
+              <FormControl><Input placeholder="e.g., Standard Monocarton with UV" {...field} className="font-body" /></FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
 
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-headline flex items-center"><ListOrdered className="mr-2 h-5 w-5" />Define Template Workflow</CardTitle>
+            <CardDescription className="font-body">Click on steps to add them to the workflow in order. Click again to remove.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mb-4">
+              {PRODUCTION_PROCESS_STEPS.map((step) => {
+                const selectedStep = currentWorkflowSteps.find(s => s.slug === step.slug);
+                return (
+                  <Button
+                    key={step.slug}
+                    type="button"
+                    variant={selectedStep ? "secondary" : "outline"}
+                    onClick={() => handleWorkflowStepClick(step)}
+                    className="font-body text-xs h-auto py-2 flex flex-col items-start text-left"
+                  >
+                    <div className="flex items-center">
+                       {selectedStep && <span className="font-bold mr-1">{selectedStep.order}.</span>}
+                       <step.icon className={`mr-1.5 h-4 w-4 ${selectedStep ? 'text-primary' : 'text-muted-foreground'}`} />
+                       {step.name}
+                    </div>
+                  </Button>
+                );
+              })}
+            </div>
+            {currentWorkflowSteps.length > 0 && (
+              <div className="mb-4">
+                <h4 className="font-medium mb-1 text-sm">Selected Workflow:</h4>
+                <div className="flex flex-wrap gap-2">
+                  {currentWorkflowSteps.sort((a,b) => a.order - b.order).map(step => (
+                    <Badge key={step.slug} variant="secondary" className="font-body">
+                      {step.order}. {step.name}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+            <Button type="button" variant="ghost" size="sm" onClick={handleClearWorkflow} className="font-body text-destructive hover:text-destructive">
+              <RotateCcw className="mr-2 h-4 w-4" /> Clear Workflow
+            </Button>
+          </CardContent>
+        </Card>
+
+        <CardTitle className="font-headline text-xl pt-4 border-t">Process Specifications</CardTitle>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {processFields.map(item => (
             <FormField
@@ -98,11 +174,7 @@ export function JobTemplateForm() {
                 <FormItem>
                   <FormLabel>{item.label}</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value || ""}>
-                    <FormControl>
-                      <SelectTrigger className="font-body">
-                        <SelectValue placeholder={`Select ${item.label.toLowerCase()}`} />
-                      </SelectTrigger>
-                    </FormControl>
+                    <FormControl><SelectTrigger className="font-body"><SelectValue placeholder={`Select ${item.label.toLowerCase()}`} /></SelectTrigger></FormControl>
                     <SelectContent>
                       {item.options.map(option => (
                         <SelectItem key={option.value} value={option.value} className="font-body">
@@ -131,4 +203,3 @@ export function JobTemplateForm() {
     </Form>
   );
 }
-

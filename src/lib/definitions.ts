@@ -1,4 +1,10 @@
 
+import type { LucideIcon } from "lucide-react";
+import { 
+  FileCheck2, Scissors, Printer, Wand2, Film, Crop, Sparkles, ClipboardPaste, Box, Package, FileSpreadsheet 
+} from "lucide-react";
+import { z } from 'zod';
+
 export type PaperSpecs = {
   gsm: number;
   quality: string;
@@ -15,12 +21,12 @@ export type MasterSheetSize = {
 };
 
 export type InventorySuggestion = {
-  sourceInventoryItemId?: string; // ID of the inventory item used for this suggestion
+  sourceInventoryItemId?: string; 
   masterSheetSizeWidth: number;
   masterSheetSizeHeight: number;
-  paperGsm?: number; // Actual GSM of the suggested sheet
-  paperThicknessMm?: number; // Actual thickness in mm of the suggested sheet
-  paperQuality: string; // Actual quality of the suggested sheet
+  paperGsm?: number; 
+  paperThicknessMm?: number; 
+  paperQuality: string; 
   wastagePercentage: number;
   sheetsPerMasterSheet: number;
   totalMasterSheetsNeeded: number;
@@ -58,6 +64,31 @@ export function getPaperQualityUnit(value: PaperQualityType): 'gsm' | 'mm' | nul
 
 export const KAPPA_MDF_QUALITIES: PaperQualityType[] = ['GG_KAPPA', 'WG_KAPPA', 'MDF'];
 
+export interface WorkflowProcessStepDefinition {
+  slug: string;
+  name: string;
+  icon: LucideIcon;
+}
+
+export const PRODUCTION_PROCESS_STEPS: WorkflowProcessStepDefinition[] = [
+  { name: "Job Approval", slug: "job-approval", icon: FileCheck2 },
+  { name: "Cutter", slug: "cutter", icon: Scissors },
+  { name: "Printing", slug: "printing", icon: Printer },
+  { name: "Texture UV", slug: "texture-uv", icon: Wand2 },
+  { name: "Lamination", slug: "lamination", icon: Film },
+  { name: "Die Cutting", slug: "die-cutting", icon: Crop },
+  { name: "Foil Stamping", slug: "foil-stamping", icon: Sparkles },
+  { name: "Pasting", slug: "pasting", icon: ClipboardPaste },
+  { name: "Box Making & Assembly", slug: "box-making-assembly", icon: Box },
+  { name: "Packing", slug: "packing", icon: Package },
+  { name: "To be Billed", slug: "to-be-billed", icon: FileSpreadsheet },
+];
+
+export const WorkflowStepSchema = z.object({
+  stepSlug: z.string(),
+  order: z.number().int().positive(),
+});
+export type WorkflowStep = z.infer<typeof WorkflowStepSchema>;
 
 export type JobCardData = {
   id?: string;
@@ -103,6 +134,7 @@ export type JobCardData = {
   status?: string;
   createdAt?: string;
   updatedAt?: string;
+  workflowSteps?: WorkflowStep[];
 };
 
 export type JobTemplateData = {
@@ -118,10 +150,9 @@ export type JobTemplateData = {
   emboss?: JobCardData['emboss'];
   pasting?: JobCardData['pasting'];
   boxMaking?: JobCardData['boxMaking'];
+  predefinedWorkflow?: WorkflowStep[];
 };
 
-
-import { z } from 'zod';
 
 const paperQualityEnumValues = ['', ...PAPER_QUALITY_OPTIONS.map(opt => opt.value)] as const;
 
@@ -163,6 +194,7 @@ export const JobCardSchema = z.object({
   boxMaking: z.enum(['MACHINE', 'MANUAL', 'COMBINED', '']).default('').optional(),
   remarks: z.string().optional(),
   dispatchDate: z.string().optional(),
+  workflowSteps: z.array(WorkflowStepSchema).optional(),
 }).superRefine((data, ctx) => {
   const unit = getPaperQualityUnit(data.paperQuality as PaperQualityType);
   if (data.paperQuality && unit === 'gsm' && (data.paperGsm === undefined || data.paperGsm <= 0)) {
@@ -188,6 +220,7 @@ export const JobTemplateSchema = z.object({
   emboss: z.enum(['YES', 'NO', '']).default('').optional(),
   pasting: z.enum(['YES', 'NO', '']).default('').optional(),
   boxMaking: z.enum(['MACHINE', 'MANUAL', 'COMBINED', '']).default('').optional(),
+  predefinedWorkflow: z.array(WorkflowStepSchema).optional(),
 });
 
 export type JobTemplateFormValues = z.infer<typeof JobTemplateSchema>;
@@ -425,12 +458,8 @@ export const PAPER_SUB_CATEGORIES = [
   { name: "Imported Paper", filterValue: "IMPORTED_PAPER", qualityValues: ["IMPORTED_PAPER"] },
   { name: "MDF", filterValue: "MDF", qualityValues: ["MDF"] },
   { name: "Butter Paper", filterValue: "BUTTER_PAPER", qualityValues: ["BUTTER_PAPER"] },
-  { name: "Other Paper", filterValue: "OTHER_PAPER_GROUP", qualityValues: [] }, // Special handling for "Other"
+  { name: "Other Paper", filterValue: "OTHER_PAPER_GROUP", qualityValues: [] }, 
   { name: "View All Paper Types", filterValue: "__ALL_PAPER__", qualityValues: [] },
 ] as const;
 
 export type PaperSubCategoryFilterValue = typeof PAPER_SUB_CATEGORIES[number]['filterValue'];
-
-    
-
-    
