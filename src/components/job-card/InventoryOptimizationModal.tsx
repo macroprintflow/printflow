@@ -94,7 +94,7 @@ export function InventoryOptimizationModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="sm:max-w-3xl font-body">
+      <DialogContent className="sm:max-w-4xl font-body"> {/* Increased width */}
         <DialogHeader>
           <DialogTitle className="font-headline">Master Sheet Optimization</DialogTitle>
           <DialogDescription>
@@ -117,7 +117,8 @@ export function InventoryOptimizationModal({
               Size: {optimalSuggestion.masterSheetSizeWidth.toFixed(2)}in x {optimalSuggestion.masterSheetSizeHeight.toFixed(2)}in | 
               Wastage: {optimalSuggestion.wastagePercentage.toFixed(2)}% | 
               Sheets/Master: {optimalSuggestion.sheetsPerMasterSheet} | 
-              Total Masters: {optimalSuggestion.totalMasterSheetsNeeded}
+              Total Masters: {optimalSuggestion.totalMasterSheetsNeeded} <br />
+              Layout: {optimalSuggestion.cuttingLayoutDescription || 'N/A'}
             </p>
             <Button size="sm" className="mt-2 bg-green-600 hover:bg-green-700" onClick={() => handleSelect(optimalSuggestion)}>
               Use Optimal Suggestion
@@ -131,6 +132,7 @@ export function InventoryOptimizationModal({
               <TableHeader>
                 <TableRow>
                   <TableHead className="font-headline">Master Sheet Size (in)</TableHead>
+                  <TableHead className="font-headline">Layout</TableHead>
                   <TableHead className="font-headline text-right">Wastage %</TableHead>
                   <TableHead className="font-headline text-right">Sheets/Master</TableHead>
                   <TableHead className="font-headline text-right">Total Masters</TableHead>
@@ -141,6 +143,7 @@ export function InventoryOptimizationModal({
                 {suggestions.map((s, index) => (
                   <TableRow key={index} className={s === optimalSuggestion ? "bg-green-50" : ""}>
                     <TableCell>{s.masterSheetSizeWidth.toFixed(2)} x {s.masterSheetSizeHeight.toFixed(2)}</TableCell>
+                    <TableCell className="text-xs">{s.cuttingLayoutDescription || '-'}</TableCell>
                     <TableCell className="text-right">{s.wastagePercentage.toFixed(2)}%</TableCell>
                     <TableCell className="text-right">{s.sheetsPerMasterSheet}</TableCell>
                     <TableCell className="text-right">{s.totalMasterSheetsNeeded}</TableCell>
@@ -165,3 +168,4 @@ export function InventoryOptimizationModal({
     </Dialog>
   );
 }
+

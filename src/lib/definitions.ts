@@ -1,4 +1,5 @@
 
+
 export type PaperSpecs = {
   gsm: number;
   quality: string;
@@ -20,6 +21,7 @@ export type InventorySuggestion = {
   wastagePercentage: number;
   sheetsPerMasterSheet: number;
   totalMasterSheetsNeeded: number;
+  cuttingLayoutDescription?: string;
 };
 
 export const PAPER_QUALITY_OPTIONS = [
@@ -102,8 +104,8 @@ export const JobCardSchema = z.object({
   jobName: z.string().min(1, "Job name is required"),
   customerName: z.string().min(1, "Customer name is required"),
 
-  jobSizeWidth: z.coerce.number().positive("Job width must be positive"),
-  jobSizeHeight: z.coerce.number().positive("Job height must be positive"),
+  jobSizeWidth: z.coerce.number().positive("Job width (in) must be positive"),
+  jobSizeHeight: z.coerce.number().positive("Job height (in) must be positive"),
 
   netQuantity: z.coerce.number().positive("Net quantity must be positive"),
   grossQuantity: z.coerce.number().positive("Gross quantity must be positive"),
@@ -226,4 +228,5 @@ export type InventoryItem = {
   reorderPoint?: number;
   supplier?: string;
 };
+
 
