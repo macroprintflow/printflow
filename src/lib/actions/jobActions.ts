@@ -37,9 +37,14 @@ if (typeof global.__templateCounter__ === 'undefined') {
 
 const initialInventoryItems: InventoryItem[] = [];
 
-if (!global.__inventoryItemsStore__ || initialInventoryItems.length === 0) {
-  console.log('[InventoryManagement Server] Initializing global inventory store to be empty.');
-  global.__inventoryItemsStore__ = [];
+// Corrected initialization logic:
+// Only initialize from initialInventoryItems if the global store doesn't exist yet.
+if (typeof global.__inventoryItemsStore__ === 'undefined') {
+  console.log('[InventoryManagement] Global inventory store UNDEFINED, initializing from initialInventoryItems (which is empty).');
+  global.__inventoryItemsStore__ = [...initialInventoryItems];
+} else {
+  // This case means the store exists. We don't want to overwrite it here.
+  // console.log('[InventoryManagement] Global inventory store already exists. Count:', global.__inventoryItemsStore__.length);
 }
 
 
@@ -72,12 +77,12 @@ export async function createJobCard(data: JobCardFormValues): Promise<{ success:
     global.__jobCards__!.push(newJobCard);
     global.__jobCounter__ = currentJobCounter + 1;
 
-    // console.log('[JobActions] Created job card:', newJobCard.jobCardNumber);
+    console.log('[JobActions] Created job card:', newJobCard.jobCardNumber);
     revalidatePath('/jobs');
     revalidatePath('/jobs/new');
     return { success: true, message: 'Job card created successfully!', jobCard: newJobCard };
   } catch (error) {
-    // console.error('[JobActions Error] Error creating job card:', error);
+    console.error('[JobActions Error] Error creating job card:', error);
     return { success: false, message: 'Failed to create job card.' };
   }
 }
@@ -91,45 +96,51 @@ export async function getInventoryOptimizationSuggestions(
     netQuantity: number;
   }
 ): Promise<OptimizeInventoryOutput | { error: string; debugLog?: string }> {
-  let debugLog = "=== Get Inventory Optimization Suggestions START ===\n";
-  debugLog += `Job Input received: ${JSON.stringify(jobInput, null, 2)}\n`;
+  let currentDebugLog = "=== Get Inventory Optimization Suggestions START ===\n";
+  currentDebugLog += `Job Input received: ${JSON.stringify(jobInput, null, 2)}\n`;
 
   try {
     if (!jobInput.paperQuality || jobInput.paperQuality === "") {
-        debugLog += "Target paper quality from jobInput is empty. Returning empty suggestions immediately.\n";
-        console.log(debugLog);
-        return { suggestions: [], optimalSuggestion: undefined, debugLog };
+        currentDebugLog += "Target paper quality from jobInput is empty. Returning empty suggestions immediately.\n";
+        console.log(currentDebugLog); // Log before returning
+        return { suggestions: [], optimalSuggestion: undefined, debugLog: currentDebugLog };
     }
     
-    const allInventory = await getInventoryItems();
-    debugLog += `Full inventory fetched (${allInventory.length} items).\nFull list: ${JSON.stringify(allInventory, null, 2)}\n`;
+    const allInventory = await getInventoryItems(); // This will now hopefully get the persistent items
+    currentDebugLog += `Full inventory fetched (${allInventory.length} items).\n`;
+    if (allInventory.length > 0) {
+      currentDebugLog += `Full list: ${JSON.stringify(allInventory, null, 2)}\n`;
+    } else {
+      currentDebugLog += `Full list: []\n`;
+    }
+
 
     const availableMasterSheets: AvailableSheet[] = [];
     const targetQualityLower = jobInput.paperQuality.toLowerCase();
 
-    debugLog += `Filtering inventory. Target Quality (lowercase): '${targetQualityLower}'\n`;
+    currentDebugLog += `Filtering inventory. Target Quality (lowercase): '${targetQualityLower}'\n`;
 
     for (const item of allInventory) {
-      debugLog += `Processing item ID: ${item.id}, Name: '${item.name}', W: ${item.masterSheetSizeWidth}, H: ${item.masterSheetSizeHeight}, GSM: ${item.paperGsm}, Quality: '${item.paperQuality}'\n`;
+      currentDebugLog += `Processing item ID: ${item.id}, Name: '${item.name}', W: ${item.masterSheetSizeWidth}, H: ${item.masterSheetSizeHeight}, GSM: ${item.paperGsm}, Quality: '${item.paperQuality}'\n`;
 
       const hasRequiredSheetFields =
         item.masterSheetSizeWidth && item.masterSheetSizeWidth > 0 &&
         item.masterSheetSizeHeight && item.masterSheetSizeHeight > 0 &&
         item.paperGsm && item.paperGsm > 0 &&
         item.paperQuality && item.paperQuality !== '';
-      debugLog += `  Item ID: ${item.id} - Check 'hasRequiredSheetFields': ${hasRequiredSheetFields}\n`;
+      currentDebugLog += `  Item ID: ${item.id} - Check 'hasRequiredSheetFields': ${hasRequiredSheetFields}\n`;
 
       if (!hasRequiredSheetFields) {
-        debugLog += `  Item ID: ${item.id} - Filtered out: Missing critical master sheet fields.\n`;
+        currentDebugLog += `  Item ID: ${item.id} - Filtered out: Missing critical master sheet fields.\n`;
         continue;
       }
 
-      const itemQualityLower = item.paperQuality!.toLowerCase();
+      const itemQualityLower = item.paperQuality!.toLowerCase(); // `item.paperQuality` is checked in hasRequiredSheetFields
       const qualityMatch = itemQualityLower === targetQualityLower;
-      debugLog += `  Item ID: ${item.id} - Check 'qualityMatch' (ItemQ: '${itemQualityLower}', TargetQ: '${targetQualityLower}'): ${qualityMatch}\n`;
+      currentDebugLog += `  Item ID: ${item.id} - Check 'qualityMatch' (ItemQ: '${itemQualityLower}', TargetQ: '${targetQualityLower}'): ${qualityMatch}\n`;
       
       if (qualityMatch) {
-        debugLog += `  Item ID: ${item.id} - Passed JS filters. Adding to AI candidate list.\n`;
+        currentDebugLog += `  Item ID: ${item.id} - Passed JS filters. Adding to AI candidate list.\n`;
         availableMasterSheets.push({
           id: item.id,
           masterSheetSizeWidth: item.masterSheetSizeWidth!,
@@ -138,20 +149,21 @@ export async function getInventoryOptimizationSuggestions(
           paperQuality: item.paperQuality!,
         });
       } else {
-        debugLog += `  Item ID: ${item.id} - Filtered out: Quality mismatch.\n`;
+        currentDebugLog += `  Item ID: ${item.id} - Filtered out: Quality mismatch.\n`;
       }
     }
     
-    debugLog += `JavaScript filtering complete. ${availableMasterSheets.length} sheets are candidates for AI.\n`;
+    currentDebugLog += `JavaScript filtering complete. ${availableMasterSheets.length} sheets are candidates for AI.\n`;
     if (availableMasterSheets.length > 0) {
-        debugLog += `Candidate sheets for AI: ${JSON.stringify(availableMasterSheets, null, 2)}\n`;
+        currentDebugLog += `Candidate sheets (first 5): ${JSON.stringify(availableMasterSheets.slice(0,5), null, 2)}\n`;
     }
 
+
     if (availableMasterSheets.length === 0) {
-      debugLog += "No master sheets passed JavaScript filters. Bypassing AI and returning empty suggestions.\n";
-      debugLog += "=== Get Inventory Optimization Suggestions END (No suitable sheets found by JS filter) ===\n";
-      console.log(debugLog);
-      return { suggestions: [], optimalSuggestion: undefined, debugLog };
+      currentDebugLog += "No master sheets passed JavaScript filters (e.g., quality match). Bypassing AI and returning empty suggestions.\n";
+      currentDebugLog += "=== Get Inventory Optimization Suggestions END (No suitable sheets found by JS filter) ===\n";
+      console.log(currentDebugLog); // Log before returning
+      return { suggestions: [], optimalSuggestion: undefined, debugLog: currentDebugLog };
     }
     
     const aiInput: OptimizeInventoryInput = {
@@ -163,28 +175,34 @@ export async function getInventoryOptimizationSuggestions(
       availableMasterSheets: availableMasterSheets,
     };
 
-    debugLog += `Calling AI flow 'optimizeInventory' with input: ${JSON.stringify(aiInput, (key, value) => key === 'availableMasterSheets' ? `${value.length} sheets (full list logged above)` : value, 2)}\n`;
+    currentDebugLog += `Calling AI flow 'optimizeInventory' with input: ${JSON.stringify(aiInput, (key, value) => key === 'availableMasterSheets' ? `${value.length} sheets (full list logged above or by AI flow)` : value, 2)}\n`;
     
-    const result = await optimizeInventory(aiInput);
+    // The result from AI flow already includes its own debugLog if any.
+    const result = await optimizeInventory(aiInput); 
     
-    debugLog += `Raw AI Output from 'optimizeInventory' flow: ${JSON.stringify(result, null, 2)}\n`;
-    debugLog += "=== Get Inventory Optimization Suggestions END ===\n";
-    console.log(debugLog); // Log the full trace to server console
+    let aiFlowDebugLog = "";
+    if ('debugLog' in result && result.debugLog) {
+      aiFlowDebugLog = `\n--- AI Flow Internal Log ---\n${result.debugLog}`;
+    }
     
-    // Ensure the result object has the debugLog property
+    currentDebugLog += `Raw AI Output from 'optimizeInventory' flow: ${JSON.stringify(result, null, 2)}\n`;
+    currentDebugLog += "=== Get Inventory Optimization Suggestions END ===\n";
+    console.log(currentDebugLog + aiFlowDebugLog); // Log combined debug info
+
+    // Ensure the final returned object also carries the combined debugLog for the UI
     const finalResult: OptimizeInventoryOutput = {
         suggestions: result.suggestions || [],
         optimalSuggestion: result.optimalSuggestion,
-        debugLog: debugLog + (result.debugLog ? `\n--- AI Flow Internal Log ---\n${result.debugLog}` : ""),
+        debugLog: currentDebugLog + aiFlowDebugLog,
     };
     return finalResult;
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Failed to fetch suggestions.';
-    debugLog += `Error in getInventoryOptimizationSuggestions: ${errorMessage}\nStack: ${error instanceof Error ? error.stack : 'N/A'}\n`;
-    debugLog += "=== Get Inventory Optimization Suggestions END (Error) ===\n";
-    console.error(debugLog); // Log the full trace to server console
-    return { error: `Failed to fetch inventory optimization suggestions: ${errorMessage}`, debugLog };
+    currentDebugLog += `Error in getInventoryOptimizationSuggestions: ${errorMessage}\nStack: ${error instanceof Error ? error.stack : 'N/A'}\n`;
+    currentDebugLog += "=== Get Inventory Optimization Suggestions END (Error) ===\n";
+    console.error(currentDebugLog); // Log error details
+    return { error: `Failed to fetch inventory optimization suggestions: ${errorMessage}`, debugLog: currentDebugLog };
   }
 }
 
@@ -206,27 +224,39 @@ export async function createJobTemplate(data: JobTemplateFormValues): Promise<{ 
     global.__jobTemplatesStore__!.push(newTemplate);
     global.__templateCounter__ = currentTemplateCounter + 1;
 
-    // console.log('[JobActions] Created job template:', newTemplate.name);
+    console.log('[JobActions] Created job template:', newTemplate.name);
     revalidatePath('/templates');
     revalidatePath('/templates/new');
     revalidatePath('/jobs/new');
     return { success: true, message: 'Job template created successfully!', template: newTemplate };
   } catch (error) {
-    // console.error('[JobActions Error] Error creating job template:', error);
+    console.error('[JobActions Error] Error creating job template:', error);
     return { success: false, message: 'Failed to create job template.' };
   }
 }
 
 export async function getInventoryItems(): Promise<InventoryItem[]> {
-  if (!global.__inventoryItemsStore__) {
-      // console.log('[InventoryManagement Server] __inventoryItemsStore__ was undefined, initializing to empty array.');
+  // Ensure the store is initialized if it's undefined
+  if (typeof global.__inventoryItemsStore__ === 'undefined') {
+      console.log('[InventoryManagement][getInventoryItems] Global inventory store UNDEFINED, initializing to empty array.');
       global.__inventoryItemsStore__ = []; 
   }
-  return [...global.__inventoryItemsStore__!]; 
+  // console.log('[InventoryManagement][getInventoryItems] Fetching items. Current store size:', global.__inventoryItemsStore__.length);
+  return [...global.__inventoryItemsStore__!]; // Return a copy
 }
 
 export async function addInventoryItem(data: InventoryItemFormValues): Promise<{ success: boolean; message: string; item?: InventoryItem }> {
   try {
+    // Ensure the store is initialized if it's undefined
+    if (typeof global.__inventoryItemsStore__ === 'undefined') {
+        console.log('[InventoryManagement][addInventoryItem] Global inventory store UNDEFINED during add, initializing to empty array.');
+        global.__inventoryItemsStore__ = [];
+    }
+    if (typeof global.__inventoryCounter__ === 'undefined') { // Ensure counter is also initialized
+        global.__inventoryCounter__ = 1;
+    }
+
+
     const currentInventoryCounter = global.__inventoryCounter__!;
     let itemType: InventoryItemType = 'Other';
     let itemGroup: ItemGroupType = 'Other Stock';
@@ -237,14 +267,14 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
     let masterSheetSizeWidth: number | undefined = undefined;
     let masterSheetSizeHeight: number | undefined = undefined;
     let paperGsm: number | undefined = undefined;
-    let paperQuality: PaperQualityType | undefined = undefined;
+    let paperQuality: PaperQualityType | undefined = paperQuality = data.paperQuality as PaperQualityType || undefined;
 
 
     if (data.category === 'PAPER') {
       masterSheetSizeWidth = data.paperMasterSheetSizeWidth!;
       masterSheetSizeHeight = data.paperMasterSheetSizeHeight!;
       paperGsm = data.paperGsm!;
-      paperQuality = data.paperQuality as PaperQualityType;
+      // paperQuality is already assigned above
       
       itemType = 'Master Sheet';
       const qualityLabel = paperQuality ? getPaperQualityLabel(paperQuality) : "UnknownPaper";
@@ -252,7 +282,7 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
 
       specificName = `${qualityLabel} ${paperGsm}GSM ${masterSheetSizeWidth?.toFixed(2)}x${masterSheetSizeHeight?.toFixed(2)}in`.trim();
       specificSpecification = `${paperGsm}GSM ${qualityLabel}, ${masterSheetSizeWidth?.toFixed(2)}in x ${masterSheetSizeHeight?.toFixed(2)}in`;
-      // console.log(`[InventoryManagement Server] Adding PAPER item. Category: ${data.category}, Name: ${specificName}, Quality: ${paperQuality}, GSM: ${paperGsm}, W: ${masterSheetSizeWidth}, H: ${masterSheetSizeHeight}`);
+      // console.log(`[InventoryManagement] Adding PAPER item. Category: ${data.category}, Name: ${specificName}, Quality: ${paperQuality}, GSM: ${paperGsm}, W: ${masterSheetSizeWidth}, H: ${masterSheetSizeHeight}`);
     
     } else if (data.category === 'INKS') {
       itemType = 'Ink';
@@ -271,10 +301,11 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
       itemType = 'Magnet';
       itemGroup = 'Magnets';
       specificName = data.itemName || "Magnet";
-    } else { 
+    } else { // OTHER
         itemType = 'Other';
         itemGroup = 'Other Stock';
         specificName = data.itemName || "Miscellaneous Item";
+        // For 'OTHER', paperQuality, paperGsm, etc., will remain undefined unless explicitly set by future form fields for 'OTHER'
     }
 
 
@@ -296,18 +327,14 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
       dateOfEntry: data.dateOfEntry,
     };
 
-    if (!global.__inventoryItemsStore__) {
-        // console.log('[InventoryManagement Server] __inventoryItemsStore__ was undefined before push, initializing.');
-        global.__inventoryItemsStore__ = [];
-    }
     global.__inventoryItemsStore__.push(newItem);
     global.__inventoryCounter__ = currentInventoryCounter + 1;
 
-    // console.log('[InventoryManagement Server] Added inventory item. Current store size:', global.__inventoryItemsStore__.length, 'New item:', JSON.stringify(newItem, null, 2));
+    console.log(`[InventoryManagement] Added inventory item. Current store size: ${global.__inventoryItemsStore__.length}. New item: ${JSON.stringify(newItem, null, 2)}`);
     revalidatePath('/inventory');
     return { success: true, message: 'Inventory item added successfully!', item: newItem };
   } catch (error) {
-    // console.error('[InventoryManagement Error] Error adding inventory item:', error);
+    console.error('[InventoryManagement Error] Error adding inventory item:', error);
     return { success: false, message: 'Failed to add inventory item.' };
   }
 }
