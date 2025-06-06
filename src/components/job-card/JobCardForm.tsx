@@ -1,3 +1,4 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -280,7 +281,7 @@ export function JobCardForm() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="" className="font-body">None</SelectItem>
+                        {/* <SelectItem value="" className="font-body">None</SelectItem> */} {/* This line caused the error */}
                         {item.options.map(option => (
                           <SelectItem key={option.value} value={option.value} className="font-body">{option.label}</SelectItem>
                         ))}
@@ -361,3 +362,4 @@ export function JobCardForm() {
     </Form>
   );
 }
+
