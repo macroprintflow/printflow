@@ -30,7 +30,6 @@ const MasterSheetSuggestionSchema = z.object({
   sheetsPerMasterSheet: z.number().describe('Number of sheets that can be cut from one master sheet.'),
   totalMasterSheetsNeeded: z.number().describe('Total number of master sheets needed to fulfill the job.'),
   cuttingLayoutDescription: z.string().optional().describe("Textual description of the cutting layout, e.g., '3 across x 4 down (job portrait)'."),
-  cuttingLayoutAsciiArt: z.string().optional().describe("An ASCII art representation of the cutting layout. 'J' for job, 'W' for waste.")
 });
 
 const OptimizeInventoryOutputSchema = z.object({
@@ -88,12 +87,7 @@ const prompt = ai.definePrompt({
   The 'cuttingLayoutDescription' must correspond to the orientation that yielded this maximum.
   For example, if Total_ups_landscape is greater, the description should be like 'N_across_landscape across x M_down_landscape down (job landscape)'. If Total_ups_portrait is greater, it should be 'N_across_portrait across x M_down_portrait down (job portrait)'.
 
-  Additionally, provide a simple ASCII art representation of the cutting layout, named 'cuttingLayoutAsciiArt'. This should be a multi-line string. Use 'J' to represent a job sheet piece, and 'W' for significant waste areas. Try to make it roughly proportional to the master sheet, showing rows and columns of 'J' and 'W' based on the chosen optimal layout (portrait or landscape). For example, for 2 across x 3 down on a master sheet that allows for some waste:
-  cuttingLayoutAsciiArt:
-  "JJW\\nJJW\\nJJW\\nWWW"
-  (Ensure the ASCII art is a single string with '\\n' for newlines).
-
-  Return an array of suggestions sorted by wastage percentage (lowest first). Each suggestion must include the master sheet size (width and height in inches), wastage percentage, sheets per master sheet, total master sheets needed, cuttingLayoutDescription, and cuttingLayoutAsciiArt.
+  Return an array of suggestions sorted by wastage percentage (lowest first). Each suggestion must include the master sheet size (width and height in inches), wastage percentage, sheets per master sheet, total master sheets needed, and cuttingLayoutDescription.
   Also include the optimalSuggestion based on the lowest wastage percentage.
   The optimalSuggestion should take into account both minimizing waste and minimizing the total number of master sheets required.
 
@@ -124,4 +118,3 @@ const optimizeInventoryFlow = ai.defineFlow(
     return output!;
   }
 );
-

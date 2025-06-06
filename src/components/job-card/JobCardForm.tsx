@@ -45,7 +45,6 @@ export function JobCardForm() {
       masterSheetSizeHeight: undefined,
       wastagePercentage: undefined,
       cuttingLayoutDescription: "",
-      cuttingLayoutAsciiArt: "",
       kindOfJob: "",
       printingFront: "",
       printingBack: "",
@@ -89,7 +88,6 @@ export function JobCardForm() {
         masterSheetSizeHeight: currentValues.masterSheetSizeHeight,
         wastagePercentage: currentValues.wastagePercentage,
         cuttingLayoutDescription: currentValues.cuttingLayoutDescription,
-        cuttingLayoutAsciiArt: currentValues.cuttingLayoutAsciiArt,
         // Apply template values for processes and paper quality
         paperQuality: template.paperQuality || "",
         kindOfJob: template.kindOfJob || "",
@@ -118,7 +116,6 @@ export function JobCardForm() {
     form.setValue("masterSheetSizeHeight", suggestion.masterSheetSizeHeight);
     form.setValue("wastagePercentage", suggestion.wastagePercentage);
     form.setValue("cuttingLayoutDescription", suggestion.cuttingLayoutDescription || "");
-    form.setValue("cuttingLayoutAsciiArt", suggestion.cuttingLayoutAsciiArt || "");
   };
 
   async function onSubmit(values: JobCardFormValues) {
@@ -164,7 +161,6 @@ export function JobCardForm() {
   ] as const;
 
   const cuttingLayoutDescription = form.watch("cuttingLayoutDescription");
-  const cuttingLayoutAsciiArt = form.watch("cuttingLayoutAsciiArt");
 
   return (
     <Form {...form}>
@@ -404,14 +400,6 @@ export function JobCardForm() {
               <div className="col-span-1 md:col-span-2 lg:col-span-3 mt-4 p-4 border rounded-md bg-muted/50">
                 <h4 className="font-medium mb-2 font-headline text-sm">Selected Cutting Layout:</h4>
                 <p className="text-sm font-body">{cuttingLayoutDescription}</p>
-                {cuttingLayoutAsciiArt && (
-                  <>
-                    <p className="text-sm font-body mt-2 mb-1">Visual Sketch:</p>
-                    <pre className="text-xs font-code bg-background p-2 rounded overflow-x-auto">
-                      {cuttingLayoutAsciiArt}
-                    </pre>
-                  </>
-                )}
               </div>
             )}
           </CardContent>

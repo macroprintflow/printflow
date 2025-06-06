@@ -21,7 +21,6 @@ export type InventorySuggestion = {
   sheetsPerMasterSheet: number;
   totalMasterSheetsNeeded: number;
   cuttingLayoutDescription?: string;
-  cuttingLayoutAsciiArt?: string;
 };
 
 export const PAPER_QUALITY_OPTIONS = [
@@ -57,7 +56,6 @@ export type JobCardData = {
   paperQuality: PaperQualityType;
   wastagePercentage?: number;
   cuttingLayoutDescription?: string;
-  cuttingLayoutAsciiArt?: string;
 
   kindOfJob: 'METPET' | 'NORMAL' | 'NO_PRINTING' | '';
   printingFront: 'SM74' | 'SORSZ' | 'DOMINANT' | 'NO_PRINTING' | '';
@@ -119,7 +117,6 @@ export const JobCardSchema = z.object({
   masterSheetSizeHeight: z.coerce.number().optional(),
   wastagePercentage: z.coerce.number().optional(),
   cuttingLayoutDescription: z.string().optional(),
-  cuttingLayoutAsciiArt: z.string().optional(),
 
   kindOfJob: z.enum(['METPET', 'NORMAL', 'NO_PRINTING', '']).default('').optional(),
   printingFront: z.enum(['SM74', 'SORSZ', 'DOMINANT', 'NO_PRINTING', '']).default('').optional(),
@@ -232,4 +229,3 @@ export type InventoryItem = {
   reorderPoint?: number;
   supplier?: string;
 };
-
