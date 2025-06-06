@@ -21,6 +21,7 @@ if (!global.__jobCards__) {
 if (typeof global.__jobCounter__ === 'undefined') {
   global.__jobCounter__ = 1;
 }
+// jobCards continues to use module scope as it's less complex for now.
 let jobCards: JobCardData[] = global.__jobCards__;
 
 
@@ -36,6 +37,7 @@ if (!global.__jobTemplatesStore__) {
 if (typeof global.__templateCounter__ === 'undefined') {
   global.__templateCounter__ = initialJobTemplates.length + 1;
 }
+// jobTemplatesStore continues to use module scope.
 let jobTemplatesStore: JobTemplateData[] = global.__jobTemplatesStore__;
 
 
@@ -64,14 +66,14 @@ const initialInventoryItems: InventoryItem[] = [
   { id: 'inv010', name: 'Varnish Gloss', type: 'Other', itemGroup: 'Other Stock', specification: 'For Coating', availableStock: 100, unit: 'liters', reorderPoint: 20, dateOfEntry: new Date().toISOString() },
 ];
 
+// Ensure global store is initialized
 if (!global.__inventoryItemsStore__) {
   global.__inventoryItemsStore__ = [...initialInventoryItems];
 }
 if (typeof global.__inventoryCounter__ === 'undefined') {
     global.__inventoryCounter__ = initialInventoryItems.length + 1;
 }
-let inventoryItemsStore: InventoryItem[] = global.__inventoryItemsStore__;
-
+// No module-scoped inventoryItemsStore variable anymore. Direct global access.
 
 function generateJobCardNumber(): string {
   const now = new Date();
@@ -95,7 +97,7 @@ export async function createJobCard(data: JobCardFormValues): Promise<{ success:
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-    jobCards.push(newJobCard);
+    jobCards.push(newJobCard); // global.__jobCards__ is referenced by jobCards
     global.__jobCounter__ = currentJobCounter + 1; 
 
     console.log('Created job card:', newJobCard);
@@ -118,7 +120,8 @@ export async function getInventoryOptimizationSuggestions(
   }
 ): Promise<OptimizeInventoryOutput | { error: string }> {
   try {
-    const allInventory = await getInventoryItems();
+    // Directly use getInventoryItems which now reads from global store
+    const allInventory = await getInventoryItems(); 
     
     const { paperGsm: targetGsm, paperQuality: targetQuality } = jobInput;
 
@@ -171,7 +174,7 @@ export async function getInventoryOptimizationSuggestions(
 
 
 export async function getJobTemplates(): Promise<JobTemplateData[]> {
-  return [...jobTemplatesStore];
+  return [...jobTemplatesStore]; // global.__jobTemplatesStore__ is referenced by jobTemplatesStore
 }
 
 export async function createJobTemplate(data: JobTemplateFormValues): Promise<{ success: boolean; message: string; template?: JobTemplateData }> {
@@ -181,7 +184,7 @@ export async function createJobTemplate(data: JobTemplateFormValues): Promise<{ 
       ...data,
       id: `template${currentTemplateCounter}`,
     };
-    jobTemplatesStore.push(newTemplate);
+    jobTemplatesStore.push(newTemplate); // global.__jobTemplatesStore__ is referenced by jobTemplatesStore
     global.__templateCounter__ = currentTemplateCounter + 1;
 
     console.log('Created job template:', newTemplate);
@@ -196,7 +199,11 @@ export async function createJobTemplate(data: JobTemplateFormValues): Promise<{ 
 }
 
 export async function getInventoryItems(): Promise<InventoryItem[]> {
-  return [...inventoryItemsStore];
+  // Ensure it always returns a copy of the current global state
+  if (!global.__inventoryItemsStore__) { // Defensive check, should be initialized already
+      global.__inventoryItemsStore__ = [];
+  }
+  return [...global.__inventoryItemsStore__];
 }
 
 export async function addInventoryItem(data: InventoryItemFormValues): Promise<{ success: boolean; message: string; item?: InventoryItem }> {
@@ -250,7 +257,11 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
       dateOfEntry: data.dateOfEntry,
     };
 
-    inventoryItemsStore.push(newItem);
+    // Ensure additions are made to the true global store
+    if (!global.__inventoryItemsStore__) { // Defensive check
+        global.__inventoryItemsStore__ = [];
+    }
+    global.__inventoryItemsStore__.push(newItem);
     global.__inventoryCounter__ = currentInventoryCounter + 1;
 
     console.log('Added inventory item:', newItem);
