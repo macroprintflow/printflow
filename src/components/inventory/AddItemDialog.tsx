@@ -1,11 +1,11 @@
 
 "use client";
 
-import React from "react";
+import React, { useState, type Dispatch, type SetStateAction } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, type UseFormReturn, type Control } from "react-hook-form";
-import type { InventoryItemFormValues, InventoryCategory } from "@/lib/definitions";
-import { InventoryItemFormSchema, INVENTORY_CATEGORIES, PAPER_QUALITY_OPTIONS, VENDOR_OPTIONS, UNIT_OPTIONS } from "@/lib/definitions";
+import type { InventoryItemFormValues, InventoryCategory, PaperQualityType } from "@/lib/definitions";
+import { InventoryItemFormSchema, INVENTORY_CATEGORIES, PAPER_QUALITY_OPTIONS, VENDOR_OPTIONS, UNIT_OPTIONS, getPaperQualityLabel } from "@/lib/definitions";
 import { addInventoryItem } from "@/lib/actions/jobActions";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -21,12 +21,12 @@ import { useToast } from "@/hooks/use-toast";
 
 interface AddItemDialogProps {
   isOpen: boolean;
-  setIsOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setIsOpen: Dispatch<SetStateAction<boolean>>;
 }
 
 // Helper component for Paper specific fields
 const PaperFields = ({ control }: { control: Control<InventoryItemFormValues> }) => (
-  <React.Fragment>
+  <>
     <FormField control={control} name="itemName" render={({ field }) => (<FormItem><FormControl><Input type="hidden" {...field} /></FormControl><FormMessage /></FormItem>)} />
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <FormField control={control} name="paperMasterSheetSizeWidth" render={({ field }) => (
@@ -61,12 +61,12 @@ const PaperFields = ({ control }: { control: Control<InventoryItemFormValues> })
         <FormMessage />
       </FormItem>
     )} />
-  </React.Fragment>
+  </>
 );
 
 // Helper component for Ink specific fields
 const InkFields = ({ control }: { control: Control<InventoryItemFormValues> }) => (
-  <React.Fragment>
+  <>
      <FormField control={control} name="itemName" render={({ field }) => (<FormItem><FormControl><Input type="hidden" {...field} /></FormControl><FormMessage /></FormItem>)} />
      <FormField control={control} name="inkName" render={({ field }) => (
          <FormItem>
@@ -82,12 +82,12 @@ const InkFields = ({ control }: { control: Control<InventoryItemFormValues> }) =
              <FormMessage />
          </FormItem>
      )} />
-  </React.Fragment>
+  </>
 );
 
 // Helper component for Other category fields
 const OtherCategoryFields = ({ control, categoryLabel }: { control: Control<InventoryItemFormValues>; categoryLabel: string }) => (
-  <React.Fragment>
+  <>
     <FormField control={control} name="itemName" render={({ field }) => (
       <FormItem>
         <FormLabel>Item Name</FormLabel>
@@ -102,22 +102,40 @@ const OtherCategoryFields = ({ control, categoryLabel }: { control: Control<Inve
         <FormMessage />
       </FormItem>
     )} />
-  </React.Fragment>
+  </>
 );
 
 // Helper component for Common fields
 const CommonFields = ({ form }: { form: UseFormReturn<InventoryItemFormValues> }) => {
   const watchedVendor = form.watch("vendorName");
   return (
-    <React.Fragment>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <FormField control={form.control} name="availableStock" render={({ field }) => (
-          <FormItem>
-            <FormLabel>Quantity</FormLabel>
-            <FormControl><Input type="number" placeholder="e.g., 1000" {...field} value={field.value ?? 0} onChange={e => field.onChange(e.target.value === '' ? 0 : parseFloat(e.target.value))} className="font-body"/></FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
+    <>
+      <div className="grid grid-cols-1 gap-4"> {/* Simplified className, removed md:grid-cols-2 for now */}
+        <FormField
+          control={form.control}
+          name="availableStock"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Quantity</FormLabel>
+              <FormControl>
+                <Input
+                  type="number"
+                  placeholder="e.g., 1000"
+                  {...field}
+                  value={field.value ?? 0} // Default to 0 if undefined
+                  onChange={e => {
+                    const value = e.target.value;
+                    // Ensure 0 for empty string, otherwise parse
+                    field.onChange(value === '' ? 0 : parseFloat(value)); 
+                  }}
+                  className="font-body"
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        {/* Unit FormField is still commented out for isolation
         <FormField control={form.control} name="unit" render={({ field }) => (
           <FormItem>
             <FormLabel>Unit</FormLabel>
@@ -128,14 +146,19 @@ const CommonFields = ({ form }: { form: UseFormReturn<InventoryItemFormValues> }
             <FormMessage />
           </FormItem>
         )} />
+        */}
       </div>
+
+      {/* All subsequent fields in CommonFields are commented out to isolate the parsing error */}
+      {/*
       <FormField control={form.control} name="reorderPoint" render={({ field }) => (
-          <FormItem>
-            <FormLabel>Reorder Point (Optional)</FormLabel>
-            <FormControl><Input type="number" placeholder="e.g., 100" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="font-body"/></FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
+        <FormItem>
+          <FormLabel>Reorder Point (Optional)</FormLabel>
+          <FormControl><Input type="number" placeholder="e.g., 100" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="font-body"/></FormControl>
+          <FormMessage />
+        </FormItem>
+      )} />
+
       <FormField control={form.control} name="purchaseBillNo" render={({ field }) => (
         <FormItem>
           <FormLabel>Purchase Bill No. (Optional)</FormLabel>
@@ -143,6 +166,7 @@ const CommonFields = ({ form }: { form: UseFormReturn<InventoryItemFormValues> }
           <FormMessage />
         </FormItem>
       )} />
+
       <FormField control={form.control} name="vendorName" render={({ field }) => (
         <FormItem>
           <FormLabel>Vendor Name (Optional)</FormLabel>
@@ -153,6 +177,7 @@ const CommonFields = ({ form }: { form: UseFormReturn<InventoryItemFormValues> }
           <FormMessage />
         </FormItem>
       )} />
+
       {watchedVendor === 'OTHER' && (
         <FormField control={form.control} name="otherVendorName" render={({ field }) => (
           <FormItem>
@@ -162,6 +187,7 @@ const CommonFields = ({ form }: { form: UseFormReturn<InventoryItemFormValues> }
           </FormItem>
         )}
       )}
+
       <FormField control={form.control} name="dateOfEntry" render={({ field }) => (
         <FormItem className="flex flex-col">
           <FormLabel>Date of Entry</FormLabel>
@@ -181,18 +207,19 @@ const CommonFields = ({ form }: { form: UseFormReturn<InventoryItemFormValues> }
           <FormMessage />
         </FormItem>
       )} />
-    </React.Fragment>
+      */}
+    </>
   );
 };
 
 
 export function AddItemDialog({ isOpen, setIsOpen }: AddItemDialogProps) {
-  const [step, setStep] = React.useState(1);
-  const [selectedCategory, setSelectedCategory] = React.useState<InventoryCategory | null>(null);
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [step, setStep] = useState(1);
+  const [selectedCategory, setSelectedCategory] = useState<InventoryCategory | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
-  const form: UseFormReturn<InventoryItemFormValues> = useForm<InventoryItemFormValues>({
+  const form = useForm<InventoryItemFormValues>({
     resolver: zodResolver(InventoryItemFormSchema),
     defaultValues: {
       category: undefined,
@@ -205,7 +232,7 @@ export function AddItemDialog({ isOpen, setIsOpen }: AddItemDialogProps) {
       itemName: "",
       itemSpecification: "",
       availableStock: 0,
-      unit: "sheets",
+      unit: "sheets", 
       purchaseBillNo: "",
       vendorName: undefined,
       otherVendorName: "",
@@ -217,12 +244,14 @@ export function AddItemDialog({ isOpen, setIsOpen }: AddItemDialogProps) {
   const handleCategorySelect = (category: InventoryCategory) => {
     setSelectedCategory(category);
     form.setValue("category", category);
-    if (category === 'PAPER') form.setValue("itemName", "Paper Stock");
-    else if (category === 'INKS') form.setValue("itemName", "Ink");
+    
+    if (category === 'PAPER') form.setValue("itemName", "Paper Stock"); // Default name
+    else if (category === 'INKS') form.setValue("itemName", "Ink"); // Default name
     else if (category === 'PLASTIC_TRAY') form.setValue("itemName", "Plastic Tray");
     else if (category === 'GLASS_JAR') form.setValue("itemName", "Glass Jar");
     else if (category === 'MAGNET') form.setValue("itemName", "Magnet");
     else form.setValue("itemName", "");
+
     setStep(2);
   };
 
@@ -239,7 +268,6 @@ export function AddItemDialog({ isOpen, setIsOpen }: AddItemDialogProps) {
         description: "Inventory item added successfully.",
       });
       resetDialogState();
-      setIsOpen(false);
     } else {
       toast({
         title: "Error",
@@ -270,10 +298,11 @@ export function AddItemDialog({ isOpen, setIsOpen }: AddItemDialogProps) {
     });
     setSelectedCategory(null);
     setStep(1);
+    setIsOpen(false);
   };
 
   const renderStep1 = () => (
-    <React.Fragment>
+    <>
       <DialogHeader>
         <DialogTitle className="font-headline">Add New Inventory Item - Step 1</DialogTitle>
         <DialogDescription className="font-body">Select the category of the item you want to add.</DialogDescription>
@@ -287,9 +316,9 @@ export function AddItemDialog({ isOpen, setIsOpen }: AddItemDialogProps) {
         ))}
       </div>
       <DialogFooter>
-        <Button type="button" variant="outline" onClick={() => { resetDialogState(); setIsOpen(false); }} className="font-body">Cancel</Button>
+        <Button type="button" variant="outline" onClick={resetDialogState} className="font-body">Cancel</Button>
       </DialogFooter>
-    </React.Fragment>
+    </>
   );
 
   const renderStep2 = () => {
@@ -306,7 +335,7 @@ export function AddItemDialog({ isOpen, setIsOpen }: AddItemDialogProps) {
 
           {selectedCategory === 'PAPER' && <PaperFields control={form.control} />}
           {selectedCategory === 'INKS' && <InkFields control={form.control} />}
-          {(selectedCategory !== 'PAPER' && selectedCategory !== 'INKS') && (
+          {(selectedCategory && selectedCategory !== 'PAPER' && selectedCategory !== 'INKS') && (
             <OtherCategoryFields control={form.control} categoryLabel={categoryLabel} />
           )}
           
@@ -328,8 +357,9 @@ export function AddItemDialog({ isOpen, setIsOpen }: AddItemDialogProps) {
     <Dialog open={isOpen} onOpenChange={(open) => {
         if (!open) { 
            resetDialogState();
+        } else {
+           setIsOpen(open);
         }
-        setIsOpen(open);
     }}>
       <DialogContent className="sm:max-w-lg md:max-w-xl lg:max-w-2xl max-h-[90vh] overflow-y-auto font-body">
         {step === 1 ? renderStep1() : renderStep2()}
