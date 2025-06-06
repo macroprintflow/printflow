@@ -102,7 +102,7 @@ export function JobTemplateForm() {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {item.options.map(option => (
+                      {item.options.filter(option => option.value !== '').map(option => (
                         <SelectItem key={option.value} value={option.value} className="font-body">
                           {option.label}
                         </SelectItem>

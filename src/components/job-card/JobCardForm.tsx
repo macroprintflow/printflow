@@ -102,6 +102,9 @@ export function JobCardForm() {
         remarks: currentValues.remarks, // Or template.remarks
         dispatchDate: currentValues.dispatchDate, // Or template.dispatchDate
       });
+    } else {
+      // If "None" or an invalid template is selected, potentially clear process fields or reset to defaults
+      // For now, we'll just ensure the selectedTemplate state is cleared
     }
   };
 
@@ -167,7 +170,6 @@ export function JobCardForm() {
                 <SelectValue placeholder="Select a job template" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="" className="font-body italic">None (Manual Entry)</SelectItem>
                 {templates.map(template => (
                   <SelectItem key={template.id} value={template.id} className="font-body">{template.name}</SelectItem>
                 ))}
@@ -303,7 +305,7 @@ export function JobCardForm() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {item.options.map(option => (
+                        {item.options.filter(option => option.value !== '').map(option => (
                           <SelectItem key={option.value} value={option.value} className="font-body">{option.label}</SelectItem>
                         ))}
                       </SelectContent>
