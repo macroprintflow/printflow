@@ -1,8 +1,10 @@
+
 // src/ai/flows/inventory-optimization.ts
 'use server';
 /**
  * @fileOverview A flow that suggests the best possible master sheet size from available inventory,
  * calculating the percentage of wastage based on the input paper specifications.
+ * All dimensions are expected and returned in inches.
  *
  * - optimizeInventory - A function that handles the inventory optimization process.
  * - OptimizeInventoryInput - The input type for the optimizeInventory function.
@@ -15,15 +17,15 @@ import {z} from 'genkit';
 const OptimizeInventoryInputSchema = z.object({
   paperGsm: z.number().describe('The paper GSM (grams per square meter).'),
   paperQuality: z.string().describe('The paper quality (e.g., coated, uncoated).'),
-  jobSizeWidth: z.number().describe('The width of the job in mm.'),
-  jobSizeHeight: z.number().describe('The height of the job in mm.'),
+  jobSizeWidth: z.number().describe('The width of the job in inches.'),
+  jobSizeHeight: z.number().describe('The height of the job in inches.'),
   netQuantity: z.number().describe('The net quantity of sheets required for the job.'),
 });
 export type OptimizeInventoryInput = z.infer<typeof OptimizeInventoryInputSchema>;
 
 const MasterSheetSuggestionSchema = z.object({
-  masterSheetSizeWidth: z.number().describe('The width of the suggested master sheet size in mm.'),
-  masterSheetSizeHeight: z.number().describe('The height of the suggested master sheet size in mm.'),
+  masterSheetSizeWidth: z.number().describe('The width of the suggested master sheet size in inches.'),
+  masterSheetSizeHeight: z.number().describe('The height of the suggested master sheet size in inches.'),
   wastagePercentage: z.number().describe('The percentage of wastage for the suggested master sheet size.'),
   sheetsPerMasterSheet: z.number().describe('Number of sheets that can be cut from one master sheet.'),
   totalMasterSheetsNeeded: z.number().describe('Total number of master sheets needed to fulfill the job.'),
@@ -45,24 +47,24 @@ const prompt = ai.definePrompt({
   output: {schema: OptimizeInventoryOutputSchema},
   prompt: `You are an expert in printing and packaging, specializing in optimizing material usage to minimize waste.
 
-  Given the following paper specifications and job requirements, suggest the best possible master sheet sizes from available inventory. Calculate the percentage of wastage for each suggested master sheet size.
+  Given the following paper specifications and job requirements, suggest the best possible master sheet sizes from available inventory. Calculate the percentage of wastage for each suggested master sheet size. All dimensions are in INCHES.
 
   Paper GSM: {{{paperGsm}}} gsm
   Paper Quality: {{{paperQuality}}}
-  Job Size Width: {{{jobSizeWidth}}} mm
-  Job Size Height: {{{jobSizeHeight}}} mm
+  Job Size Width: {{{jobSizeWidth}}} inches
+  Job Size Height: {{{jobSizeHeight}}} inches
   Net Quantity: {{{netQuantity}}} sheets
 
   Consider common master sheet sizes and prioritize those that minimize wastage. Also calculate how many sheets fit on the master sheet, and how many total master sheets are needed.
 
-  Available Master Sheet Sizes (Width x Height in mm):
-  - 700 x 1000
-  - 720 x 1020
-  - 650 x 900
-  - 640 x 480
-  - 500 x 700
+  Available Master Sheet Sizes (Width x Height in INCHES):
+  - 27.56 x 39.37
+  - 28.35 x 40.16
+  - 25.59 x 35.43
+  - 25.20 x 18.90
+  - 19.69 x 27.56
 
-  Return an array of suggestions sorted by wastage percentage (lowest first). Each suggestion must include the master sheet size (width and height), wastage percentage, sheets per master sheet, and total master sheets needed.
+  Return an array of suggestions sorted by wastage percentage (lowest first). Each suggestion must include the master sheet size (width and height in inches), wastage percentage, sheets per master sheet, and total master sheets needed.
   Also include the optimalSuggestion based on the lowest wastage percentage.
   The optimalSuggestion should take into account both minimizing waste and minimizing the total number of master sheets required.
 
@@ -78,6 +80,22 @@ const optimizeInventoryFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await prompt(input);
+    // Ensure numeric precision for output if needed, though Zod handles parsing.
+    // If AI returns strings for numbers, Zod will coerce them.
+    // If more specific rounding is needed for output, it can be done here.
+    // For example, rounding wastagePercentage to 2 decimal places.
+    if (output?.suggestions) {
+      output.suggestions.forEach(s => {
+        s.wastagePercentage = parseFloat(s.wastagePercentage.toFixed(2));
+        s.masterSheetSizeWidth = parseFloat(s.masterSheetSizeWidth.toFixed(2));
+        s.masterSheetSizeHeight = parseFloat(s.masterSheetSizeHeight.toFixed(2));
+      });
+    }
+    if (output?.optimalSuggestion) {
+       output.optimalSuggestion.wastagePercentage = parseFloat(output.optimalSuggestion.wastagePercentage.toFixed(2));
+       output.optimalSuggestion.masterSheetSizeWidth = parseFloat(output.optimalSuggestion.masterSheetSizeWidth.toFixed(2));
+       output.optimalSuggestion.masterSheetSizeHeight = parseFloat(output.optimalSuggestion.masterSheetSizeHeight.toFixed(2));
+    }
     return output!;
   }
 );

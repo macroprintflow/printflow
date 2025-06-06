@@ -1,3 +1,4 @@
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -8,9 +9,9 @@ import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
 
 const sampleJobs = [
-  { id: "JOB001", name: "Luxury Perfume Box", customer: "Chic Fragrances", status: "Printing", dispatchDate: "2024-08-15", jobSize: "100x50x150mm", linked: 3 },
-  { id: "JOB002", name: "Software Packaging", customer: "Tech Solutions Ltd.", status: "Designing", dispatchDate: "2024-08-20", jobSize: "200x150x50mm", linked: 1 },
-  { id: "JOB003", name: "Gourmet Chocolate Sleeve", customer: "Sweet Delights Co.", status: "Coating", dispatchDate: "2024-08-10", jobSize: "80x180x20mm", linked: 1 },
+  { id: "JOB001", name: "Luxury Perfume Box", customer: "Chic Fragrances", status: "Printing", dispatchDate: "2024-08-15", jobSize: "3.94x1.97x5.91in", linked: 3 },
+  { id: "JOB002", name: "Software Packaging", customer: "Tech Solutions Ltd.", status: "Designing", dispatchDate: "2024-08-20", jobSize: "7.87x5.91x1.97in", linked: 1 },
+  { id: "JOB003", name: "Gourmet Chocolate Sleeve", customer: "Sweet Delights Co.", status: "Coating", dispatchDate: "2024-08-10", jobSize: "3.15x7.09x0.79in", linked: 1 },
   { id: "JOB004", name: "Promotional Flyers", customer: "Events Pro", status: "Completed", dispatchDate: "2024-07-30", jobSize: "A5", linked: 0 },
   { id: "JOB005", name: "Rigid Gift Box Set", customer: "Premium Gifts Inc.", status: "Die Cutting", dispatchDate: "2024-08-25", jobSize: "Multiple", linked: 5 },
 ];

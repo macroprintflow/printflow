@@ -44,9 +44,9 @@ let jobTemplatesStore: JobTemplateData[] = global.__jobTemplatesStore__;
 
 // Initial data for inventoryItemsStore
 const initialInventoryItems: InventoryItem[] = [
-  { id: 'inv001', name: 'Master Sheet 700x1000', type: 'Master Sheet', itemGroup: 'Master Sheets', specification: '700mm x 1000mm', availableStock: 5000, unit: 'sheets', reorderPoint: 1000 },
-  { id: 'inv002', name: 'Master Sheet 720x1020', type: 'Master Sheet', itemGroup: 'Master Sheets', specification: '720mm x 1020mm', availableStock: 3000, unit: 'sheets', reorderPoint: 500 },
-  { id: 'inv003', name: 'Master Sheet 650x900', type: 'Master Sheet', itemGroup: 'Master Sheets', specification: '650mm x 900mm', availableStock: 4500, unit: 'sheets', reorderPoint: 800 },
+  { id: 'inv001', name: 'Master Sheet 27.56x39.37in', type: 'Master Sheet', itemGroup: 'Master Sheets', specification: '27.56in x 39.37in', availableStock: 5000, unit: 'sheets', reorderPoint: 1000 },
+  { id: 'inv002', name: 'Master Sheet 28.35x40.16in', type: 'Master Sheet', itemGroup: 'Master Sheets', specification: '28.35in x 40.16in', availableStock: 3000, unit: 'sheets', reorderPoint: 500 },
+  { id: 'inv003', name: 'Master Sheet 25.59x35.43in', type: 'Master Sheet', itemGroup: 'Master Sheets', specification: '25.59in x 35.43in', availableStock: 4500, unit: 'sheets', reorderPoint: 800 },
   { id: 'inv004', name: 'Art Card Paper 300GSM', type: 'Paper Stock', itemGroup: 'Art Card', specification: '300 GSM, Coated', availableStock: 10000, unit: 'sheets', reorderPoint: 2000 },
   { id: 'inv005', name: 'Kraft Paper 120GSM', type: 'Paper Stock', itemGroup: 'Kraft Paper', specification: '120 GSM, Uncoated', availableStock: 8000, unit: 'sheets', reorderPoint: 1500 },
   { id: 'inv006', name: 'Black Ink', type: 'Ink', itemGroup: 'Inks', specification: 'Process Black', availableStock: 50, unit: 'kg', reorderPoint: 10 },

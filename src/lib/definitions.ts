@@ -1,5 +1,4 @@
 
-
 export type PaperSpecs = {
   gsm: number;
   quality: string;
@@ -221,7 +220,7 @@ export type InventoryItem = {
   name: string;
   type: 'Master Sheet' | 'Paper Stock' | 'Ink' | 'Other'; // General category
   itemGroup: ItemGroupType; // Specific group for tabbing/filtering
-  specification: string; // e.g., "700x1000mm", "Art Card 300 GSM", "Pantone 185C"
+  specification: string; // e.g., "27.56 x 39.37in", "Art Card 300 GSM", "Pantone 185C"
   availableStock: number;
   unit: 'sheets' | 'kg' | 'liters' | 'units';
   reorderPoint?: number;

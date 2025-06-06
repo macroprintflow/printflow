@@ -168,7 +168,7 @@ export function JobCardForm() {
                 <SelectValue placeholder="Select a job template" />
               </SelectTrigger>
               <SelectContent>
-                {templates.map(template => (
+                {templates.filter(t => t.id !== "").map(template => (
                   <SelectItem key={template.id} value={template.id} className="font-body">{template.name}</SelectItem>
                 ))}
               </SelectContent>
@@ -235,7 +235,7 @@ export function JobCardForm() {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {PAPER_QUALITY_OPTIONS.map(option => (
+                      {PAPER_QUALITY_OPTIONS.filter(opt => opt.value !== "").map(option => (
                         <SelectItem key={option.value} value={option.value} className="font-body">
                           {option.label}
                         </SelectItem>
@@ -289,11 +289,11 @@ export function JobCardForm() {
              <div className="col-span-1 md:col-span-2 lg:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
                 <FormField control={form.control} name="jobSizeWidth" render={({ field }) => (
                     <FormItem>
-                        <FormLabel>Job Size Width (mm)</FormLabel>
+                        <FormLabel>Job Size Width (in)</FormLabel>
                         <FormControl>
                           <Input
                             type="number"
-                            placeholder="e.g., 210"
+                            placeholder="e.g., 8.5"
                             {...field}
                             value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
                             onChange={e => {
@@ -308,11 +308,11 @@ export function JobCardForm() {
                 )} />
                 <FormField control={form.control} name="jobSizeHeight" render={({ field }) => (
                     <FormItem>
-                        <FormLabel>Job Size Height (mm)</FormLabel>
+                        <FormLabel>Job Size Height (in)</FormLabel>
                         <FormControl>
                           <Input
                             type="number"
-                            placeholder="e.g., 297"
+                            placeholder="e.g., 11"
                             {...field}
                             value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
                             onChange={e => {
@@ -331,7 +331,7 @@ export function JobCardForm() {
             </div>
             <FormField control={form.control} name="masterSheetSizeWidth" render={({ field }) => (
                 <FormItem>
-                    <FormLabel>Master Sheet Width (mm)</FormLabel>
+                    <FormLabel>Master Sheet Width (in)</FormLabel>
                     <FormControl>
                       <Input
                         type="number"
@@ -350,7 +350,7 @@ export function JobCardForm() {
             )} />
             <FormField control={form.control} name="masterSheetSizeHeight" render={({ field }) => (
                 <FormItem>
-                    <FormLabel>Master Sheet Height (mm)</FormLabel>
+                    <FormLabel>Master Sheet Height (in)</FormLabel>
                     <FormControl>
                       <Input
                         type="number"
@@ -417,7 +417,7 @@ export function JobCardForm() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {item.options.map(option => (
+                        {item.options.filter(opt => opt.value !== "").map(option => (
                           <SelectItem key={option.value} value={option.value} className="font-body">{option.label}</SelectItem>
                         ))}
                       </SelectContent>

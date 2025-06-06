@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { OptimizeInventoryInput, OptimizeInventoryOutput } from '@/ai/flows/inventory-optimization';
@@ -98,7 +99,7 @@ export function InventoryOptimizationModal({
           <DialogTitle className="font-headline">Master Sheet Optimization</DialogTitle>
           <DialogDescription>
             Get suggestions for the best master sheet size to minimize wastage based on your job specifications.
-            Click "Fetch Suggestions" after filling in Paper GSM, Quality, Job Size, and Net Quantity.
+            Click "Fetch Suggestions" after filling in Paper GSM, Quality, Job Size (in inches), and Net Quantity.
           </DialogDescription>
         </DialogHeader>
         
@@ -113,7 +114,7 @@ export function InventoryOptimizationModal({
           <div className="my-4 p-4 border border-green-500 bg-green-50 rounded-md">
             <h3 className="text-lg font-semibold text-green-700 font-headline">Optimal Suggestion</h3>
             <p className="text-sm text-green-600">
-              Size: {optimalSuggestion.masterSheetSizeWidth}mm x {optimalSuggestion.masterSheetSizeHeight}mm | 
+              Size: {optimalSuggestion.masterSheetSizeWidth.toFixed(2)}in x {optimalSuggestion.masterSheetSizeHeight.toFixed(2)}in | 
               Wastage: {optimalSuggestion.wastagePercentage.toFixed(2)}% | 
               Sheets/Master: {optimalSuggestion.sheetsPerMasterSheet} | 
               Total Masters: {optimalSuggestion.totalMasterSheetsNeeded}
@@ -129,7 +130,7 @@ export function InventoryOptimizationModal({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="font-headline">Master Sheet Size (mm)</TableHead>
+                  <TableHead className="font-headline">Master Sheet Size (in)</TableHead>
                   <TableHead className="font-headline text-right">Wastage %</TableHead>
                   <TableHead className="font-headline text-right">Sheets/Master</TableHead>
                   <TableHead className="font-headline text-right">Total Masters</TableHead>
@@ -139,7 +140,7 @@ export function InventoryOptimizationModal({
               <TableBody>
                 {suggestions.map((s, index) => (
                   <TableRow key={index} className={s === optimalSuggestion ? "bg-green-50" : ""}>
-                    <TableCell>{s.masterSheetSizeWidth} x {s.masterSheetSizeHeight}</TableCell>
+                    <TableCell>{s.masterSheetSizeWidth.toFixed(2)} x {s.masterSheetSizeHeight.toFixed(2)}</TableCell>
                     <TableCell className="text-right">{s.wastagePercentage.toFixed(2)}%</TableCell>
                     <TableCell className="text-right">{s.sheetsPerMasterSheet}</TableCell>
                     <TableCell className="text-right">{s.totalMasterSheetsNeeded}</TableCell>
