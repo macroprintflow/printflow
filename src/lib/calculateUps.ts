@@ -1,6 +1,4 @@
 
-'use server';
-
 export type LayoutInfo = {
   layout: "portrait" | "landscape";
   ups: number;
