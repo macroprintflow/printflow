@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Archive, PlusCircle, Search } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getInventoryItems, getPaperQualityLabel } from "@/lib/actions/jobActions";
+import { getInventoryItems } from "@/lib/actions/jobActions";
+import { getPaperQualityLabel } from "@/lib/definitions"; // Updated import
 import type { InventoryItem, ItemGroupType, PaperQualityType } from "@/lib/definitions";
 import { ITEM_GROUP_TYPES } from "@/lib/definitions";
 import { Badge } from "@/components/ui/badge";

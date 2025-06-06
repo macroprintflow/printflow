@@ -24,6 +24,7 @@ export type InventorySuggestion = {
   sheetsPerMasterSheet: number;
   totalMasterSheetsNeeded: number;
   cuttingLayoutDescription?: string;
+  cuttingLayoutAsciiArt?: string; // Optional: for text-based visualization
 };
 
 export const PAPER_QUALITY_OPTIONS = [
@@ -44,6 +45,11 @@ export const PAPER_QUALITY_OPTIONS = [
 type PaperQualityValue = typeof PAPER_QUALITY_OPTIONS[number]['value'];
 export type PaperQualityType = PaperQualityValue | '';
 
+export function getPaperQualityLabel(value: PaperQualityType): string {
+  const option = PAPER_QUALITY_OPTIONS.find(opt => opt.value === value);
+  return option ? option.label : value;
+}
+
 
 export type JobCardData = {
   id?: string;
@@ -61,6 +67,7 @@ export type JobCardData = {
   paperQuality: PaperQualityType; // Target/Job Quality
   wastagePercentage?: number;
   cuttingLayoutDescription?: string;
+  cuttingLayoutAsciiArt?: string; // Added to store the ASCII art
   // Fields to store the actual selected master sheet details from suggestion
   selectedMasterSheetGsm?: number;
   selectedMasterSheetQuality?: PaperQualityType;
@@ -125,6 +132,7 @@ export const JobCardSchema = z.object({
   masterSheetSizeHeight: z.coerce.number().optional(), // From suggestion
   wastagePercentage: z.coerce.number().optional(), // From suggestion
   cuttingLayoutDescription: z.string().optional(), // From suggestion
+  cuttingLayoutAsciiArt: z.string().optional(), // Added for form validation
   selectedMasterSheetGsm: z.coerce.number().optional(), // Actual GSM from suggestion
   selectedMasterSheetQuality: z.enum(paperQualityEnumValues).optional(), // Actual quality from suggestion
   sourceInventoryItemId: z.string().optional(), // ID of inventory item from suggestion

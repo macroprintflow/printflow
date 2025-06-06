@@ -3,7 +3,8 @@
 
 import type { OptimizeInventoryOutput } from '@/ai/flows/inventory-optimization';
 import type { InventorySuggestion, PaperQualityType } from '@/lib/definitions';
-import { getInventoryOptimizationSuggestions, getPaperQualityLabel } from '@/lib/actions/jobActions';
+import { getPaperQualityLabel } from '@/lib/definitions'; // Updated import
+import { getInventoryOptimizationSuggestions } from '@/lib/actions/jobActions';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,

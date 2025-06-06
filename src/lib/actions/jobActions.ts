@@ -46,6 +46,7 @@ const initialInventoryItems: InventoryItem[] = [
   { id: 'inv011', name: 'SBS Master 25.20x18.90in 280GSM', type: 'Master Sheet', itemGroup: 'SBS', specification: '25.20in x 18.90in, 280 GSM SBS', paperGsm: 280, paperQuality: 'SBS', masterSheetSizeWidth: 25.20, masterSheetSizeHeight: 18.90, availableStock: 2000, unit: 'sheets', reorderPoint: 400 },
   { id: 'inv012', name: 'WG Kappa Master 19.69x27.56in 400GSM', type: 'Master Sheet', itemGroup: 'WG Kappa', specification: '19.69in x 27.56in, 400 GSM WG Kappa', paperGsm: 400, paperQuality: 'WG_KAPPA', masterSheetSizeWidth: 19.69, masterSheetSizeHeight: 27.56, availableStock: 1500, unit: 'sheets', reorderPoint: 300 },
   { id: 'inv013', name: 'SBS Master 27.56x39.37in 280GSM', type: 'Master Sheet', itemGroup: 'SBS', specification: '27.56in x 39.37in, 280 GSM SBS', paperGsm: 280, paperQuality: 'SBS', masterSheetSizeWidth: 27.56, masterSheetSizeHeight: 39.37, availableStock: 500, unit: 'sheets', reorderPoint: 100 },
+  { id: 'inv015', name: 'GG Kappa Master 20x30in 320GSM', type: 'Master Sheet', itemGroup: 'GG Kappa', specification: '20in x 30in, 320 GSM GG Kappa', paperGsm: 320, paperQuality: 'GG_KAPPA', masterSheetSizeWidth: 20, masterSheetSizeHeight: 30, availableStock: 1800, unit: 'sheets', reorderPoint: 350 },
 
 
   // Paper Stock (can also be used as master sheets if dimensions are suitable)
@@ -86,6 +87,9 @@ export async function createJobCard(data: JobCardFormValues): Promise<{ success:
       id: currentJobCounter.toString(),
       jobCardNumber: generateJobCardNumber(),
       date: new Date().toISOString().split('T')[0],
+      cuttingLayoutDescription: data.cuttingLayoutDescription,
+      // Ensure cuttingLayoutAsciiArt is passed if present (it's optional)
+      ...(data.cuttingLayoutAsciiArt && { cuttingLayoutAsciiArt: data.cuttingLayoutAsciiArt }),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -133,7 +137,7 @@ export async function getInventoryOptimizationSuggestions(
           if (gsmDiff > 10) return false;
         } else if (item.paperQuality === 'GREYBACK' || item.paperQuality === 'WHITEBACK') {
           if (gsmDiff > 20) return false;
-        } else { // Exact match for other qualities
+        } else { // Exact match for other qualities (includes Kappas, Kraft, etc.)
           if (gsmDiff !== 0) return false;
         }
         return true;
@@ -198,11 +202,6 @@ export async function createJobTemplate(data: JobTemplateFormValues): Promise<{ 
 
 export async function getInventoryItems(): Promise<InventoryItem[]> {
   return [...inventoryItemsStore];
-}
-
-export function getPaperQualityLabel(value: PaperQualityType): string {
-  const option = PAPER_QUALITY_OPTIONS.find(opt => opt.value === value);
-  return option ? option.label : value;
 }
 
     
