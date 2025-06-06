@@ -110,16 +110,17 @@ export async function getInventoryOptimizationSuggestions(
   }
 ): Promise<OptimizeInventoryOutput | { error: string }> {
   try {
+    // Log job input
+    console.log(`[InventoryOptimization] Job Input: GSM=${jobInput.paperGsm}, Quality=${jobInput.paperQuality}, Size=${jobInput.jobSizeWidth}x${jobInput.jobSizeHeight}, Qty=${jobInput.netQuantity}`);
+    
     const allInventory = await getInventoryItems(); // Uses global.__inventoryItemsStore__
     console.log('[InventoryOptimization] Full inventory fetched (first 5 items):', JSON.stringify(allInventory.slice(0,5).map(i => ({id: i.id, name: i.name, type: i.type, w: i.masterSheetSizeWidth, h: i.masterSheetSizeHeight, gsm: i.paperGsm, quality: i.paperQuality})), null, 2));
-    console.log(`[InventoryOptimization] Job Input: GSM=${jobInput.paperGsm}, Quality=${jobInput.paperQuality}, Size=${jobInput.jobSizeWidth}x${jobInput.jobSizeHeight}, Qty=${jobInput.netQuantity}`);
-
-
+    
     const { paperGsm: targetGsm, paperQuality: targetQuality } = jobInput;
 
     const availableMasterSheets: AvailableSheet[] = allInventory
       .filter(item => {
-        // Primary filter: Must have dimensions and core paper properties to be considered a master sheet
+        // Primary filter: Must have dimensions and core paper properties
         if (!item.masterSheetSizeWidth || item.masterSheetSizeWidth <= 0 ||
             !item.masterSheetSizeHeight || item.masterSheetSizeHeight <= 0 ||
             !item.paperGsm || item.paperGsm <= 0 ||
@@ -130,26 +131,24 @@ export async function getInventoryOptimizationSuggestions(
 
         // Paper Quality Check: Case-insensitive match
         if (item.paperQuality.toLowerCase() !== targetQuality.toLowerCase()) {
-          console.log(`[InventoryOptimization] Filtering out item ${item.id} ('${item.name}') due to quality mismatch. ItemQ: ${item.paperQuality}, TargetQ: ${targetQuality}`);
+          console.log(`[InventoryOptimization] Filtering out item ${item.id} ('${item.name}') due to quality mismatch. ItemQ: ${item.paperQuality.toLowerCase()}, TargetQ: ${targetQuality.toLowerCase()}`);
           return false;
         }
 
         // GSM Tolerance Check
         const gsmDiff = Math.abs(item.paperGsm - targetGsm);
         const highToleranceQualities: PaperQualityType[] = ['SBS', 'ART_PAPER_GLOSS', 'ART_PAPER_MATT', 'GREYBACK', 'WHITEBACK'];
-        let gsmTolerance = 5; 
-        // Check if item.paperQuality is one of the high tolerance types
+        let gsmTolerance = 5; // Default tolerance for other qualities
         if (highToleranceQualities.some(hq => hq.toLowerCase() === item.paperQuality!.toLowerCase())) {
-            gsmTolerance = 20;
+            gsmTolerance = 20; // Increased tolerance for specified qualities
         }
-
 
         if (gsmDiff > gsmTolerance) {
           console.log(`[InventoryOptimization] Filtering out item ${item.id} ('${item.name}') due to GSM mismatch. ItemGSM: ${item.paperGsm}, TargetGSM: ${targetGsm}, Diff: ${gsmDiff}, Tolerance: ${gsmTolerance}`);
           return false;
         }
         
-        console.log(`[InventoryOptimization] Item ${item.id} ('${item.name}') PASSED filters. W: ${item.masterSheetSizeWidth}, H: ${item.masterSheetSizeHeight}, GSM: ${item.paperGsm}, Q: ${item.paperQuality}`);
+        console.log(`[InventoryOptimization] Item ${item.id} ('${item.name}') PASSED filters. W: ${item.masterSheetSizeWidth}, H: ${item.masterSheetSizeHeight}, GSM: ${item.paperGsm}, Q: ${item.paperQuality.toLowerCase()}`);
         return true;
       })
       .map(item => ({ // Map to the structure expected by the AI flow
@@ -160,7 +159,9 @@ export async function getInventoryOptimizationSuggestions(
         paperQuality: item.paperQuality!,
       }));
 
-    console.log('[InventoryOptimization] Filtered Available Master Sheets for AI (first 5 items):', JSON.stringify(availableMasterSheets.slice(0,5), null, 2));
+    // Log the full list of candidate sheets being sent to the AI
+    console.log('[InventoryOptimization] Available master sheets being sent to AI:', JSON.stringify(availableMasterSheets, null, 2));
+    
     if (availableMasterSheets.length === 0) {
       console.log('[InventoryOptimization] No suitable master sheets found after filtering to send to AI.');
       return { suggestions: [], optimalSuggestion: undefined };
@@ -176,6 +177,7 @@ export async function getInventoryOptimizationSuggestions(
     };
 
     const result = await optimizeInventory(aiInput);
+    // Log the raw AI output
     console.log('[InventoryOptimization] Raw AI Output:', JSON.stringify(result, null, 2));
     return result;
 
@@ -188,6 +190,9 @@ export async function getInventoryOptimizationSuggestions(
 
 
 export async function getJobTemplates(): Promise<JobTemplateData[]> {
+  if (!global.__jobTemplatesStore__) {
+    global.__jobTemplatesStore__ = [...initialJobTemplates];
+  }
   return [...global.__jobTemplatesStore__!];
 }
 
@@ -235,13 +240,14 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
 
 
     if (data.category === 'PAPER') {
+      // These are now validated by Zod superRefine to be present if category is PAPER
       masterSheetSizeWidth = data.paperMasterSheetSizeWidth!;
       masterSheetSizeHeight = data.paperMasterSheetSizeHeight!;
       paperGsm = data.paperGsm!;
       paperQuality = data.paperQuality as PaperQualityType;
       
-      itemType = 'Master Sheet';
-      itemGroup = getPaperQualityLabel(paperQuality) as ItemGroupType; // Ensure this is a valid ItemGroupType
+      itemType = 'Master Sheet'; // Default to Master Sheet for paper items with dimensions
+      itemGroup = getPaperQualityLabel(paperQuality) as ItemGroupType; 
 
       specificName = `${getPaperQualityLabel(paperQuality)} ${paperGsm}GSM ${masterSheetSizeWidth.toFixed(2)}x${masterSheetSizeHeight.toFixed(2)}in`.trim();
       specificSpecification = `${paperGsm}GSM ${getPaperQualityLabel(paperQuality)}, ${masterSheetSizeWidth.toFixed(2)}in x ${masterSheetSizeHeight.toFixed(2)}in`;
@@ -295,6 +301,3 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
     return { success: false, message: 'Failed to add inventory item.' };
   }
 }
-
-
-    
