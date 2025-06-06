@@ -7,11 +7,11 @@ import Link from "next/link";
 import Image from "next/image";
 
 export default function NewJobPage() {
-  // Placeholder for approved designs
+  // Placeholder for approved designs - now including jobName and customerName
   const approvedDesigns = [
-    { id: 'design1', name: 'Luxury Perfume Box - Variant A', thumbnail: 'https://placehold.co/200x150.png' },
-    { id: 'design2', name: 'Retail Display Stand - Model X', thumbnail: 'https://placehold.co/200x150.png' },
-    { id: 'design3', name: 'Food Packaging Sleeve - Eco', thumbnail: 'https://placehold.co/200x150.png' },
+    { id: 'design1', name: 'Luxury Perfume Box - Variant A', thumbnail: 'https://placehold.co/200x150.png', jobName: "Luxury Perfume Box", customerName: "Chic Fragrances" },
+    { id: 'design2', name: 'Retail Display Stand - Model X', thumbnail: 'https://placehold.co/200x150.png', jobName: "Retail Display X", customerName: "Point of Sale Inc." },
+    { id: 'design3', name: 'Food Packaging Sleeve - Eco', thumbnail: 'https://placehold.co/200x150.png', jobName: "Eco Food Sleeve", customerName: "Green Goods Co." },
   ];
 
   return (
@@ -27,14 +27,14 @@ export default function NewJobPage() {
       </div>
 
       {/* Section for Approved Designs */}
-      <Card className="shadow-lg">
+      <Card className="shadow-lg border-green-500 border-2">
         <CardHeader>
           <CardTitle className="font-headline flex items-center text-xl">
             <FileCheck2 className="mr-3 h-6 w-6 text-green-600" />
             Start from an Approved Design
           </CardTitle>
           <CardDescription className="font-body">
-            Select an existing approved design to quickly populate a new job card.
+            Select an existing approved design. This would pre-fill Job Name and Customer Name in the form below. (Pre-fill functionality coming soon)
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -55,10 +55,13 @@ export default function NewJobPage() {
                     <CardTitle className="font-body text-md font-semibold truncate group-hover:text-primary transition-colors">
                         {design.name}
                     </CardTitle>
+                     <CardDescription className="text-xs font-body">
+                        Job: {design.jobName} | Cust: {design.customerName}
+                    </CardDescription>
                   </CardHeader>
                   <CardContent className="p-4 pt-0">
-                    <Button className="w-full font-body" variant="secondary" disabled> {/* Disabled for now */}
-                      <Sparkles className="mr-2 h-4 w-4" /> Create Job from Design
+                    <Button className="w-full font-body" variant="secondary" disabled> {/* Disabled until pre-fill implemented */}
+                      <Sparkles className="mr-2 h-4 w-4" /> Create Job from This Design
                     </Button>
                   </CardContent>
                 </Card>
@@ -66,21 +69,21 @@ export default function NewJobPage() {
             </div>
           ) : (
             <p className="text-muted-foreground font-body text-center py-6">
-              No approved designs available to start from. Try creating a blank job card below.
+              No approved designs available to start from. Upload and approve designs in the 'For Approval' section.
             </p>
           )}
         </CardContent>
       </Card>
 
       {/* Section for creating a new job card from scratch or template */}
-      <Card className="shadow-lg">
+      <Card className="shadow-lg mt-8">
         <CardHeader>
           <CardTitle className="font-headline flex items-center text-xl">
             <FilePlus2 className="mr-3 h-6 w-6 text-primary" />
-            Create Blank Job Card or Use Template
+            Create New Job Card (Blank or from Past Job)
           </CardTitle>
           <CardDescription className="font-body">
-            Fill out the details below to create a new job card from scratch, or select a template to pre-fill common specifications.
+            Fill out the details below to create a new job card. You can pre-fill from a customer's past job.
           </CardDescription>
         </CardHeader>
         <CardContent>
