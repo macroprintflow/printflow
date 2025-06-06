@@ -122,7 +122,7 @@
   }
   body {
     font-family: var(--ios-font);
-    background-color: var(--ios-gray); /* Solid background for the body */
+    /* background-color: var(--ios-gray); Solid background for the body - Image will overlay this */
     color: var(--ios-text);
     margin: 0;
     padding: 0;
@@ -130,6 +130,13 @@
     -moz-osx-font-smoothing: grayscale;
     transition: var(--ios-transition);
     @apply bg-background text-foreground; /* Re-apply tailwind theme vars for body to ensure consistency */
+    
+    /* New background image styles */
+    background-image: url('/images/dark-wave-background.png');
+    background-size: cover;
+    background-position: center center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
   }
 }
 
@@ -150,7 +157,7 @@
   position: fixed;
   bottom: 24px;
   right: 24px;
-  background-color: var(--ios-blue);
+  background-color: rgba(0, 122, 255, 0.8); /* Updated from user prompt */
   color: white;
   border-radius: 50%;
   width: 56px;
@@ -161,12 +168,11 @@
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
   border: none;
   font-size: 24px;
-  transition: transform 0.3s cubic-bezier(0.33, 1, 0.68, 1), background-color 0.25s ease;
   z-index: 999;
   /* Enhanced floating button properties */
-  backdrop-filter: blur(10px) saturate(180%);
-  -webkit-backdrop-filter: blur(10px) saturate(180%);
-  background-color: rgba(0, 122, 255, 0.8); /* Updated background color with opacity */
+  backdrop-filter: blur(10px) saturate(180%); /* Updated from user prompt */
+  -webkit-backdrop-filter: blur(10px) saturate(180%); /* Updated from user prompt */
+  transition: transform 0.3s cubic-bezier(0.33, 1, 0.68, 1), background-color 0.25s ease; /* Updated from user prompt */
 }
 
 .ios-floating-button:hover {
@@ -200,8 +206,8 @@
   padding: 0.75rem 1.5rem;
   font-size: 16px;
   font-weight: 500;
-  transition: transform 0.3s cubic-bezier(0.33, 1, 0.68, 1), background-color 0.25s ease;
   box-shadow: var(--ios-shadow);
+  transition: transform 0.3s cubic-bezier(0.33, 1, 0.68, 1), background-color 0.25s ease; /* Updated from user prompt */
 }
 
 .ios-button:hover {
@@ -223,7 +229,24 @@
   transition: var(--ios-transition);
 }
 
-/* Transitions */
+/* Modal entrance animation - Updated from user prompt */
+.ios-modal.fade-in {
+  animation: iosModalIn 0.4s ease forwards;
+}
+
+@keyframes iosModalIn { /* Added from user prompt */
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+
+/* Original Transitions */
 .fade-in {
   animation: fadeIn 0.4s ease-in;
 }
@@ -250,12 +273,13 @@
   }
 }
 
+/* This @layer base for body was already present, so I ensure * is here too */
 @layer base {
   * {
-    /* ... */
+    /* @apply border-border; -- This was duplicated, ensure it's only applied once if needed */
   }
   body {
-    /* ... */
+    /* Styles moved to the first body declaration in this file for clarity */
   }
 }
 
@@ -277,54 +301,11 @@
   }
 }
 
-/* Additions & Enhancements (From User) */
-
-/* iOS-style Wallpaper Background */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  background: linear-gradient(135deg, #f1f2f6, #dfe4ea, #f1f2f6); /* iOS cloudy gradient */
-  z-index: -10;
-  opacity: 0.3; /* Light opacity for wallpaper */
-  background-size: 400% 400%;
-  animation: backgroundFlow 20s ease infinite;
-  pointer-events: none;
-}
-
-@media (prefers-color-scheme: dark) {
-  body::before {
-    /* Dark mode wallpaper - could be a different gradient or a subtle pattern */
-    background: linear-gradient(135deg, #2c3e50, #34495e, #2c3e50);
-    opacity: 0.2; /* Even more subtle in dark mode */
-  }
-}
+/* REMOVED iOS-style Wallpaper Background (body::before) and @keyframes backgroundFlow */
+/* The new background image on body replaces this */
 
 
-/* Animation for moving background */
-@keyframes backgroundFlow {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-
-/* Modal entrance animation */
-.ios-modal.fade-in {
-  animation: iosModalIn 0.4s ease forwards;
-}
-
-@keyframes iosModalIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95) translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-}
-
-/* Optional iOS toggle switch style */
+/* Optional iOS toggle switch style - Added from user prompt */
 .ios-toggle {
   appearance: none;
   width: 42px;
