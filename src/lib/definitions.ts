@@ -1,5 +1,4 @@
 
-
 export type PaperSpecs = {
   gsm: number;
   quality: string;
@@ -22,6 +21,7 @@ export type InventorySuggestion = {
   sheetsPerMasterSheet: number;
   totalMasterSheetsNeeded: number;
   cuttingLayoutDescription?: string;
+  cuttingLayoutAsciiArt?: string;
 };
 
 export const PAPER_QUALITY_OPTIONS = [
@@ -228,5 +228,3 @@ export type InventoryItem = {
   reorderPoint?: number;
   supplier?: string;
 };
-
-

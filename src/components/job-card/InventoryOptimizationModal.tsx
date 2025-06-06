@@ -12,7 +12,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -94,7 +93,7 @@ export function InventoryOptimizationModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="sm:max-w-4xl font-body"> {/* Increased width */}
+      <DialogContent className="sm:max-w-4xl font-body">
         <DialogHeader>
           <DialogTitle className="font-headline">Master Sheet Optimization</DialogTitle>
           <DialogDescription>
@@ -120,6 +119,14 @@ export function InventoryOptimizationModal({
               Total Masters: {optimalSuggestion.totalMasterSheetsNeeded} <br />
               Layout: {optimalSuggestion.cuttingLayoutDescription || 'N/A'}
             </p>
+            {optimalSuggestion.cuttingLayoutAsciiArt && (
+              <div className="mt-2">
+                <p className="text-xs text-green-500 font-medium">Visual Layout:</p>
+                <pre className="text-xs text-green-600 bg-green-100 p-2 rounded overflow-x-auto" style={{ fontFamily: 'monospace', whiteSpace: 'pre', lineHeight: '1.2' }}>
+                  {optimalSuggestion.cuttingLayoutAsciiArt}
+                </pre>
+              </div>
+            )}
             <Button size="sm" className="mt-2 bg-green-600 hover:bg-green-700" onClick={() => handleSelect(optimalSuggestion)}>
               Use Optimal Suggestion
             </Button>
@@ -132,7 +139,7 @@ export function InventoryOptimizationModal({
               <TableHeader>
                 <TableRow>
                   <TableHead className="font-headline">Master Sheet Size (in)</TableHead>
-                  <TableHead className="font-headline">Layout</TableHead>
+                  <TableHead className="font-headline">Layout & Sketch</TableHead>
                   <TableHead className="font-headline text-right">Wastage %</TableHead>
                   <TableHead className="font-headline text-right">Sheets/Master</TableHead>
                   <TableHead className="font-headline text-right">Total Masters</TableHead>
@@ -143,7 +150,14 @@ export function InventoryOptimizationModal({
                 {suggestions.map((s, index) => (
                   <TableRow key={index} className={s === optimalSuggestion ? "bg-green-50" : ""}>
                     <TableCell>{s.masterSheetSizeWidth.toFixed(2)} x {s.masterSheetSizeHeight.toFixed(2)}</TableCell>
-                    <TableCell className="text-xs">{s.cuttingLayoutDescription || '-'}</TableCell>
+                    <TableCell className="text-xs">
+                      {s.cuttingLayoutDescription || '-'}
+                      {s.cuttingLayoutAsciiArt && (
+                        <pre className="mt-1 text-muted-foreground" style={{ fontFamily: 'monospace', whiteSpace: 'pre', fontSize: '0.7rem', lineHeight: '1.2' }}>
+                          {s.cuttingLayoutAsciiArt}
+                        </pre>
+                      )}
+                    </TableCell>
                     <TableCell className="text-right">{s.wastagePercentage.toFixed(2)}%</TableCell>
                     <TableCell className="text-right">{s.sheetsPerMasterSheet}</TableCell>
                     <TableCell className="text-right">{s.totalMasterSheetsNeeded}</TableCell>
@@ -168,4 +182,3 @@ export function InventoryOptimizationModal({
     </Dialog>
   );
 }
-
