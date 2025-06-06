@@ -132,7 +132,7 @@
     @apply bg-background text-foreground; /* Re-apply tailwind theme vars for body to ensure consistency */
     
     /* Custom background image - REPLACE WITH YOUR ACTUAL IMAGE PATH IN /public */
-    background-image: url('/images/custom-user-background.jpg');
+    background-image: url('/images/189271609765514.jpg');
     background-size: cover;
     background-position: center center;
     background-repeat: no-repeat;
@@ -336,5 +336,3 @@
 .ios-toggle:checked::before {
   transform: translateX(16px);
 }
-
-    
