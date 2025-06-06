@@ -13,23 +13,24 @@ import { ITEM_GROUP_TYPES } from "@/lib/definitions";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { AddItemDialog } from "@/components/inventory/AddItemDialog"; // Import the new dialog
+import { AddItemDialog } from "@/components/inventory/AddItemDialog";
 
 export default function InventoryPage() {
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<ItemGroupType>(ITEM_GROUP_TYPES[0]); 
-  const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false); // State for dialog
+  const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false);
+
+  const fetchInventory = useCallback(async () => {
+    setIsLoading(true);
+    const items = await getInventoryItems();
+    setInventoryItems(items);
+    setIsLoading(false);
+  }, []);
 
   useEffect(() => {
-    async function fetchData() {
-      setIsLoading(true);
-      const items = await getInventoryItems();
-      setInventoryItems(items);
-      setIsLoading(false);
-    }
-    fetchData();
-  }, []);
+    fetchInventory();
+  }, [fetchInventory]);
 
   const filteredItems = useMemo(() => {
     if (activeTab === "All") {
@@ -84,7 +85,7 @@ export default function InventoryPage() {
                 <Badge variant={
                   item.type === 'Master Sheet' ? 'secondary' :
                   item.type === 'Paper Stock' ? 'outline' : 
-                  item.type === 'Ink' ? 'default' : 'secondary' // Added more variants for other types
+                  item.type === 'Ink' ? 'default' : 'secondary' 
                 } className="font-body capitalize">
                   {item.type}
                 </Badge>
@@ -96,7 +97,7 @@ export default function InventoryPage() {
               </TableCell>
               <TableCell className="font-body text-sm text-muted-foreground">{item.specification}</TableCell>
               <TableCell className="font-body">{item.paperGsm || '-'}</TableCell>
-              <TableCell className="font-body">{item.paperQuality ? getPaperQualityLabel(item.paperQuality) : '-'}</TableCell>
+              <TableCell className="font-body">{item.paperQuality ? getPaperQualityLabel(item.paperQuality as PaperQualityType) : '-'}</TableCell>
               <TableCell className="font-body text-right">{item.availableStock.toLocaleString()}</TableCell>
               <TableCell className="font-body text-right">{item.unit}</TableCell>
               <TableCell className="font-body text-right">{item.reorderPoint ? item.reorderPoint.toLocaleString() : '-'}</TableCell>
@@ -105,7 +106,7 @@ export default function InventoryPage() {
         </TableBody>
       </Table>
     );
-  }, [isLoading]);
+  }, [isLoading, inventoryItems]); // Added inventoryItems to dependencies for re-render when it changes.
 
 
   return (
@@ -147,7 +148,11 @@ export default function InventoryPage() {
           </Tabs>
         </CardContent>
       </Card>
-      <AddItemDialog isOpen={isAddItemDialogOpen} setIsOpen={setIsAddItemDialogOpen} />
+      <AddItemDialog 
+        isOpen={isAddItemDialogOpen} 
+        setIsOpen={setIsAddItemDialogOpen} 
+        onItemAdded={fetchInventory} 
+      />
     </div>
   );
 }

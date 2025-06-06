@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, type Dispatch, type SetStateAction } from "react";
+import React, { useState, type Dispatch, type SetStateAction, Fragment } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, type UseFormReturn, type Control } from "react-hook-form";
 import type { InventoryItemFormValues, InventoryCategory, PaperQualityType } from "@/lib/definitions";
@@ -22,12 +22,12 @@ import { useToast } from "@/hooks/use-toast";
 interface AddItemDialogProps {
   isOpen: boolean;
   setIsOpen: Dispatch<SetStateAction<boolean>>;
+  onItemAdded?: () => void;
 }
 
-// Helper component for Paper specific fields
 const PaperFields = ({ control }: { control: Control<InventoryItemFormValues> }) => (
   <>
-    <FormField control={control} name="itemName" render={({ field }) => (<FormItem><FormControl><Input type="hidden" {...field} /></FormControl><FormMessage /></FormItem>)} />
+    <FormField control={control} name="itemName" render={({ field }) => (<FormItem className="hidden"><FormControl><Input type="hidden" {...field} /></FormControl><FormMessage /></FormItem>)} />
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <FormField control={control} name="paperMasterSheetSizeWidth" render={({ field }) => (
         <FormItem>
@@ -64,10 +64,9 @@ const PaperFields = ({ control }: { control: Control<InventoryItemFormValues> })
   </>
 );
 
-// Helper component for Ink specific fields
 const InkFields = ({ control }: { control: Control<InventoryItemFormValues> }) => (
   <>
-     <FormField control={control} name="itemName" render={({ field }) => (<FormItem><FormControl><Input type="hidden" {...field} /></FormControl><FormMessage /></FormItem>)} />
+     <FormField control={control} name="itemName" render={({ field }) => (<FormItem className="hidden"><FormControl><Input type="hidden" {...field} /></FormControl><FormMessage /></FormItem>)} />
      <FormField control={control} name="inkName" render={({ field }) => (
          <FormItem>
              <FormLabel>Ink Name/Type</FormLabel>
@@ -85,7 +84,6 @@ const InkFields = ({ control }: { control: Control<InventoryItemFormValues> }) =
   </>
 );
 
-// Helper component for Other category fields
 const OtherCategoryFields = ({ control, categoryLabel }: { control: Control<InventoryItemFormValues>; categoryLabel: string }) => (
   <>
     <FormField control={control} name="itemName" render={({ field }) => (
@@ -105,12 +103,11 @@ const OtherCategoryFields = ({ control, categoryLabel }: { control: Control<Inve
   </>
 );
 
-// Helper component for Common fields
 const CommonFields = ({ form }: { form: UseFormReturn<InventoryItemFormValues> }) => {
   const watchedVendor = form.watch("vendorName");
   return (
     <>
-      <div className="grid grid-cols-1 gap-4"> {/* Simplified className, removed md:grid-cols-2 for now */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <FormField
           control={form.control}
           name="availableStock"
@@ -122,10 +119,9 @@ const CommonFields = ({ form }: { form: UseFormReturn<InventoryItemFormValues> }
                   type="number"
                   placeholder="e.g., 1000"
                   {...field}
-                  value={field.value ?? 0} // Default to 0 if undefined
+                  value={field.value ?? 0} 
                   onChange={e => {
                     const value = e.target.value;
-                    // Ensure 0 for empty string, otherwise parse
                     field.onChange(value === '' ? 0 : parseFloat(value)); 
                   }}
                   className="font-body"
@@ -135,7 +131,6 @@ const CommonFields = ({ form }: { form: UseFormReturn<InventoryItemFormValues> }
             </FormItem>
           )}
         />
-        {/* Unit FormField is still commented out for isolation
         <FormField control={form.control} name="unit" render={({ field }) => (
           <FormItem>
             <FormLabel>Unit</FormLabel>
@@ -146,11 +141,8 @@ const CommonFields = ({ form }: { form: UseFormReturn<InventoryItemFormValues> }
             <FormMessage />
           </FormItem>
         )} />
-        */}
       </div>
-
-      {/* All subsequent fields in CommonFields are commented out to isolate the parsing error */}
-      {/*
+      
       <FormField control={form.control} name="reorderPoint" render={({ field }) => (
         <FormItem>
           <FormLabel>Reorder Point (Optional)</FormLabel>
@@ -185,7 +177,7 @@ const CommonFields = ({ form }: { form: UseFormReturn<InventoryItemFormValues> }
             <FormControl><Input placeholder="Enter vendor name" {...field} className="font-body"/></FormControl>
             <FormMessage />
           </FormItem>
-        )}
+        )} />
       )}
 
       <FormField control={form.control} name="dateOfEntry" render={({ field }) => (
@@ -207,52 +199,61 @@ const CommonFields = ({ form }: { form: UseFormReturn<InventoryItemFormValues> }
           <FormMessage />
         </FormItem>
       )} />
-      */}
     </>
   );
 };
 
 
-export function AddItemDialog({ isOpen, setIsOpen }: AddItemDialogProps) {
+export function AddItemDialog({ isOpen, setIsOpen, onItemAdded }: AddItemDialogProps) {
   const [step, setStep] = useState(1);
   const [selectedCategory, setSelectedCategory] = useState<InventoryCategory | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
+  const formDefaultValues: InventoryItemFormValues = {
+    category: undefined,
+    paperMasterSheetSizeWidth: undefined,
+    paperMasterSheetSizeHeight: undefined,
+    paperQuality: "",
+    paperGsm: undefined,
+    inkName: "",
+    inkSpecification: "",
+    itemName: "",
+    itemSpecification: "",
+    availableStock: 0,
+    unit: "sheets", 
+    purchaseBillNo: "",
+    vendorName: undefined,
+    otherVendorName: "",
+    dateOfEntry: new Date().toISOString(),
+    reorderPoint: undefined,
+  };
+
   const form = useForm<InventoryItemFormValues>({
     resolver: zodResolver(InventoryItemFormSchema),
-    defaultValues: {
-      category: undefined,
-      paperMasterSheetSizeWidth: undefined,
-      paperMasterSheetSizeHeight: undefined,
-      paperQuality: "",
-      paperGsm: undefined,
-      inkName: "",
-      inkSpecification: "",
-      itemName: "",
-      itemSpecification: "",
-      availableStock: 0,
-      unit: "sheets", 
-      purchaseBillNo: "",
-      vendorName: undefined,
-      otherVendorName: "",
-      dateOfEntry: new Date().toISOString(),
-      reorderPoint: undefined,
-    },
+    defaultValues: formDefaultValues,
   });
 
   const handleCategorySelect = (category: InventoryCategory) => {
+    form.reset(formDefaultValues); // Reset form when category changes to clear irrelevant fields
     setSelectedCategory(category);
     form.setValue("category", category);
     
-    if (category === 'PAPER') form.setValue("itemName", "Paper Stock"); // Default name
+    if (category === 'PAPER') form.setValue("itemName", "Paper Stock"); // Default name, can be refined
     else if (category === 'INKS') form.setValue("itemName", "Ink"); // Default name
     else if (category === 'PLASTIC_TRAY') form.setValue("itemName", "Plastic Tray");
     else if (category === 'GLASS_JAR') form.setValue("itemName", "Glass Jar");
     else if (category === 'MAGNET') form.setValue("itemName", "Magnet");
-    else form.setValue("itemName", "");
+    else form.setValue("itemName", ""); // User defined for 'Other'
 
     setStep(2);
+  };
+
+  const resetDialogState = () => {
+    form.reset(formDefaultValues);
+    setSelectedCategory(null);
+    setStep(1);
+    setIsSubmitting(false);
   };
 
   async function onSubmit(values: InventoryItemFormValues) {
@@ -268,6 +269,10 @@ export function AddItemDialog({ isOpen, setIsOpen }: AddItemDialogProps) {
         description: "Inventory item added successfully.",
       });
       resetDialogState();
+      if (onItemAdded) {
+        onItemAdded();
+      }
+      setIsOpen(false);
     } else {
       toast({
         title: "Error",
@@ -277,28 +282,11 @@ export function AddItemDialog({ isOpen, setIsOpen }: AddItemDialogProps) {
     }
   }
   
-  const resetDialogState = () => {
-    form.reset({
-        category: undefined,
-        paperMasterSheetSizeWidth: undefined,
-        paperMasterSheetSizeHeight: undefined,
-        paperQuality: "",
-        paperGsm: undefined,
-        inkName: "",
-        inkSpecification: "",
-        itemName: "",
-        itemSpecification: "",
-        availableStock: 0,
-        unit: "sheets",
-        purchaseBillNo: "",
-        vendorName: undefined,
-        otherVendorName: "",
-        dateOfEntry: new Date().toISOString(),
-        reorderPoint: undefined,
-    });
-    setSelectedCategory(null);
-    setStep(1);
-    setIsOpen(false);
+  const handleDialogClose = (open: boolean) => {
+    if (!open) { 
+       resetDialogState();
+    }
+    setIsOpen(open);
   };
 
   const renderStep1 = () => (
@@ -316,7 +304,7 @@ export function AddItemDialog({ isOpen, setIsOpen }: AddItemDialogProps) {
         ))}
       </div>
       <DialogFooter>
-        <Button type="button" variant="outline" onClick={resetDialogState} className="font-body">Cancel</Button>
+        <Button type="button" variant="outline" onClick={() => handleDialogClose(false)} className="font-body">Cancel</Button>
       </DialogFooter>
     </>
   );
@@ -354,13 +342,7 @@ export function AddItemDialog({ isOpen, setIsOpen }: AddItemDialogProps) {
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => {
-        if (!open) { 
-           resetDialogState();
-        } else {
-           setIsOpen(open);
-        }
-    }}>
+    <Dialog open={isOpen} onOpenChange={handleDialogClose}>
       <DialogContent className="sm:max-w-lg md:max-w-xl lg:max-w-2xl max-h-[90vh] overflow-y-auto font-body">
         {step === 1 ? renderStep1() : renderStep2()}
       </DialogContent>
