@@ -49,8 +49,12 @@ const MasterSheetSuggestionSchema = z.object({
 const OptimizeInventoryOutputSchema = z.object({
   suggestions: z.array(MasterSheetSuggestionSchema).describe('An array of master sheet size suggestions, sorted by wastage percentage (lowest first).'),
   optimalSuggestion: MasterSheetSuggestionSchema.optional().describe('The optimal master sheet size suggestion based on the lowest wastage percentage.'),
+  debugLog: z.string().optional().describe('A log of debugging information from the server-side processing.'),
 });
-export type OptimizeInventoryOutput = z.infer<typeof OptimizeInventoryOutputSchema>;
+// Note: The TypeScript type `OptimizeInventoryOutput` is now in `definitions.ts`
+// to avoid circular dependencies. This schema is for Genkit's use.
+export type OptimizeInventoryOutput = import('@/lib/definitions').OptimizeInventoryOutput;
+
 
 export async function optimizeInventory(input: OptimizeInventoryInput): Promise<OptimizeInventoryOutput> {
   return optimizeInventoryFlow(input);
@@ -59,7 +63,7 @@ export async function optimizeInventory(input: OptimizeInventoryInput): Promise<
 const prompt = ai.definePrompt({
   name: 'optimizeInventoryPrompt',
   input: {schema: OptimizeInventoryInputSchema},
-  output: {schema: OptimizeInventoryOutputSchema},
+  output: {schema: OptimizeInventoryOutputSchema.omit({ debugLog: true })}, // AI doesn't generate debugLog
   prompt: `IMPORTANT: Your response MUST ONLY consider the master sheets explicitly provided in the \`{{{availableMasterSheets}}}\` input array. Do not include any sheets not found in this input. If this input array is empty or contains no suitable sheets based on the job requirements (e.g. all sheets result in sheetsPerMasterSheet = 0), the \`suggestions\` array in your output must be empty and optimalSuggestion should be undefined.
 
   You are an expert in printing and packaging, specializing in optimizing material usage to minimize waste.
@@ -135,35 +139,43 @@ const optimizeInventoryFlow = ai.defineFlow(
   {
     name: 'optimizeInventoryFlow',
     inputSchema: OptimizeInventoryInputSchema,
-    outputSchema: OptimizeInventoryOutputSchema,
+    outputSchema: OptimizeInventoryOutputSchema, // Now includes optional debugLog
   },
-  async input => {
-    console.log(`[InventoryOptimization AI Flow] optimizeInventoryFlow called. Received ${input.availableMasterSheets?.length || 0} availableMasterSheets from caller.`);
+  async (input): Promise<OptimizeInventoryOutput> => {
+    let flowDebugLog = `[InventoryOptimization AI Flow] optimizeInventoryFlow called.\n`;
+    flowDebugLog += `[InventoryOptimization AI Flow] Received ${input.availableMasterSheets?.length || 0} availableMasterSheets from caller.\n`;
     if (input.availableMasterSheets?.length) {
-      console.log('[InventoryOptimization AI Flow] Preview of received availableMasterSheets (first 2):', JSON.stringify(input.availableMasterSheets.slice(0,2), null, 2));
+      flowDebugLog += `[InventoryOptimization AI Flow] Preview of received availableMasterSheets (first 2): ${JSON.stringify(input.availableMasterSheets.slice(0,2), null, 2)}\n`;
     }
 
     if (!input.availableMasterSheets || input.availableMasterSheets.length === 0) {
-      console.log('[InventoryOptimization AI Flow] Input availableMasterSheets is empty or undefined. Returning empty suggestions immediately as per flow logic.');
-      return { suggestions: [], optimalSuggestion: undefined };
+      flowDebugLog += `[InventoryOptimization AI Flow] Input availableMasterSheets is empty or undefined. Returning empty suggestions immediately as per flow logic.\n`;
+      console.log(flowDebugLog); // Log to server console as well
+      return { suggestions: [], optimalSuggestion: undefined, debugLog: flowDebugLog };
     }
 
-    console.log('[InventoryOptimization AI Flow] Proceeding to call AI prompt...');
+    flowDebugLog += `[InventoryOptimization AI Flow] Proceeding to call AI prompt...\n`;
+    console.log(flowDebugLog); // Log current debug before AI call
+
     const {output, usage} = await prompt(input); // Capture usage for logging
     
-    console.log('[InventoryOptimization AI Flow] Raw output from AI prompt:', JSON.stringify(output, null, 2));
+    let aiOutputDebugLog = `[InventoryOptimization AI Flow] Raw output from AI prompt: ${JSON.stringify(output, null, 2)}\n`;
     if (usage) {
-      console.log('[InventoryOptimization AI Flow] AI prompt usage stats:', JSON.stringify(usage, null, 2));
+      aiOutputDebugLog += `[InventoryOptimization AI Flow] AI prompt usage stats: ${JSON.stringify(usage, null, 2)}\n`;
     }
+    console.log(aiOutputDebugLog); // Log AI output to server console
 
     if (!output) {
-      console.error('[InventoryOptimization AI Flow] AI prompt returned null or undefined output. Returning empty suggestions to prevent errors.');
-      return { suggestions: [], optimalSuggestion: undefined };
+      const errorMsg = `[InventoryOptimization AI Flow] AI prompt returned null or undefined output. Returning empty suggestions to prevent errors.\n`;
+      console.error(errorMsg);
+      return { suggestions: [], optimalSuggestion: undefined, debugLog: flowDebugLog + aiOutputDebugLog + errorMsg };
     }
     
     // Ensure suggestions is an array, even if AI fails to provide it, to prevent runtime errors.
     if (!output.suggestions) {
-        console.warn('[InventoryOptimization AI Flow] AI output was missing the suggestions array. Defaulting to empty array.');
+        const warnMsg = `[InventoryOptimization AI Flow] AI output was missing the suggestions array. Defaulting to empty array.\n`;
+        console.warn(warnMsg);
+        aiOutputDebugLog += warnMsg;
         output.suggestions = [];
     }
     
@@ -186,14 +198,22 @@ const optimizeInventoryFlow = ai.defineFlow(
        opt.sheetsPerMasterSheet = Math.floor(Number(opt.sheetsPerMasterSheet || 0));
        opt.totalMasterSheetsNeeded = Math.ceil(Number(opt.totalMasterSheetsNeeded || 0));
     } else if (output.suggestions.length > 0) {
-        // If optimalSuggestion is missing but suggestions exist, assign the first suggestion as optimal.
-        // (The prompt already asks for sorting, so the first should be optimal)
-        console.warn('[InventoryOptimization AI Flow] OptimalSuggestion was missing in AI output, but suggestions exist. Assigning first suggestion as optimal.');
+        const warnMsg = `[InventoryOptimization AI Flow] OptimalSuggestion was missing in AI output, but suggestions exist. Assigning first suggestion as optimal.\n`;
+        console.warn(warnMsg);
+        aiOutputDebugLog += warnMsg;
         output.optimalSuggestion = output.suggestions[0];
     }
     
-    console.log('[InventoryOptimization AI Flow] Returning processed output. Suggestions count:', output.suggestions.length);
-    return output;
+    const finalMsg = `[InventoryOptimization AI Flow] Returning processed output. Suggestions count: ${output.suggestions.length}\n`;
+    console.log(finalMsg);
+    
+    // Combine all debug logs: initial, AI output, and final message
+    // The primary debug log for the UI will be assembled in jobActions.ts
+    return {
+        suggestions: output.suggestions,
+        optimalSuggestion: output.optimalSuggestion,
+        // debugLog from jobActions.ts will be more comprehensive for UI display
+    };
   }
 );
 

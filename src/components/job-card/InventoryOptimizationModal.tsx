@@ -1,9 +1,9 @@
 
 "use client";
 
-import type { OptimizeInventoryOutput } from '@/ai/flows/inventory-optimization';
+import type { OptimizeInventoryOutput } from '@/ai/flows/inventory-optimization'; // Uses the type from AI flow which includes debugLog schema
 import type { InventorySuggestion, PaperQualityType } from '@/lib/definitions';
-import { getPaperQualityLabel } from '@/lib/definitions'; // Updated import
+import { getPaperQualityLabel } from '@/lib/definitions';
 import { getInventoryOptimizationSuggestions } from '@/lib/actions/jobActions';
 import { Button } from '@/components/ui/button';
 import {
@@ -17,14 +17,14 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useState, type Dispatch, type SetStateAction } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 
 interface InventoryOptimizationModalProps {
   jobDetails: {
     paperGsm?: number;
-    paperQuality?: PaperQualityType; // Use PaperQualityType
+    paperQuality?: PaperQualityType;
     jobSizeWidth?: number;
     jobSizeHeight?: number;
     netQuantity?: number;
@@ -43,6 +43,7 @@ export function InventoryOptimizationModal({
   const [isLoading, setIsLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<InventorySuggestion[]>([]);
   const [optimalSuggestion, setOptimalSuggestion] = useState<InventorySuggestion | undefined>(undefined);
+  const [debugTrace, setDebugTrace] = useState<string | null>(null);
   const { toast } = useToast();
 
   const handleFetchSuggestions = async () => {
@@ -58,8 +59,8 @@ export function InventoryOptimizationModal({
     setIsLoading(true);
     setSuggestions([]);
     setOptimalSuggestion(undefined);
+    setDebugTrace(null);
 
-    // Prepare input for the action, which then prepares for AI
     const actionInput = {
       paperGsm: jobDetails.paperGsm,
       paperQuality: jobDetails.paperQuality,
@@ -68,21 +69,27 @@ export function InventoryOptimizationModal({
       netQuantity: jobDetails.netQuantity,
     };
 
-    const result = await getInventoryOptimizationSuggestions(actionInput);
+    // The result type now potentially includes debugLog
+    const result = await getInventoryOptimizationSuggestions(actionInput) as OptimizeInventoryOutput | { error: string; debugLog?: string };
+    
+    if (result.debugLog) {
+      setDebugTrace(result.debugLog);
+    }
 
     if ('error' in result) {
       toast({
         title: "Error",
-        description: result.error,
+        description: (result as { error: string }).error,
         variant: "destructive",
       });
     } else {
-      setSuggestions(result.suggestions || []);
-      setOptimalSuggestion(result.optimalSuggestion);
-      if (!result.suggestions || result.suggestions.length === 0) {
+      const aiResult = result as OptimizeInventoryOutput;
+      setSuggestions(aiResult.suggestions || []);
+      setOptimalSuggestion(aiResult.optimalSuggestion);
+      if (!aiResult.suggestions || aiResult.suggestions.length === 0) {
         toast({
           title: "No Suitable Inventory Found",
-          description: "No master sheets found in inventory matching the criteria or suitable for the job size.",
+          description: "No master sheets found in inventory matching the criteria or suitable for the job size. Check debug log for details.",
         });
       }
     }
@@ -96,7 +103,7 @@ export function InventoryOptimizationModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="sm:max-w-5xl font-body"> {/* Increased width */}
+      <DialogContent className="sm:max-w-5xl font-body">
         <DialogHeader>
           <DialogTitle className="font-headline">Master Sheet Optimization (from Inventory)</DialogTitle>
           <DialogDescription>
@@ -112,6 +119,19 @@ export function InventoryOptimizationModal({
             Fetch Suggestions from Inventory
           </Button>
         </div>
+
+        {debugTrace && (
+          <div className="my-4 p-3 border rounded-md bg-muted/30">
+            <h4 className="font-semibold mb-2 flex items-center font-headline text-sm">
+              <FileText className="mr-2 h-4 w-4" /> Server Debug Trace:
+            </h4>
+            <ScrollArea className="h-[200px] w-full">
+              <pre className="text-xs whitespace-pre-wrap break-all p-2 bg-background rounded-sm">
+                {debugTrace}
+              </pre>
+            </ScrollArea>
+          </div>
+        )}
 
         {optimalSuggestion && (
           <div className="my-4 p-4 border border-green-500 bg-green-50 rounded-md">
