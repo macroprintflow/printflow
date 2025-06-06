@@ -8,15 +8,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
 
-const sampleJobs = [
-  { id: "JOB001", name: "Luxury Perfume Box", customer: "Chic Fragrances", status: "Printing", dispatchDate: "2024-08-15", jobSize: "3.94x1.97x5.91in", linked: 3 },
-  { id: "JOB002", name: "Software Packaging", customer: "Tech Solutions Ltd.", status: "Designing", dispatchDate: "2024-08-20", jobSize: "7.87x5.91x1.97in", linked: 1 },
-  { id: "JOB003", name: "Gourmet Chocolate Sleeve", customer: "Sweet Delights Co.", status: "Coating", dispatchDate: "2024-08-10", jobSize: "3.15x7.09x0.79in", linked: 1 },
-  { id: "JOB004", name: "Promotional Flyers", customer: "Events Pro", status: "Completed", dispatchDate: "2024-07-30", jobSize: "A5", linked: 0 },
-  { id: "JOB005", name: "Rigid Gift Box Set", customer: "Premium Gifts Inc.", status: "Die Cutting", dispatchDate: "2024-08-25", jobSize: "Multiple", linked: 5 },
-];
+// Removed the sampleJobs array
 
 export default function AllJobsPage() {
+  // For now, we'll assume no jobs are loaded since sampleJobs is removed.
+  // In a real application, you would fetch actual job data here.
+  const actualJobs: any[] = []; // Placeholder for actual job data
+
   return (
     <div className="space-y-6">
       <Card>
@@ -37,7 +35,7 @@ export default function AllJobsPage() {
             </div>
           </div>
 
-          {sampleJobs.length > 0 ? (
+          {actualJobs.length > 0 ? (
           <Table>
             <TableHeader>
               <TableRow>
@@ -52,7 +50,7 @@ export default function AllJobsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sampleJobs.map((job) => (
+              {actualJobs.map((job: any) => ( // Changed to use actualJobs
                 <TableRow key={job.id}>
                   <TableCell className="font-mono text-sm font-body">{job.id}</TableCell>
                   <TableCell className="font-medium font-body">{job.name}</TableCell>
