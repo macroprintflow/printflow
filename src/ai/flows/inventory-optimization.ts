@@ -41,8 +41,8 @@ const MasterSheetSuggestionSchema = z.object({
   paperGsm: z.number().describe('The actual GSM of the suggested master sheet (from inventory).'),
   paperQuality: z.string().describe('The actual paper quality of the suggested master sheet (from inventory).'),
   wastagePercentage: z.number().describe('The percentage of wastage for the suggested master sheet size.'),
-  sheetsPerMasterSheet: z.number().describe('Number of job sheets that can be cut from one master sheet.'),
-  totalMasterSheetsNeeded: z.number().describe('Total number of master sheets needed to fulfill the job.'),
+  sheetsPerMasterSheet: z.number().int().describe('Number of job sheets that can be cut from one master sheet. Must be an integer.'),
+  totalMasterSheetsNeeded: z.number().int().describe('Total number of master sheets needed to fulfill the job. Must be an integer.'),
   cuttingLayoutDescription: z.string().optional().describe("Textual description of the cutting layout, e.g., '3 across x 4 down (job portrait)'."),
 });
 
@@ -68,15 +68,15 @@ const prompt = ai.definePrompt({
   - Job Size: {{{jobSizeWidth}}}W x {{{jobSizeHeight}}}H inches
   - Net Quantity: {{{netQuantity}}} sheets
 
-  You are provided with a list of 'Available Master Sheets' from inventory. For EACH sheet in '{{{availableMasterSheets}}}':
+  You are provided with a list of 'Available Master Sheets' from inventory. For EACH sheet in \`{{{availableMasterSheets}}}\`:
   1. Identify the current master sheet's properties:
-     - CurrentMasterSheetID: from 'id'
-     - CurrentMasterSheetWidth: from 'masterSheetSizeWidth'
-     - CurrentMasterSheetHeight: from 'masterSheetSizeHeight'
-     - CurrentMasterSheetGSM: from 'paperGsm'
-     - CurrentMasterSheetQuality: from 'paperQuality'
+     - CurrentMasterSheetID: from \`id\`
+     - CurrentMasterSheetWidth: from \`masterSheetSizeWidth\`
+     - CurrentMasterSheetHeight: from \`masterSheetSizeHeight\`
+     - CurrentMasterSheetGSM: from \`paperGsm\`
+     - CurrentMasterSheetQuality: from \`paperQuality\`
 
-  2. Calculate how many job sheets (job size: {{{jobSizeWidth}}}in x {{{jobSizeHeight}}}in) can be cut from this CurrentMasterSheet. This is 'sheetsPerMasterSheet'.
+  2. Calculate how many job sheets (job size: {{{jobSizeWidth}}}in x {{{jobSizeHeight}}}in) can be cut from this CurrentMasterSheet. This is \`sheetsPerMasterSheet\`.
      To do this, you MUST consider two orientations for the job sheet on the CurrentMasterSheet and select the orientation that yields the maximum number of pieces:
 
      a. **Job Portrait Orientation on Master (Job as {{{jobSizeWidth}}}W x {{{jobSizeHeight}}}H):**
@@ -89,22 +89,25 @@ const prompt = ai.definePrompt({
         Pieces_Down_Landscape = floor(CurrentMasterSheetHeight / {{{jobSizeWidth}}})
         Total_Ups_Landscape = Pieces_Across_Landscape * Pieces_Down_Landscape
 
-     The 'sheetsPerMasterSheet' for the CurrentMasterSheet is the MAXIMUM of Total_Ups_Portrait and Total_Ups_Landscape. This value MUST be an integer.
-     The 'cuttingLayoutDescription' for the CurrentMasterSheet must describe the orientation (portrait or landscape) and the arrangement (e.g., 'Pieces_Across x Pieces_Down') that yielded this maximum. For example: '2 across x 2 down (job portrait)' or '1 across x 3 down (job landscape)'.
+     The \`sheetsPerMasterSheet\` for the CurrentMasterSheet is the MAXIMUM of Total_Ups_Portrait and Total_Ups_Landscape. This value MUST be an integer.
 
-  3. Calculate the 'wastagePercentage' for the CurrentMasterSheet.
+     IMPORTANT: If \`sheetsPerMasterSheet\` calculates to 0 for the CurrentMasterSheet (e.g., because the job dimensions {{{jobSizeWidth}}}x{{{jobSizeHeight}}} are larger than the CurrentMasterSheet dimensions), then this CurrentMasterSheet is unsuitable for this job. In this case, DO NOT include this CurrentMasterSheet in the \`suggestions\` output array. Skip to the next available master sheet and continue processing others.
+
+     If \`sheetsPerMasterSheet\` is greater than 0, the \`cuttingLayoutDescription\` for the CurrentMasterSheet must describe the orientation (portrait or landscape) and the arrangement (e.g., 'Pieces_Across x Pieces_Down') that yielded this maximum. For example: '2 across x 2 down (job portrait)' or '1 across x 3 down (job landscape)'.
+
+  3. Calculate the \`wastagePercentage\` for the CurrentMasterSheet (only if sheetsPerMasterSheet > 0 from step 2).
      Let JobSheetArea = {{{jobSizeWidth}}} * {{{jobSizeHeight}}}.
      Let MasterSheetAreaForCurrent = CurrentMasterSheetWidth * CurrentMasterSheetHeight.
-     The 'sheetsPerMasterSheet' value used in the calculation below MUST be the integer value determined in step 2 for the current master sheet.
+     The \`sheetsPerMasterSheet\` value used in the calculation below MUST be the integer value determined in step 2 for the current master sheet.
      UsedAreaForWastageCalc = JobSheetArea * sheetsPerMasterSheet.
      WastedArea = MasterSheetAreaForCurrent - UsedAreaForWastageCalc.
      WastagePercentage = (WastedArea / MasterSheetAreaForCurrent) * 100.
      Round the WastagePercentage to two decimal places. Ensure it is a number.
 
-  4. Calculate 'totalMasterSheetsNeeded' for the CurrentMasterSheet.
-     totalMasterSheetsNeeded = ceil({{{netQuantity}}} / sheetsPerMasterSheet)
+  4. Calculate \`totalMasterSheetsNeeded\` for the CurrentMasterSheet (only if sheetsPerMasterSheet > 0 from step 2).
+     totalMasterSheetsNeeded = ceil({{{netQuantity}}} / sheetsPerMasterSheet). This value MUST be an integer.
 
-  After performing these calculations for ALL provided 'Available Master Sheets', compile a list of suggestions.
+  After performing these calculations for ALL provided \`Available Master Sheets\` that result in sheetsPerMasterSheet > 0, compile a list of suggestions.
   Each suggestion in the output array must include:
   - sourceInventoryItemId (CurrentMasterSheetID)
   - masterSheetSizeWidth (CurrentMasterSheetWidth)
@@ -113,14 +116,15 @@ const prompt = ai.definePrompt({
   - paperQuality (CurrentMasterSheetQuality)
   - wastagePercentage (calculated and rounded)
   - sheetsPerMasterSheet (calculated maximum integer)
-  - totalMasterSheetsNeeded (calculated)
+  - totalMasterSheetsNeeded (calculated integer)
   - cuttingLayoutDescription (corresponding to the maximum ups)
 
   The \`suggestions\` array in your output should be sorted by \`wastagePercentage\` (lowest first). If wastage percentages are equal, prioritize the suggestion that results in fewer \`totalMasterSheetsNeeded\`. If still equal, prefer suggestions where the master sheet GSM is closer to the \`targetPaperGsm\`.
 
   The \`optimalSuggestion\` in your output should be the first item from this sorted \`suggestions\` array.
-  If no 'Available Master Sheets' were provided or if none are suitable (e.g., job size is larger than any master sheet), return an empty suggestions array and no optimal suggestion.
+  If, after processing all available sheets, no sheets are suitable (i.e., the \`suggestions\` array would be empty because all sheets resulted in sheetsPerMasterSheet = 0 or for other reasons), then return an empty \`suggestions\` array and no \`optimalSuggestion\`.
 
+  CRITICAL: Ensure all numerical output fields are actual calculated values. Do not use placeholder numbers like '1.23'. Do not use generic text like 'string' for descriptions. Your output must strictly adhere to the defined output schema, including ensuring integer types for fields like \`sheetsPerMasterSheet\` and \`totalMasterSheetsNeeded\`.
   Ensure the output is a valid JSON.
   `,
 });
@@ -159,3 +163,4 @@ const optimizeInventoryFlow = ai.defineFlow(
     return output!;
   }
 );
+
