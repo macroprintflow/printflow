@@ -3,86 +3,100 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
+/* iOS 18 Theme CSS */
+:root {
+  --ios-bg: rgba(242, 242, 247, 0.8); /* Light mode background with opacity for glassmorphism */
+  --ios-text: #1c1c1e; /* Nearly black for text */
+  --ios-blue: #007aff; /* Standard iOS blue */
+  --ios-gray: #f2f2f7; /* Light gray for solid backgrounds (like body) */
+  --ios-border: rgba(60, 60, 67, 0.29); /* Subtle border color */
+  --ios-radius: 20px;
+  --ios-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  --ios-transition: all 0.3s ease;
+  --ios-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+
+  /* ShadCN HSL Variables - Mapped to iOS Theme where appropriate */
+  --background: 220 13% 96%; /* Maps to --ios-gray for body background */
+  --foreground: 240 2% 12%; /* Maps to --ios-text */
+  
+  --card: 0 0% 100%; /* Solid card fallback, but glassmorphism will override */
+  --card-foreground: 240 2% 12%;
+
+  --popover: 0 0% 100%; /* Solid popover fallback */
+  --popover-foreground: 240 2% 12%;
+
+  --primary: 212 100% 50%; /* Maps to --ios-blue */
+  --primary-foreground: 0 0% 100%; /* White text on blue */
+
+  --secondary: 220 14% 90%; 
+  --secondary-foreground: 240 2% 30%;
+
+  --muted: 220 14% 90%;
+  --muted-foreground: 240 2% 45%;
+
+  --accent: 212 100% 50%; /* Maps to --ios-blue for accents */
+  --accent-foreground: 0 0% 100%;
+
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 220 10% 85%; /* Maps to --ios-border conceptually */
+  --input: 0 0% 100%; 
+  --ring: 212 100% 50%; /* Focus ring blue */
+  
+  --chart-1: 12 76% 61%;
+  --chart-2: 173 58% 39%;
+  --chart-3: 197 37% 24%;
+  --chart-4: 43 74% 66%;
+  --chart-5: 27 87% 67%;
+  
+  --radius: 20px; /* Maps to --ios-radius */
+
+  /* iOS-inspired Sidebar Light Theme */
+  --sidebar-background: 220 15% 94%; 
+  --sidebar-foreground: 240 2% 25%; 
+  --sidebar-primary: 212 100% 50%; 
+  --sidebar-primary-foreground: 0 0% 100%; 
+  --sidebar-accent: 220 15% 88%; 
+  --sidebar-accent-foreground: 212 100% 45%;
+  --sidebar-border: 220 10% 82%; 
+  --sidebar-ring: 212 100% 50%;
+}
+
+@media (prefers-color-scheme: dark) {
   :root {
-    /* iOS Light Theme Inspired */
-    --background: 220 13% 96%; /* #F5F5F7 */
-    --foreground: 240 2% 12%; /* #1D1D1F */
-    
-    /* Card is for solid cards. Glassmorphism applied directly. */
-    --card: 0 0% 100%; 
-    --card-foreground: 240 2% 12%;
+    --ios-bg: rgba(28, 28, 30, 0.75); /* Dark mode background with opacity */
+    --ios-text: #ffffff;
+    --ios-gray: #1c1c1e; /* Dark gray for solid backgrounds */
+    --ios-border: rgba(84, 84, 88, 0.65); /* Subtle dark border */
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 2% 12%;
+    /* ShadCN HSL Variables - Dark Mode */
+    --background: 240 4% 9%; /* Maps to --ios-gray for body background */
+    --foreground: 0 0% 95%; /* Maps to --ios-text */
 
-    --primary: 212 100% 50%; /* #007AFF */
-    --primary-foreground: 0 0% 100%;
-
-    --secondary: 220 14% 90%; /* Light gray for secondary elements/backgrounds */
-    --secondary-foreground: 240 2% 30%; /* Darker gray for text on secondary */
-
-    --muted: 220 14% 90%;
-    --muted-foreground: 240 2% 45%; /* #6E6E73 for muted text */
-
-    --accent: 212 100% 50%; /* iOS blue for interactive accents */
-    --accent-foreground: 0 0% 100%;
-
-    --destructive: 0 84% 60%; /* Standard red for destructive actions */
-    --destructive-foreground: 0 0% 100%;
-
-    --border: 220 10% 85%; /* #D1D1D6 like border */
-    --input: 0 0% 100%; /* Inputs often white on light theme */
-    --ring: 212 100% 50%; /* Focus ring blue */
-    
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    
-    --radius: 1rem; /* Increased base radius for iOS feel */
-
-    /* iOS-inspired Sidebar Light Theme */
-    --sidebar-background: 220 15% 94%; /* Slightly off-white, distinct from main bg */
-    --sidebar-foreground: 240 2% 25%; 
-    --sidebar-primary: 212 100% 50%; 
-    --sidebar-primary-foreground: 0 0% 100%; 
-    --sidebar-accent: 220 15% 88%; /* Hover for sidebar items */
-    --sidebar-accent-foreground: 212 100% 45%;
-    --sidebar-border: 220 10% 82%; 
-    --sidebar-ring: 212 100% 50%;
-  }
-
-  .dark {
-    /* iOS Dark Theme Inspired */
-    --background: 240 4% 9%; /* Very dark gray #1C1C1E (a bit darker) */
-    --foreground: 0 0% 95%; /* Off-white #F5F5F7 for text */
-
-    /* Card is for solid cards. Glassmorphism applied directly. */
-    --card: 240 4% 12%; /* Slightly lighter than bg #2C2C2E */
+    --card: 240 4% 12%; 
     --card-foreground: 0 0% 95%;
 
     --popover: 240 4% 12%;
     --popover-foreground: 0 0% 95%;
 
-    --primary: 212 100% 58%; /* Brighter blue for dark mode #0A84FF */
+    --primary: 212 100% 58%; /* Brighter blue for dark mode */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 240 4% 15%; /* Dark gray for secondary elements/backgrounds */
-    --secondary-foreground: 0 0% 70%; /* Lighter gray for text on secondary */
+    --secondary: 240 4% 15%; 
+    --secondary-foreground: 0 0% 70%;
 
     --muted: 240 4% 15%;
-    --muted-foreground: 240 2% 60%; /* #8E8E93 for muted text */
+    --muted-foreground: 240 2% 60%;
 
     --accent: 212 100% 58%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 70% 55%; /* Vivid red for destructive */
+    --destructive: 0 70% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 240 2% 23%; /* #3A3A3C like border */
-    --input: 240 4% 18%; /* Dark inputs */
+    --border: 240 2% 23%; /* Maps to --ios-border conceptually */
+    --input: 240 4% 18%; 
     --ring: 212 100% 58%;
     
     --chart-1: 220 70% 50%;
@@ -91,12 +105,11 @@
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
 
-    /* iOS-inspired Sidebar Dark Theme */
-    --sidebar-background: 240 4% 7%; /* Even darker for sidebar */
+    --sidebar-background: 240 4% 7%; 
     --sidebar-foreground: 0 0% 90%; 
     --sidebar-primary: 212 100% 58%; 
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 4% 14%; /* Hover for sidebar items */
+    --sidebar-accent: 240 4% 14%; 
     --sidebar-accent-foreground: 0 0% 98%;
     --sidebar-border: 240 4% 10%;
     --sidebar-ring: 212 100% 58%;
@@ -105,11 +118,242 @@
 
 @layer base {
   * {
-    @apply border-border;
+    @apply border-border; /* Uses the HSL --border variable through Tailwind */
   }
   body {
-    @apply bg-background text-foreground;
+    font-family: var(--ios-font);
+    background-color: var(--ios-gray); /* Solid background for the body */
+    color: var(--ios-text);
+    margin: 0;
+    padding: 0;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    transition: var(--ios-transition);
+    @apply bg-background text-foreground; /* Re-apply tailwind theme vars for body to ensure consistency */
   }
 }
+
+/* iOS-style Card / Glass Panel */
+.ios-card {
+  background-color: var(--ios-bg); /* Note: Tailwind's bg-opacity might be needed if using Tailwind bg classes directly */
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: var(--ios-radius);
+  box-shadow: var(--ios-shadow);
+  border: 1px solid var(--ios-border);
+  padding: 1.5rem;
+  transition: var(--ios-transition);
+}
+
+/* iOS-style Floating Button */
+.ios-floating-button {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background-color: var(--ios-blue);
+  color: white;
+  border-radius: 50%;
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+  border: none;
+  font-size: 24px;
+  transition: transform 0.3s cubic-bezier(0.33, 1, 0.68, 1), background-color 0.25s ease;
+  z-index: 999;
+  /* Enhanced floating button properties */
+  backdrop-filter: blur(10px) saturate(180%);
+  -webkit-backdrop-filter: blur(10px) saturate(180%);
+  background-color: rgba(0, 122, 255, 0.8); /* Updated background color with opacity */
+}
+
+.ios-floating-button:hover {
+  transform: scale(1.05);
+  background-color: #339aff; /* Slightly lighter blue on hover */
+}
+
+/* iOS-style Navigation Bar */
+.ios-navbar {
+  position: sticky;
+  top: 0;
+  background-color: var(--ios-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--ios-border);
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 1000;
+  font-weight: 600;
+  transition: var(--ios-transition);
+}
+
+/* iOS-style Buttons */
+.ios-button {
+  background-color: var(--ios-blue);
+  color: white;
+  border: none;
+  border-radius: 12px; /* Specific radius for these buttons */
+  padding: 0.75rem 1.5rem;
+  font-size: 16px;
+  font-weight: 500;
+  transition: transform 0.3s cubic-bezier(0.33, 1, 0.68, 1), background-color 0.25s ease;
+  box-shadow: var(--ios-shadow);
+}
+
+.ios-button:hover {
+  background-color: #339aff;
+  transform: scale(1.02);
+}
+
+/* iOS-style Modal */
+.ios-modal {
+  background-color: var(--ios-bg);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  border-radius: var(--ios-radius);
+  padding: 2rem;
+  max-width: 500px;
+  margin: auto;
+  box-shadow: var(--ios-shadow);
+  border: 1px solid var(--ios-border);
+  transition: var(--ios-transition);
+}
+
+/* Transitions */
+.fade-in {
+  animation: fadeIn 0.4s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Tailwind CSS Animate Keyframes (from ShadCN) */
+@layer base {
+  :root {
+    /* ... existing HSL variables ... */
+  }
+
+  .dark {
+    /* ... existing dark HSL variables ... */
+  }
+}
+
+@layer base {
+  * {
+    /* ... */
+  }
+  body {
+    /* ... */
+  }
+}
+
+@keyframes accordion-down {
+  from {
+    height: 0px; /* Use 0px instead of 0 for keyframes */
+  }
+  to {
+    height: var(--radix-accordion-content-height);
+  }
+}
+
+@keyframes accordion-up {
+  from {
+    height: var(--radix-accordion-content-height);
+  }
+  to {
+    height: 0px; /* Use 0px instead of 0 for keyframes */
+  }
+}
+
+/* Additions & Enhancements (From User) */
+
+/* iOS-style Wallpaper Background */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(135deg, #f1f2f6, #dfe4ea, #f1f2f6); /* iOS cloudy gradient */
+  z-index: -10;
+  opacity: 0.3; /* Light opacity for wallpaper */
+  background-size: 400% 400%;
+  animation: backgroundFlow 20s ease infinite;
+  pointer-events: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  body::before {
+    /* Dark mode wallpaper - could be a different gradient or a subtle pattern */
+    background: linear-gradient(135deg, #2c3e50, #34495e, #2c3e50);
+    opacity: 0.2; /* Even more subtle in dark mode */
+  }
+}
+
+
+/* Animation for moving background */
+@keyframes backgroundFlow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Modal entrance animation */
+.ios-modal.fade-in {
+  animation: iosModalIn 0.4s ease forwards;
+}
+
+@keyframes iosModalIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Optional iOS toggle switch style */
+.ios-toggle {
+  appearance: none;
+  width: 42px;
+  height: 26px;
+  background: var(--ios-border);
+  border-radius: 13px;
+  position: relative;
+  transition: background-color 0.2s;
+  cursor: pointer;
+}
+
+.ios-toggle:checked {
+  background: var(--ios-blue);
+}
+
+.ios-toggle::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+
+.ios-toggle:checked::before {
+  transform: translateX(16px);
+}
+
+    
