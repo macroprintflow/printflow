@@ -34,7 +34,7 @@ const DepartmentLoadSchema = z.object({
     capacityPerDay: z.number().optional().describe("Estimated number of jobs this department can process per day."),
 });
 
-export const ProductionPlanningInputSchema = z.object({
+const ProductionPlanningInputSchema = z.object({
   jobsToPlan: z.array(PlanningJobSchema).describe("A list of jobs that need to be scheduled or assigned to a department."),
   departmentStatus: z.array(DepartmentLoadSchema).describe("Current load and capacity information for each relevant production department."),
   planningHorizonDays: z.number().int().positive().describe("Number of days ahead to plan for (e.g., 1 for today, 2 for today and tomorrow)."),
@@ -52,7 +52,7 @@ const SuggestedAssignmentSchema = z.object({
   interdependenciesConsidered: z.array(z.string()).optional().describe("List of linked job IDs that were considered in this planning decision."),
 });
 
-export const ProductionPlanningOutputSchema = z.object({
+const ProductionPlanningOutputSchema = z.object({
   suggestedAssignments: z.array(SuggestedAssignmentSchema).describe("An array of suggested job assignments, ordered by target date and then priority."),
   planningSummary: z.string().optional().describe("A brief overall summary of the plan or any key considerations."),
 });
@@ -134,3 +134,4 @@ const productionPlanningFlow = ai.defineFlow(
     return output;
   }
 );
+
