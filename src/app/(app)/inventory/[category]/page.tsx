@@ -3,7 +3,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Archive, PlusCircle, Search, History, ArrowLeft } from "lucide-react";
+import { Archive, PlusCircle, Search, History, ArrowLeft, Printer, Paintbrush, Box, Package, MagnetIcon, FileText, Newspaper } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -11,12 +11,11 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { AddItemDialog } from "@/components/inventory/AddItemDialog";
 import { InventoryAdjustmentsDialog } from "@/components/inventory/InventoryAdjustmentsDialog";
 import { getInventoryItems } from "@/lib/actions/jobActions";
-import type { InventoryItem, PaperQualityType } from "@/lib/definitions";
-import { PAPER_QUALITY_OPTIONS } from "@/lib/definitions";
+import type { InventoryItem, PaperQualityType, PaperSubCategoryFilterValue } from "@/lib/definitions";
+import { PAPER_QUALITY_OPTIONS, PAPER_SUB_CATEGORIES } from "@/lib/definitions";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 
-// Helper function to get display name for category slug
 const getCategoryDisplayName = (slug: string | string[] | undefined): string => {
   if (typeof slug !== 'string') return "Inventory";
   switch (slug) {
@@ -30,9 +29,30 @@ const getCategoryDisplayName = (slug: string | string[] | undefined): string => 
   }
 };
 
-export default function FilteredInventoryPage() {
+const getSubCategoryDisplayName = (filterValue: PaperSubCategoryFilterValue | null): string => {
+    if (!filterValue || filterValue === "__ALL_PAPER__") return "All Paper Types";
+    const subCat = PAPER_SUB_CATEGORIES.find(sc => sc.filterValue === filterValue);
+    return subCat ? subCat.name : "Paper";
+}
+
+const paperCategoryIcons: Record<PaperSubCategoryFilterValue, React.ElementType> = {
+    "SBS": FileText,
+    "KAPPA_GROUP": Newspaper,
+    "GREYBACK": FileText,
+    "WHITEBACK": FileText,
+    "ART_PAPER_GROUP": Newspaper,
+    "JAPANESE_PAPER": FileText,
+    "IMPORTED_PAPER": FileText,
+    "MDF": Box,
+    "BUTTER_PAPER": FileText,
+    "OTHER_PAPER_GROUP": Archive,
+    "__ALL_PAPER__": Printer,
+};
+
+
+export default function CategorizedInventoryPage() {
   const params = useParams();
-  const categorySlug = params.category;
+  const categorySlug = params.category as string;
   const categoryDisplayName = getCategoryDisplayName(categorySlug);
 
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
@@ -42,6 +62,8 @@ export default function FilteredInventoryPage() {
   
   const [isAdjustmentsDialogOpen, setIsAdjustmentsDialogOpen] = useState(false);
   const [selectedItemForAdjustments, setSelectedItemForAdjustments] = useState<InventoryItem | null>(null);
+  const [selectedPaperQuality, setSelectedPaperQuality] = useState<PaperSubCategoryFilterValue | null>(null);
+
 
   const fetchInventory = useCallback(async () => {
     setIsLoading(true);
@@ -59,9 +81,21 @@ export default function FilteredInventoryPage() {
   const filteredItems = useMemo(() => {
     let itemsToFilter = inventoryItems;
 
-    // Primary filter based on categorySlug
     if (categorySlug === "paper") {
       itemsToFilter = itemsToFilter.filter(item => item.type === 'Master Sheet' || paperQualityValues.includes(item.itemGroup as string));
+      if (selectedPaperQuality && selectedPaperQuality !== "__ALL_PAPER__") {
+        const subCategoryDef = PAPER_SUB_CATEGORIES.find(sc => sc.filterValue === selectedPaperQuality);
+        if (subCategoryDef) {
+          if (subCategoryDef.filterValue === "OTHER_PAPER_GROUP") {
+            const allExplicitPaperQualities = PAPER_SUB_CATEGORIES
+              .filter(sc => sc.filterValue !== "__ALL_PAPER__" && sc.filterValue !== "OTHER_PAPER_GROUP")
+              .flatMap(sc => sc.qualityValues);
+            itemsToFilter = itemsToFilter.filter(item => item.paperQuality && !allExplicitPaperQualities.includes(item.paperQuality));
+          } else {
+            itemsToFilter = itemsToFilter.filter(item => item.paperQuality && subCategoryDef.qualityValues.includes(item.paperQuality));
+          }
+        }
+      }
     } else if (categorySlug === "inks") {
       itemsToFilter = itemsToFilter.filter(item => item.itemGroup === "Inks");
     } else if (categorySlug === "plastic-trays") {
@@ -73,36 +107,79 @@ export default function FilteredInventoryPage() {
     } else if (categorySlug === "other-materials") {
       itemsToFilter = itemsToFilter.filter(item => item.itemGroup === "Other Stock");
     } else {
-      // If categorySlug is unknown or not provided, show nothing or handle error
       itemsToFilter = [];
     }
 
-    // Secondary filter based on search query
     if (searchQuery.trim() !== "") {
       const lowerCaseQuery = searchQuery.toLowerCase();
-      itemsToFilter = itemsToFilter.filter(item => {
-        return (
-          item.name.toLowerCase().includes(lowerCaseQuery) ||
-          item.type.toLowerCase().includes(lowerCaseQuery) ||
-          (item.paperGsm && item.paperGsm.toString().includes(lowerCaseQuery)) ||
-          (item.id && item.id.toLowerCase().includes(lowerCaseQuery))
-        );
-      });
+      itemsToFilter = itemsToFilter.filter(item => 
+        item.name.toLowerCase().includes(lowerCaseQuery) ||
+        item.type.toLowerCase().includes(lowerCaseQuery) ||
+        (item.paperGsm && item.paperGsm.toString().includes(lowerCaseQuery)) ||
+        (item.id && item.id.toLowerCase().includes(lowerCaseQuery))
+      );
     }
     return itemsToFilter;
-  }, [inventoryItems, searchQuery, categorySlug, paperQualityValues]);
+  }, [inventoryItems, searchQuery, categorySlug, selectedPaperQuality, paperQualityValues]);
 
   const handleViewAdjustments = (item: InventoryItem) => {
     setSelectedItemForAdjustments(item);
     setIsAdjustmentsDialogOpen(true);
   };
+  
+  const renderPaperSubCategories = () => {
+    return (
+      <div className="space-y-6">
+        <Button variant="outline" asChild className="mb-4 font-body">
+          <Link href="/inventory">
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Main Categories
+          </Link>
+        </Button>
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-headline flex items-center">
+              <Printer className="mr-2 h-6 w-6 text-primary" /> Select Paper Type
+            </CardTitle>
+            <CardDescription className="font-body">
+              Choose a specific type of paper to view its stock.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {PAPER_SUB_CATEGORIES.map((subCat) => {
+              const IconComponent = paperCategoryIcons[subCat.filterValue] || FileText;
+              return (
+                <Button 
+                  key={subCat.filterValue} 
+                  variant="outline" 
+                  className="h-20 p-4 flex flex-col items-start justify-start text-left hover:shadow-md transition-shadow"
+                  onClick={() => setSelectedPaperQuality(subCat.filterValue)}
+                >
+                  <div className="flex items-center mb-1">
+                    <IconComponent className="mr-2 h-5 w-5 text-muted-foreground" />
+                    <span className="font-medium font-body">{subCat.name}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground font-body truncate">
+                    {subCat.filterValue === "__ALL_PAPER__" ? "View all paper stock" : 
+                     subCat.filterValue === "OTHER_PAPER_GROUP" ? "Miscellaneous paper types" :
+                     `View ${subCat.name.toLowerCase()} stock`}
+                  </p>
+                </Button>
+              );
+            })}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
 
   const renderInventoryTable = useCallback((items: InventoryItem[]) => {
+    const currentCategoryName = categorySlug === "paper" ? getSubCategoryDisplayName(selectedPaperQuality) : categoryDisplayName;
+
     if (isLoading) {
       return (
         <div className="text-center py-12">
           <Archive className="mx-auto h-12 w-12 text-muted-foreground animate-pulse" />
-          <p className="mt-4 text-lg text-muted-foreground font-body">Loading {categoryDisplayName.toLowerCase()} inventory...</p>
+          <p className="mt-4 text-lg text-muted-foreground font-body">Loading {currentCategoryName.toLowerCase()} inventory...</p>
         </div>
       );
     }
@@ -111,16 +188,16 @@ export default function FilteredInventoryPage() {
         <div className="text-center py-12">
           <Archive className="mx-auto h-12 w-12 text-muted-foreground" />
           <h3 className="mt-4 text-xl font-semibold font-headline">
-            {searchQuery.trim() !== "" ? `No ${categoryDisplayName} Match Your Search` : `No Items in ${categoryDisplayName}`}
+            {searchQuery.trim() !== "" ? `No ${currentCategoryName} Match Your Search` : `No Items in ${currentCategoryName}`}
           </h3>
           <p className="mt-1 text-sm text-muted-foreground font-body">
             {searchQuery.trim() !== "" 
               ? "Try adjusting your search terms or clearing the search."
-              : `There are no inventory items in the ${categoryDisplayName.toLowerCase()} category, or the inventory is empty.`
+              : `There are no inventory items in the ${currentCategoryName.toLowerCase()} category.`
             }
           </p>
            <Button className="mt-6" onClick={() => setIsAddItemDialogOpen(true)}>
-            <PlusCircle className="mr-2 h-4 w-4" /> Add New Item to {categoryDisplayName}
+            <PlusCircle className="mr-2 h-4 w-4" /> Add New Item to {currentCategoryName}
           </Button>
         </div>
       );
@@ -176,31 +253,42 @@ export default function FilteredInventoryPage() {
         </TableBody>
       </Table>
     );
-  }, [isLoading, searchQuery, categoryDisplayName]);
+  }, [isLoading, searchQuery, categoryDisplayName, selectedPaperQuality, categorySlug]);
 
+  if (categorySlug === "paper" && !selectedPaperQuality) {
+    return renderPaperSubCategories();
+  }
+
+  const currentOverallCategoryName = categorySlug === "paper" ? getSubCategoryDisplayName(selectedPaperQuality) : categoryDisplayName;
 
   return (
     <div className="space-y-6">
-      <Button variant="outline" asChild className="mb-4 font-body">
-        <Link href="/inventory">
-          <ArrowLeft className="mr-2 h-4 w-4" /> Back to Categories
-        </Link>
-      </Button>
+      {categorySlug === "paper" ? (
+        <Button variant="outline" onClick={() => setSelectedPaperQuality(null)} className="mb-4 font-body">
+          <ArrowLeft className="mr-2 h-4 w-4" /> Back to Paper Types
+        </Button>
+      ) : (
+        <Button variant="outline" asChild className="mb-4 font-body">
+          <Link href="/inventory">
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Main Categories
+          </Link>
+        </Button>
+      )}
       <Card>
         <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <CardTitle className="font-headline flex items-center">
-              <Archive className="mr-2 h-6 w-6 text-primary" /> {categoryDisplayName} Inventory
+              <Archive className="mr-2 h-6 w-6 text-primary" /> {currentOverallCategoryName} Inventory
             </CardTitle>
             <CardDescription className="font-body">
-              View and manage your stock of {categoryDisplayName.toLowerCase()}. Click item name for stock history.
+              View and manage your stock of {currentOverallCategoryName.toLowerCase()}. Click item name for stock history.
             </CardDescription>
           </div>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
             <div className="relative flex-grow sm:flex-grow-0">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input 
-                placeholder={`Search ${categoryDisplayName.toLowerCase()}...`}
+                placeholder={`Search ${currentOverallCategoryName.toLowerCase()}...`}
                 className="pl-10 w-full sm:w-64 font-body" 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -212,7 +300,6 @@ export default function FilteredInventoryPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {/* Tabs removed as primary filtering is by URL category */}
           {renderInventoryTable(filteredItems)}
         </CardContent>
       </Card>
@@ -229,3 +316,5 @@ export default function FilteredInventoryPage() {
     </div>
   );
 }
+
+    

@@ -39,6 +39,7 @@ export const PAPER_QUALITY_OPTIONS = [
   { value: 'KRAFT_PAPER', label: 'Kraft Paper' },
   { value: 'GG_KAPPA', label: 'GG Kappa' },
   { value: 'WG_KAPPA', label: 'WG Kappa' },
+  { value: 'MDF', label: 'MDF' }, // Added MDF
 ] as const;
 
 type PaperQualityValue = typeof PAPER_QUALITY_OPTIONS[number]['value'];
@@ -254,29 +255,23 @@ export const UNIT_OPTIONS = [
 ] as const;
 export type UnitValue = typeof UNIT_OPTIONS[number]['value'];
 
-// Represents a master definition of an inventory item type.
-// Actual stock levels are derived from InventoryAdjustment records.
 export type InventoryItem = {
-  id: string; // Unique ID for this master item type
-  name: string; // e.g., "SBS 300GSM 12x18in"
+  id: string; 
+  name: string; 
   type: InventoryItemType;
   itemGroup: ItemGroupType;
-  specification: string; // Detailed spec, e.g., "300GSM SBS, 12.00in x 18.00in"
+  specification: string; 
   paperGsm?: number;
   paperQuality?: PaperQualityType;
   masterSheetSizeWidth?: number;
   masterSheetSizeHeight?: number;
-  unit: UnitValue; // Primary unit for this item type
+  unit: UnitValue; 
   reorderPoint?: number;
-  // Fields below might represent details of the first time this item was added, or general vendor info.
-  // Specific purchase details belong to InventoryAdjustment.
-  supplier?: string; // This field was in the original type, keeping for now.
-  purchaseBillNo?: string; // Details of the *first* purchase or a general reference
-  vendorName?: string; // Primary/default vendor for this item type
-  dateOfEntry?: string; // Date this item *type* was first entered
-  // `availableStock` is now dynamically calculated by summing adjustments.
-  // It will be added to this type by `getInventoryItems` before sending to client.
-  availableStock?: number; // This will be populated by getInventoryItems
+  supplier?: string; 
+  purchaseBillNo?: string; 
+  vendorName?: string; 
+  dateOfEntry?: string; 
+  availableStock?: number; 
 };
 
 
@@ -291,12 +286,12 @@ export const VENDOR_OPTIONS = [
 
 
 export const INVENTORY_CATEGORIES = [
-  { value: 'PAPER', label: 'Paper' },
-  { value: 'INKS', label: 'Inks' },
-  { value: 'PLASTIC_TRAY', label: 'Plastic Tray' },
-  { value: 'GLASS_JAR', label: 'Glass Jars' },
-  { value: 'MAGNET', label: 'Magnets' },
-  { value: 'OTHER', label: 'Other Material/Stock' },
+  { value: 'PAPER', label: 'Paper', iconName: "Printer" },
+  { value: 'INKS', label: 'Inks', iconName: "Paintbrush" },
+  { value: 'PLASTIC_TRAY', label: 'Plastic Tray', iconName: "Package" },
+  { value: 'GLASS_JAR', label: 'Glass Jars', iconName: "Box" },
+  { value: 'MAGNET', label: 'Magnets', iconName: "MagnetIcon" },
+  { value: 'OTHER', label: 'Other Material/Stock', iconName: "Archive" },
 ] as const;
 export type InventoryCategory = typeof INVENTORY_CATEGORIES[number]['value'];
 
@@ -314,16 +309,16 @@ export const InventoryItemFormSchema = z.object({
   inkName: z.string().optional(),
   inkSpecification: z.string().optional(),
 
-  itemName: z.string().min(1, "Item name is required"), // For 'OTHER', this is the main name. For Paper/Ink, it's auto-generated.
+  itemName: z.string().min(1, "Item name is required"),
   itemSpecification: z.string().optional(),
 
-  quantity: z.coerce.number().min(0, "Quantity to add must be non-negative"), // Renamed from availableStock
+  quantity: z.coerce.number().min(0, "Quantity to add must be non-negative"),
   unit: z.enum(unitEnumValues),
   purchaseBillNo: z.string().optional(),
   vendorName: z.enum(VENDOR_OPTIONS.map(v => v.value) as [string, ...string[]]).optional(),
   otherVendorName: z.string().optional(),
-  dateOfEntry: z.string().refine(val => !isNaN(Date.parse(val)), { message: "Invalid date"}), // Date of this transaction
-  reorderPoint: z.coerce.number().optional(), // This applies to the master item type
+  dateOfEntry: z.string().refine(val => !isNaN(Date.parse(val)), { message: "Invalid date"}),
+  reorderPoint: z.coerce.number().optional(),
 }).superRefine((data, ctx) => {
   if (data.category === 'PAPER') {
     if (!data.paperQuality || data.paperQuality === '') {
@@ -347,11 +342,6 @@ export const InventoryItemFormSchema = z.object({
   if (data.vendorName === 'OTHER' && (!data.otherVendorName || data.otherVendorName.trim() === '')) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Please specify the vendor name.", path: ["otherVendorName"] });
   }
-  if (data.quantity <= 0 && data.category !== 'PAPER' && data.category !== 'INKS' ) { // Allowing 0 for initial setup of paper/ink if it's just type definition
-     // For non-paper/ink, if they are adding, quantity should be > 0
-     // This rule might need refinement based on if user can "define" an item with 0 stock initially.
-     // For now, this allows paper/ink to be defined, actual stock comes from this 'quantity' field as first adjustment.
-  }
    if (data.quantity < 0) {
        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Quantity cannot be negative.", path: ["quantity"] });
    }
@@ -365,9 +355,9 @@ export type OptimizeInventoryOutput = {
 };
 
 export const INVENTORY_ADJUSTMENT_REASONS = [
-  { value: 'INITIAL_STOCK', label: 'Initial Stock Entry' }, // For the very first stock of a new item type
-  { value: 'PURCHASE_RECEIVED', label: 'Purchase Received' }, // For subsequent purchases of existing item types
-  { value: 'STOCK_ADDITION', label: 'Manual Stock Addition' }, // Generic manual addition
+  { value: 'INITIAL_STOCK', label: 'Initial Stock Entry' },
+  { value: 'PURCHASE_RECEIVED', label: 'Purchase Received' },
+  { value: 'STOCK_ADDITION', label: 'Manual Stock Addition' },
   { value: 'JOB_USAGE', label: 'Job Card Usage' },
   { value: 'MANUAL_CORRECTION_ADD', label: 'Manual Correction (Add)' },
   { value: 'MANUAL_CORRECTION_SUB', label: 'Manual Correction (Subtract)' },
@@ -384,15 +374,32 @@ export function getInventoryAdjustmentReasonLabel(value: InventoryAdjustmentReas
 }
 
 export type InventoryAdjustment = {
-  id: string; // Unique ID for the adjustment itself
-  inventoryItemId: string; // Foreign key to InventoryItem.id
-  date: string; // ISO date string of the transaction
-  quantityChange: number; // Positive for addition, negative for subtraction
+  id: string; 
+  inventoryItemId: string; 
+  date: string; 
+  quantityChange: number; 
   reason: InventoryAdjustmentReasonValue;
-  reference?: string; // e.g., JobCardNumber, PurchaseBillNo, user note
-  userId?: string; // Optional: ID of user making adjustment
-  notes?: string; // Optional: further details for this specific transaction
-  vendorName?: string; // Vendor for this specific purchase/adjustment
-  purchaseBillNo?: string; // Bill number for this specific purchase/adjustment
+  reference?: string; 
+  userId?: string; 
+  notes?: string; 
+  vendorName?: string; 
+  purchaseBillNo?: string; 
 };
 
+export const PAPER_SUB_CATEGORIES = [
+  { name: "SBS", filterValue: "SBS", qualityValues: ["SBS"] },
+  { name: "Kappa", filterValue: "KAPPA_GROUP", qualityValues: ["GG_KAPPA", "WG_KAPPA"] },
+  { name: "Greyback", filterValue: "GREYBACK", qualityValues: ["GREYBACK"] },
+  { name: "Whiteback", filterValue: "WHITEBACK", qualityValues: ["WHITEBACK"] },
+  { name: "Art Paper", filterValue: "ART_PAPER_GROUP", qualityValues: ["ART_PAPER_GLOSS", "ART_PAPER_MATT"] },
+  { name: "Japanese Paper", filterValue: "JAPANESE_PAPER", qualityValues: ["JAPANESE_PAPER"] },
+  { name: "Imported Paper", filterValue: "IMPORTED_PAPER", qualityValues: ["IMPORTED_PAPER"] },
+  { name: "MDF", filterValue: "MDF", qualityValues: ["MDF"] },
+  { name: "Butter Paper", filterValue: "BUTTER_PAPER", qualityValues: ["BUTTER_PAPER"] },
+  { name: "Other Paper", filterValue: "OTHER_PAPER_GROUP", qualityValues: [] }, // Special handling for "Other"
+  { name: "View All Paper Types", filterValue: "__ALL_PAPER__", qualityValues: [] },
+] as const;
+
+export type PaperSubCategoryFilterValue = typeof PAPER_SUB_CATEGORIES[number]['filterValue'];
+
+    
