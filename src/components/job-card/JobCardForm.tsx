@@ -3,9 +3,9 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import type { JobCardFormValues, InventorySuggestion, JobTemplateData, PaperQualityType, WorkflowProcessStepDefinition, WorkflowStep } from "@/lib/definitions";
+import type { JobCardFormValues, InventorySuggestion, JobTemplateData, PaperQualityType, WorkflowProcessStepDefinition, JobCardData } from "@/lib/definitions";
 import { JobCardSchema, KINDS_OF_JOB_OPTIONS, PRINTING_MACHINE_OPTIONS, COATING_OPTIONS, DIE_OPTIONS, DIE_MACHINE_OPTIONS, HOT_FOIL_OPTIONS, YES_NO_OPTIONS, BOX_MAKING_OPTIONS, PAPER_QUALITY_OPTIONS, getPaperQualityLabel, getPaperQualityUnit, PRODUCTION_PROCESS_STEPS } from "@/lib/definitions";
-import { createJobCard, getJobTemplates } from "@/lib/actions/jobActions";
+import { createJobCard, getJobTemplates, getUniqueCustomerNames, getJobsByCustomerName } from "@/lib/actions/jobActions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
@@ -16,7 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { CalendarIcon, Wand2, Link2, PlusCircle, Loader2, RotateCcw, ListOrdered } from "lucide-react";
+import { CalendarIcon, Wand2, Link2, PlusCircle, Loader2, RotateCcw, ListOrdered, Users, Briefcase as BriefcaseIcon } from "lucide-react";
 import { format } from "date-fns";
 import { useState, useEffect, useCallback } from "react";
 import { InventoryOptimizationModal } from "./InventoryOptimizationModal";
@@ -35,6 +35,14 @@ export function JobCardForm() {
   const { toast } = useToast();
   const router = useRouter();
   const [currentWorkflowSteps, setCurrentWorkflowSteps] = useState<DisplayWorkflowStep[]>([]);
+
+  const [allCustomers, setAllCustomers] = useState<string[]>([]);
+  const [selectedCustomer, setSelectedCustomer] = useState<string>("");
+  const [jobsForCustomer, setJobsForCustomer] = useState<JobCardData[]>([]);
+  const [selectedPastJobId, setSelectedPastJobId] = useState<string>("");
+  const [isLoadingCustomers, setIsLoadingCustomers] = useState(false);
+  const [isLoadingJobsForCustomer, setIsLoadingJobsForCustomer] = useState(false);
+
 
   const form = useForm<JobCardFormValues>({
     resolver: zodResolver(JobCardSchema),
@@ -76,19 +84,38 @@ export function JobCardForm() {
   });
 
   useEffect(() => {
-    async function fetchTemplates() {
-      const fetchedTemplates = await getJobTemplates();
-      setTemplates(fetchedTemplates);
+    async function fetchInitialData() {
+      setIsLoadingCustomers(true);
+      try {
+        const [fetchedTemplates, fetchedCustomers] = await Promise.all([
+          getJobTemplates(),
+          getUniqueCustomerNames()
+        ]);
+        setTemplates(fetchedTemplates);
+        setAllCustomers(fetchedCustomers);
+      } catch (error) {
+        toast({ title: "Error", description: "Could not fetch initial data (templates/customers).", variant: "destructive" });
+      } finally {
+        setIsLoadingCustomers(false);
+      }
     }
-    fetchTemplates();
-  }, []);
+    fetchInitialData();
+  }, [toast]);
 
   const watchedPaperQuality = form.watch("paperQuality");
   const targetPaperUnit = getPaperQualityUnit(watchedPaperQuality as PaperQualityType);
 
-  const applyTemplateWorkflow = useCallback((template?: JobTemplateData) => {
-    if (template?.predefinedWorkflow && template.predefinedWorkflow.length > 0) {
-      const displayWorkflow = template.predefinedWorkflow
+  const applyWorkflow = useCallback((workflowSource?: { workflowSteps?: { stepSlug: string; order: number }[] } | { predefinedWorkflow?: { stepSlug: string; order: number }[] }) => {
+    let sourceWorkflow: { stepSlug: string; order: number }[] | undefined;
+
+    if (workflowSource && 'workflowSteps' in workflowSource) {
+      sourceWorkflow = workflowSource.workflowSteps;
+    } else if (workflowSource && 'predefinedWorkflow' in workflowSource) {
+      sourceWorkflow = workflowSource.predefinedWorkflow;
+    }
+    
+    if (sourceWorkflow && sourceWorkflow.length > 0) {
+      const displayWorkflow = sourceWorkflow
         .map(ws => {
           const stepDef = PRODUCTION_PROCESS_STEPS.find(s => s.slug === ws.stepSlug);
           return stepDef ? { ...stepDef, order: ws.order } : null;
@@ -101,6 +128,7 @@ export function JobCardForm() {
     }
   }, []);
 
+
   const handleTemplateChange = (templateId: string) => {
     setSelectedTemplateId(templateId);
     const template = templates.find(t => t.id === templateId);
@@ -110,7 +138,7 @@ export function JobCardForm() {
       const templateUnit = getPaperQualityUnit(templatePaperQuality as PaperQualityType);
 
       form.reset({
-        ...currentValues, // Keep most current values
+        ...currentValues,
         paperQuality: templatePaperQuality,
         paperGsm: templateUnit === 'gsm' ? (template.paperQuality ? currentValues.paperGsm : undefined) : undefined,
         targetPaperThicknessMm: templateUnit === 'mm' ? (template.paperQuality ? currentValues.targetPaperThicknessMm : undefined) : undefined,
@@ -125,21 +153,90 @@ export function JobCardForm() {
         boxMaking: template.boxMaking || currentValues.boxMaking || "",
         workflowSteps: template.predefinedWorkflow || currentValues.workflowSteps || [],
       });
-      applyTemplateWorkflow(template);
+      applyWorkflow(template);
     } else {
-      // If "Select a job template" (empty value) is chosen, clear template-specific fields but keep job details
-      const { 
-        kindOfJob, printingFront, printingBack, coating, die, hotFoilStamping, emboss, pasting, boxMaking, workflowSteps, paperQuality, paperGsm, targetPaperThicknessMm, ...restOfValues 
-      } = form.getValues();
+      // If "Select a job template" (empty value) is chosen, clear template-specific fields
+      const { kindOfJob, printingFront, printingBack, coating, die, hotFoilStamping, emboss, pasting, boxMaking, workflowSteps, ...restOfValues } = form.getValues();
       form.reset({
         ...restOfValues,
         kindOfJob: "", printingFront: "", printingBack: "", coating: "", die: "", hotFoilStamping: "", emboss: "", pasting: "", boxMaking: "",
-        // Do not clear paperQuality or related paperGsm/targetPaperThicknessMm here, let user manage.
-        // paperQuality: "", paperGsm: undefined, targetPaperThicknessMm: undefined, 
       });
       setCurrentWorkflowSteps([]);
     }
   };
+  
+  const handleCustomerChange = useCallback(async (customerName: string) => {
+    setSelectedCustomer(customerName);
+    setSelectedPastJobId(""); // Reset past job selection
+    // Don't reset the whole form here, allow template selection to persist if made
+    // form.reset(); 
+    // setCurrentWorkflowSteps([]);
+    if (customerName) {
+      setIsLoadingJobsForCustomer(true);
+      try {
+        const jobs = await getJobsByCustomerName(customerName);
+        setJobsForCustomer(jobs);
+      } catch (error) {
+        toast({ title: "Error", description: `Could not fetch jobs for ${customerName}.`, variant: "destructive" });
+        setJobsForCustomer([]);
+      } finally {
+        setIsLoadingJobsForCustomer(false);
+      }
+    } else {
+      setJobsForCustomer([]);
+    }
+  }, [toast]);
+
+  const handlePastJobChange = useCallback((jobId: string) => {
+    setSelectedPastJobId(jobId);
+    const job = jobsForCustomer.find(j => j.id === jobId);
+    if (job) {
+      const pastJobPaperQuality = job.paperQuality || "";
+      const pastJobUnit = getPaperQualityUnit(pastJobPaperQuality as PaperQualityType);
+
+      form.reset({ // Reset with past job details
+        jobName: `Repeat - ${job.jobName}`, // Suggest a name
+        customerName: job.customerName,
+        jobSizeWidth: job.jobSizeWidth,
+        jobSizeHeight: job.jobSizeHeight,
+        netQuantity: job.netQuantity,
+        grossQuantity: job.grossQuantity,
+        paperQuality: pastJobPaperQuality,
+        paperGsm: pastJobUnit === 'gsm' ? job.paperGsm : undefined,
+        targetPaperThicknessMm: pastJobUnit === 'mm' ? job.targetPaperThicknessMm : undefined,
+        masterSheetSizeWidth: job.masterSheetSizeWidth,
+        masterSheetSizeHeight: job.masterSheetSizeHeight,
+        wastagePercentage: job.wastagePercentage,
+        cuttingLayoutDescription: job.cuttingLayoutDescription,
+        selectedMasterSheetGsm: job.selectedMasterSheetGsm,
+        selectedMasterSheetThicknessMm: job.selectedMasterSheetThicknessMm,
+        selectedMasterSheetQuality: job.selectedMasterSheetQuality,
+        sourceInventoryItemId: job.sourceInventoryItemId,
+        sheetsPerMasterSheet: job.sheetsPerMasterSheet,
+        totalMasterSheetsNeeded: job.totalMasterSheetsNeeded,
+        kindOfJob: job.kindOfJob || "",
+        printingFront: job.printingFront || "",
+        printingBack: job.printingBack || "",
+        coating: job.coating || "",
+        specialInks: job.specialInks,
+        die: job.die || "",
+        assignedDieMachine: job.assignedDieMachine,
+        hotFoilStamping: job.hotFoilStamping || "",
+        emboss: job.emboss || "",
+        pasting: job.pasting || "",
+        boxMaking: job.boxMaking || "",
+        remarks: job.remarks,
+        dispatchDate: undefined, // Dispatch date is usually new
+        workflowSteps: job.workflowSteps || [],
+      });
+      applyWorkflow(job);
+      setSelectedTemplateId(''); // Clear template selection if a past job is chosen
+    } else {
+       // If job not found, ideally this path isn't hit if dropdown is correct
+       // Consider what fields to reset vs keep if this happens
+    }
+  }, [jobsForCustomer, form, applyWorkflow]);
+
 
   const handleWorkflowStepClick = (step: WorkflowProcessStepDefinition) => {
     setCurrentWorkflowSteps(prev => {
@@ -200,6 +297,9 @@ export function JobCardForm() {
       form.reset();
       setSelectedTemplateId('');
       setCurrentWorkflowSteps([]);
+      setSelectedCustomer("");
+      setSelectedPastJobId("");
+      setJobsForCustomer([]);
       router.push(`/jobs`);
     } else {
       toast({
@@ -242,20 +342,60 @@ export function JobCardForm() {
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
         <Card>
           <CardHeader>
-            <CardTitle className="font-headline">Job Templates</CardTitle>
-            <CardDescription className="font-body">Select a pre-made template to quickly fill in process specifications and workflow.</CardDescription>
+            <CardTitle className="font-headline">Pre-fill Options</CardTitle>
+            <CardDescription className="font-body">You can pre-fill this job card using a template or a customer's past job.</CardDescription>
           </CardHeader>
-          <CardContent>
-            <Select onValueChange={handleTemplateChange} value={selectedTemplateId}>
-              <SelectTrigger className="w-full md:w-1/2 font-body">
-                <SelectValue placeholder="Select a job template" />
-              </SelectTrigger>
-              <SelectContent>
-                {templates.filter(t => t.id !== "").map(template => (
-                  <SelectItem key={template.id} value={template.id} className="font-body">{template.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <CardContent className="space-y-6">
+            <div>
+              <FormLabel>Option 1: Use a Job Template</FormLabel>
+              <Select onValueChange={handleTemplateChange} value={selectedTemplateId}>
+                <SelectTrigger className="w-full md:w-2/3 font-body mt-1">
+                  <SelectValue placeholder="Select a job template" />
+                </SelectTrigger>
+                <SelectContent>
+                  {templates.filter(t => t.id !== "").map(template => (
+                    <SelectItem key={template.id} value={template.id} className="font-body">{template.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-4">
+              <FormLabel>Option 2: Pre-fill from Customer's Past Job</FormLabel>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormItem>
+                  <FormLabel className="text-sm flex items-center"><Users className="mr-2 h-4 w-4"/>Select Customer</FormLabel>
+                  <Select onValueChange={handleCustomerChange} value={selectedCustomer} disabled={isLoadingCustomers}>
+                    <FormControl><SelectTrigger className="font-body">
+                      <SelectValue placeholder={isLoadingCustomers ? "Loading customers..." : "Select a customer"} />
+                    </SelectTrigger></FormControl>
+                    <SelectContent>
+                      {allCustomers.map(name => (
+                        <SelectItem key={name} value={name} className="font-body">{name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormItem>
+
+                <FormItem>
+                  <FormLabel className="text-sm flex items-center"><BriefcaseIcon className="mr-2 h-4 w-4"/>Select Past Job</FormLabel>
+                  <Select onValueChange={handlePastJobChange} value={selectedPastJobId} disabled={!selectedCustomer || isLoadingJobsForCustomer || jobsForCustomer.length === 0}>
+                    <FormControl><SelectTrigger className="font-body">
+                      <SelectValue placeholder={
+                        isLoadingJobsForCustomer ? "Loading jobs..." : 
+                        !selectedCustomer ? "Select customer first" :
+                        jobsForCustomer.length === 0 ? "No past jobs found" :
+                        "Select a past job"
+                      } />
+                    </SelectTrigger></FormControl>
+                    <SelectContent>
+                      {jobsForCustomer.map(job => (
+                        <SelectItem key={job.id} value={job.id!} className="font-body">{job.jobName} (ID: {job.jobCardNumber || job.id})</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormItem>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
@@ -473,7 +613,7 @@ export function JobCardForm() {
         <Card>
           <CardHeader>
             <CardTitle className="font-headline flex items-center"><ListOrdered className="mr-2 h-5 w-5 text-primary"/>Define Job Workflow</CardTitle>
-            <CardDescription className="font-body">Click production steps to add them to this job's specific workflow in order. Click again to remove. This can be pre-filled by a template.</CardDescription>
+            <CardDescription className="font-body">Click production steps to add them to this job's specific workflow in order. Click again to remove. This can be pre-filled by a template or past job.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mb-4">
@@ -527,7 +667,7 @@ export function JobCardForm() {
         <Card>
           <CardHeader>
             <CardTitle className="font-headline">Process Specifications</CardTitle>
-             <CardDescription className="font-body">These can be pre-filled by a selected template.</CardDescription>
+             <CardDescription className="font-body">These can be pre-filled by a selected template or past job.</CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {processFields.map(item => (
@@ -606,7 +746,7 @@ export function JobCardForm() {
         </Card>
 
         <div className="flex justify-end gap-4">
-          <Button type="button" variant="outline" onClick={() => { form.reset(); setSelectedTemplateId(''); setCurrentWorkflowSteps([]); }} disabled={isSubmitting} className="font-body">
+          <Button type="button" variant="outline" onClick={() => { form.reset(); setSelectedTemplateId(''); setCurrentWorkflowSteps([]); setSelectedCustomer(""); setSelectedPastJobId(""); setJobsForCustomer([]); }} disabled={isSubmitting} className="font-body">
             Cancel
           </Button>
           <Button type="submit" disabled={isSubmitting} className="font-body">
@@ -618,5 +758,3 @@ export function JobCardForm() {
     </Form>
   );
 }
-
-    
