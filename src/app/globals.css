@@ -53,33 +53,33 @@
   }
 
   .dark {
-    --background: 220 15% 10%; /* Deep Dark Blue/Gray */
-    --foreground: 210 20% 95%; /* Near White */
+    --background: 222 25% 7%; /* Deeper, slightly more saturated dark blue */
+    --foreground: 210 40% 98%; /* Brighter white for text */
 
-    --card: 220 15% 15%; /* Slightly Lighter Dark Card */
-    --card-foreground: 210 20% 95%; /* Near White */
+    --card: 222 25% 12%; /* Slightly lighter than background, more saturated */
+    --card-foreground: 210 40% 98%;
 
-    --popover: 220 15% 15%;
-    --popover-foreground: 210 20% 95%;
+    --popover: 222 25% 10%; /* Popover slightly darker than card */
+    --popover-foreground: 210 40% 98%;
 
-    --primary: 212 100% 60%; /* Vibrant Blue (slightly lighter for dark mode) */
-    --primary-foreground: 0 0% 100%; /* White */
+    --primary: 210 100% 58%; /* More saturated, classic iOS blue */
+    --primary-foreground: 210 100% 98%; /* Very light, almost white, for contrast on blue */
 
-    --secondary: 220 15% 25%;
-    --secondary-foreground: 210 20% 90%;
+    --secondary: 222 20% 20%; /* Darker secondary elements */
+    --secondary-foreground: 210 30% 80%;
 
-    --muted: 220 15% 25%;
-    --muted-foreground: 210 20% 65%; /* Lighter Muted Foreground for Dark */
+    --muted: 222 15% 18%; /* Darker muted elements */
+    --muted-foreground: 210 25% 70%;
 
-    --accent: 212 100% 55%; /* Vibrant Blue Accent */
-    --accent-foreground: 0 0% 100%; /* White */
+    --accent: 210 100% 65%; /* Lighter accent for hover states, still blue */
+    --accent-foreground: 210 100% 98%;
 
     --destructive: 0 72% 51%; 
     --destructive-foreground: 0 0% 98%;
 
-    --border: 220 15% 25%; /* Darker Border */
-    --input: 220 15% 22%; /* Dark Input Background */
-    --ring: 212 100% 60%; /* Primary color for rings */
+    --border: 222 25% 18%; /* Subtle borders */
+    --input: 222 25% 14%; /* Input slightly lighter than card for visibility */
+    --ring: 210 100% 58%; /* Primary blue for rings */
     
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
@@ -88,14 +88,14 @@
     --chart-5: 340 75% 55%;
 
     /* iOS-inspired Sidebar Dark Theme */
-    --sidebar-background: 220 15% 8%; /* Even Darker Sidebar */
-    --sidebar-foreground: 210 20% 90%; 
-    --sidebar-primary: 212 100% 60%; 
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 15% 20%; /* Darker accent hover for sidebar */
-    --sidebar-accent-foreground: 210 20% 95%;
-    --sidebar-border: 220 15% 18%;
-    --sidebar-ring: 212 100% 60%;
+    --sidebar-background: 222 28% 5%; /* Even darker, distinct sidebar */
+    --sidebar-foreground: 210 35% 90%; 
+    --sidebar-primary: 210 100% 58%; 
+    --sidebar-primary-foreground: 210 100% 98%;
+    --sidebar-accent: 222 25% 15%; /* Subtle hover for sidebar items */
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 222 25% 10%;
+    --sidebar-ring: 210 100% 58%;
   }
 }
 
@@ -105,6 +105,5 @@
   }
   body {
     @apply bg-background text-foreground;
-    /* font-family: Arial, Helvetica, sans-serif; <- Removed to allow Tailwind font-body to apply */
   }
 }
