@@ -13,6 +13,8 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import type { OptimizeInventoryOutput as ImportedOptimizeInventoryOutput } from '@/lib/definitions';
+
 
 const AvailableSheetSchema = z.object({
   id: z.string().describe('The inventory ID of this available master sheet.'),
@@ -51,7 +53,7 @@ const OptimizeInventoryOutputSchema = z.object({
   suggestions: z.array(MasterSheetSuggestionSchema).describe('An array of master sheet size suggestions, sorted by wastage percentage (lowest first).'),
   optimalSuggestion: MasterSheetSuggestionSchema.optional().describe('The optimal master sheet size suggestion based on the lowest wastage percentage.'),
 });
-export type OptimizeInventoryOutput = import('@/lib/definitions').OptimizeInventoryOutput;
+export type OptimizeInventoryOutput = ImportedOptimizeInventoryOutput;
 
 
 export async function optimizeInventory(input: OptimizeInventoryInput): Promise<OptimizeInventoryOutput> {
@@ -62,8 +64,8 @@ export async function optimizeInventory(input: OptimizeInventoryInput): Promise<
 // New prompt definition
 const prompt = ai.definePrompt({
   name: 'optimizeInventoryPrompt',
-  input: {schema: OptimizeInventoryInputSchema }, // Matches the function signature
-  output: { // Schema for what the AI is expected to return directly
+  input: {schema: OptimizeInventoryInputSchema },
+  output: {
     schema: z.object({
         suggestions: z.array(MasterSheetSuggestionSchema),
         optimalSuggestion: MasterSheetSuggestionSchema.optional()
@@ -71,7 +73,7 @@ const prompt = ai.definePrompt({
   },
   prompt: ({ targetPaperGsm, targetPaperQuality, jobSizeWidth, jobSizeHeight, netQuantity, availableMasterSheets }) => `
 You are a precise calculator and an expert in printing and packaging optimization. Your goal is to minimize waste.
-You MUST perform the calculations exactly as described, using integer division (floor function) where specified.
+You MUST perform the calculations exactly as described, using integer division (floor function) where specified for ups calculations.
 
 IMPORTANT: Your response MUST ONLY consider the master sheets explicitly provided in the \`availableMasterSheets\` data below. Do not include any sheets not found in this input. If this input array is empty or contains no suitable sheets based on the job requirements, the \`suggestions\` array in your output must be empty, and "optimalSuggestion" must be undefined.
 
@@ -90,34 +92,36 @@ For EACH sheet in the \`availableMasterSheets\` data provided below:
     - CurrentMasterSheetGSM: from \`paperGsm\`
     - CurrentMasterSheetQuality: from \`paperQuality\`
 
-2.  Calculate how many job sheets (job size: ${jobSizeWidth}in x ${jobSizeHeight}in) can be cut from this CurrentMasterSheet. This is \`sheetsPerMasterSheet\`.
-    To do this, you MUST consider two orientations for the job sheet on the CurrentMasterSheet and select the orientation that yields the maximum number of pieces. All results of division MUST be floored to the nearest whole integer before multiplication.
+2.  Calculate for **Portrait Layout** (Job as ${jobSizeWidth}W x ${jobSizeHeight}H on CurrentMasterSheet):
+    - Pieces_Across_Portrait = floor(CurrentMasterSheetWidth / ${jobSizeWidth})
+    - Pieces_Down_Portrait = floor(CurrentMasterSheetHeight / ${jobSizeHeight})
+    - Total_Ups_Portrait = Pieces_Across_Portrait * Pieces_Down_Portrait
 
-    a. **Job Portrait Orientation on Master (Job as ${jobSizeWidth}W x ${jobSizeHeight}H):**
-       Pieces_Across_Portrait = floor(CurrentMasterSheetWidth / ${jobSizeWidth})
-       Pieces_Down_Portrait = floor(CurrentMasterSheetHeight / ${jobSizeHeight})
-       Total_Ups_Portrait = Pieces_Across_Portrait * Pieces_Down_Portrait
+3.  Calculate for **Landscape Layout** (Job as ${jobSizeHeight}W x ${jobSizeWidth}H on CurrentMasterSheet, meaning job is rotated):
+    - Pieces_Across_Landscape = floor(CurrentMasterSheetWidth / ${jobSizeHeight})
+    - Pieces_Down_Landscape = floor(CurrentMasterSheetHeight / ${jobSizeWidth})
+    - Total_Ups_Landscape = Pieces_Across_Landscape * Pieces_Down_Landscape
 
-    b. **Job Landscape Orientation on Master (Job as ${jobSizeHeight}W x ${jobSizeWidth}H):**
-       Pieces_Across_Landscape = floor(CurrentMasterSheetWidth / ${jobSizeHeight})
-       Pieces_Down_Landscape = floor(CurrentMasterSheetHeight / ${jobSizeWidth})
-       Total_Ups_Landscape = Pieces_Across_Landscape * Pieces_Down_Landscape
+4.  Determine the final \`sheetsPerMasterSheet\` and \`cuttingLayoutDescription\`:
+    - IF Total_Ups_Portrait >= Total_Ups_Landscape:
+        - sheetsPerMasterSheet = Total_Ups_Portrait
+        - cuttingLayoutDescription = \`\${Pieces_Across_Portrait} across x \${Pieces_Down_Portrait} down (job portrait)\`
+    - ELSE (meaning Total_Ups_Landscape > Total_Ups_Portrait):
+        - sheetsPerMasterSheet = Total_Ups_Landscape
+        - cuttingLayoutDescription = \`\${Pieces_Across_Landscape} across x \${Pieces_Down_Landscape} down (job landscape)\`
+    This sheetsPerMasterSheet value MUST be an integer.
 
-    The \`sheetsPerMasterSheet\` for the CurrentMasterSheet is the MAXIMUM of Total_Ups_Portrait and Total_Ups_Landscape. This value MUST be an integer.
+5.  IMPORTANT: If the calculated \`sheetsPerMasterSheet\` from step 4 is 0 (e.g., because the job dimensions are larger than the CurrentMasterSheet dimensions), then this CurrentMasterSheet is unsuitable. DO NOT include this CurrentMasterSheet in the \`suggestions\` output array. Skip all further calculations for this sheet and proceed to the next available master sheet.
 
-    IMPORTANT: If \`sheetsPerMasterSheet\` calculates to 0 for the CurrentMasterSheet (e.g., because the job dimensions ${jobSizeWidth}x${jobSizeHeight} are larger than the CurrentMasterSheet dimensions), then this CurrentMasterSheet is unsuitable. DO NOT include this CurrentMasterSheet in the \`suggestions\` output array.
+6.  If \`sheetsPerMasterSheet\` > 0, calculate \`totalMasterSheetsNeeded\`:
+    - totalMasterSheetsNeeded = ceil(${netQuantity} / sheetsPerMasterSheet). This value MUST be an integer.
 
-3.  If \`sheetsPerMasterSheet\` > 0, provide a \`cuttingLayoutDescription\` that states the number of pieces across, pieces down, and the orientation (job portrait or job landscape) that achieved the maximum. For example: "2 across x 2 down (job portrait)" or "1 across x 3 down (job landscape)".
-
-4.  If \`sheetsPerMasterSheet\` > 0, calculate \`wastagePercentage\`:
-    JobSheetArea = ${jobSizeWidth} * ${jobSizeHeight}
-    MasterSheetArea = CurrentMasterSheetWidth * CurrentMasterSheetHeight
-    UsedArea = JobSheetArea * sheetsPerMasterSheet
-    WastedArea = MasterSheetArea - UsedArea
-    WastagePercentage = (WastedArea / MasterSheetArea) * 100. (Round to two decimal places, ensure it's a number).
-
-5.  If \`sheetsPerMasterSheet\` > 0, calculate \`totalMasterSheetsNeeded\`:
-    totalMasterSheetsNeeded = ceil(${netQuantity} / sheetsPerMasterSheet). (Must be an integer).
+7.  If \`sheetsPerMasterSheet\` > 0, calculate \`wastagePercentage\`:
+    - JobSheetArea = ${jobSizeWidth} * ${jobSizeHeight}
+    - MasterSheetArea = CurrentMasterSheetWidth * CurrentMasterSheetHeight
+    - UsedArea = JobSheetArea * sheetsPerMasterSheet
+    - WastedArea = MasterSheetArea - UsedArea
+    - wastagePercentage = (WastedArea / MasterSheetArea) * 100. (Round to two decimal places, ensure it's a number).
 
 ### Output Format:
 After processing ALL provided \`Available Master Sheets\` that result in sheetsPerMasterSheet > 0, compile a list of suggestions.
@@ -135,10 +139,10 @@ Return a JSON object strictly adhering to this structure:
       "masterSheetSizeHeight": ...,   // from availableMasterSheets.masterSheetSizeHeight
       "paperGsm": ...,                // from availableMasterSheets.paperGsm
       "paperQuality": "...",          // from availableMasterSheets.paperQuality
-      "sheetsPerMasterSheet": ...,    // calculated integer
-      "totalMasterSheetsNeeded": ..., // calculated integer
-      "wastagePercentage": ...,       // calculated number (e.g., 12.5)
-      "cuttingLayoutDescription": "..." // e.g., "3x2 (job portrait)"
+      "sheetsPerMasterSheet": ...,    // calculated integer from step 4
+      "totalMasterSheetsNeeded": ..., // calculated integer from step 6
+      "wastagePercentage": ...,       // calculated number from step 7 (e.g., 12.5)
+      "cuttingLayoutDescription": "..." // from step 4, e.g., "3x2 (job portrait)"
     }
     // ... more suggestions if any
   ],
@@ -149,7 +153,7 @@ Return a JSON object strictly adhering to this structure:
 Available Master Sheets to process:
 ${JSON.stringify(availableMasterSheets, null, 2)}
 
-CRITICAL: Respond ONLY with a valid JSON object matching the defined output structure. Do NOT use placeholder text like 'string' or placeholder numbers like '1.23' in your actual calculated values. Ensure all calculations are accurate and all numerical results of division are floored before multiplication for ups calculation.
+CRITICAL: Respond ONLY with a valid JSON object matching the defined output structure. Do NOT use placeholder text like 'string' or placeholder numbers like '1.23' in your actual calculated values. Ensure all calculations are accurate and all numerical results of division are floored before multiplication for ups calculation. Ensure \`cuttingLayoutDescription\` correctly reflects the pieces across, pieces down, and the orientation (job portrait or job landscape) that achieved the maximum ups.
 If the \`availableMasterSheets\` array is empty or no sheets are suitable, the "suggestions" array in your JSON output MUST be empty, and "optimalSuggestion" must be undefined.
   `,
 });
@@ -159,13 +163,14 @@ const optimizeInventoryFlow = ai.defineFlow(
   {
     name: 'optimizeInventoryFlow',
     inputSchema: OptimizeInventoryInputSchema,
-    outputSchema: OptimizeInventoryOutputSchema, 
+    outputSchema: OptimizeInventoryOutputSchema,
   },
   async (input): Promise<OptimizeInventoryOutput> => {
     console.log('[InventoryOptimization AI Flow] optimizeInventoryFlow called.');
     console.log('[InventoryOptimization AI Flow] Received input (availableMasterSheets count):', input.availableMasterSheets?.length);
     if (input.availableMasterSheets?.length) {
       console.log('[InventoryOptimization AI Flow] Preview of received availableMasterSheets (first 2):', JSON.stringify(input.availableMasterSheets.slice(0,2), null, 2));
+      console.log(`[InventoryOptimization AI Flow] Job details for prompt: Job Size ${input.jobSizeWidth}x${input.jobSizeHeight}, GSM ${input.targetPaperGsm}, Quality ${input.targetPaperQuality}, Net Qty ${input.netQuantity}`);
     }
 
     if (!input.availableMasterSheets || input.availableMasterSheets.length === 0) {
@@ -174,9 +179,9 @@ const optimizeInventoryFlow = ai.defineFlow(
     }
 
     console.log('[InventoryOptimization AI Flow] Calling AI prompt with structured input...');
-    
+
     const {output: rawAiOutput, usage} = await prompt(input);
-    
+
     console.log('[InventoryOptimization AI Flow] Raw structured output from AI prompt:', JSON.stringify(rawAiOutput, null, 2));
     if (usage) {
       console.log('[InventoryOptimization AI Flow] AI prompt usage stats:', JSON.stringify(usage, null, 2));
@@ -186,45 +191,47 @@ const optimizeInventoryFlow = ai.defineFlow(
       console.error('[InventoryOptimization AI Flow] AI prompt returned null or undefined output. Returning empty suggestions.');
       return { suggestions: [], optimalSuggestion: undefined };
     }
-    
-    // Create a mutable deep copy of the AI output for processing
+
     let processedOutput: { suggestions: any[], optimalSuggestion?: any };
     try {
-        // Ensure rawAiOutput is treated as a plain object, not a Zod-parsed object with methods.
         const plainOutput = typeof rawAiOutput === 'object' && rawAiOutput !== null ? { ...rawAiOutput } : rawAiOutput;
-        processedOutput = JSON.parse(JSON.stringify(plainOutput));
+        processedOutput = JSON.parse(JSON.stringify(plainOutput)); // Create a mutable deep copy
     } catch (e) {
         console.error('[InventoryOptimization AI Flow] Error parsing AI output (not valid JSON or structure):', e);
         console.error('[InventoryOptimization AI Flow] Faulty AI Output:', rawAiOutput);
         return { suggestions: [], optimalSuggestion: undefined };
     }
-    
+
     if (!processedOutput.suggestions) {
         console.warn('[InventoryOptimization AI Flow] AI output was missing the suggestions array. Defaulting to empty array.');
         processedOutput.suggestions = [];
     }
-    
-    // Cleanup logic for optimalSuggestion based on your previous successful strategy
-    if (
-      !processedOutput.suggestions?.length || 
-      (processedOutput.optimalSuggestion && typeof processedOutput.optimalSuggestion.sourceInventoryItemId === 'string' && processedOutput.optimalSuggestion.sourceInventoryItemId.toLowerCase() === 'string') || // Placeholder check
-      (processedOutput.optimalSuggestion && typeof processedOutput.optimalSuggestion.masterSheetSizeWidth === 'number' && processedOutput.optimalSuggestion.masterSheetSizeWidth === 1.23) // Placeholder check
-    ) {
-      if (processedOutput.suggestions?.length && processedOutput.optimalSuggestion) {
-        console.log(`[InventoryOptimization AI Flow] Cleanup: optimalSuggestion appears to be placeholder or invalid. Original optimal: ${JSON.stringify(processedOutput.optimalSuggestion)}. Setting to undefined as suggestions exist but optimal is invalid.`);
-      } else if (!processedOutput.suggestions?.length) {
-        console.log(`[InventoryOptimization AI Flow] Cleanup: No suggestions, so optimalSuggestion must be undefined. Original optimal: ${JSON.stringify(processedOutput.optimalSuggestion)}`);
+
+    // More robust cleanup for optimalSuggestion, especially if suggestions array is empty
+    if (!processedOutput.suggestions?.length) {
+      if (processedOutput.optimalSuggestion) {
+        console.log(`[InventoryOptimization AI Flow] Cleanup: Suggestions array is empty, but optimalSuggestion was present. Setting optimalSuggestion to undefined. Original optimal: ${JSON.stringify(processedOutput.optimalSuggestion)}`);
       }
       processedOutput.optimalSuggestion = undefined;
+    } else if (processedOutput.optimalSuggestion) {
+      // Check for placeholder values if suggestions array is NOT empty but optimal still looks like a placeholder
+      const opt = processedOutput.optimalSuggestion;
+      if (
+        (typeof opt.sourceInventoryItemId === 'string' && opt.sourceInventoryItemId.toLowerCase() === 'string') ||
+        (typeof opt.masterSheetSizeWidth === 'number' && opt.masterSheetSizeWidth === 1.23) || // Example placeholder
+        (opt.sheetsPerMasterSheet === 123 && opt.paperQuality === 'string') // Another example placeholder pattern
+      ) {
+        console.log(`[InventoryOptimization AI Flow] Cleanup: optimalSuggestion appears to be placeholder data. Setting to undefined. Original optimal: ${JSON.stringify(opt)}`);
+        processedOutput.optimalSuggestion = undefined;
+      }
     }
-    
+
     // If suggestions exist, but optimal is undefined (either by AI or our cleanup), pick the first.
-    // The AI is asked to sort suggestions by wastage, so the first one should be the "optimal" one if not explicitly provided.
     if (processedOutput.suggestions.length > 0 && !processedOutput.optimalSuggestion) {
-        console.warn('[InventoryOptimization AI Flow] Suggestions exist but optimalSuggestion is undefined. Assigning first suggestion as optimal.');
+        console.warn('[InventoryOptimization AI Flow] Suggestions exist but optimalSuggestion is undefined after AI output/cleanup. Assigning first suggestion as optimal.');
         processedOutput.optimalSuggestion = processedOutput.suggestions[0];
     }
-    
+
     // Ensure data types and rounding for suggestions
     processedOutput.suggestions.forEach(s => {
       s.masterSheetSizeWidth = parseFloat(Number(s.masterSheetSizeWidth || 0).toFixed(2));
@@ -234,7 +241,7 @@ const optimizeInventoryFlow = ai.defineFlow(
       s.sheetsPerMasterSheet = Math.floor(Number(s.sheetsPerMasterSheet || 0));
       s.totalMasterSheetsNeeded = Math.ceil(Number(s.totalMasterSheetsNeeded || 0));
     });
-    
+
     // Ensure data types and rounding for optimalSuggestion if it exists
     if (processedOutput.optimalSuggestion) {
        const opt = processedOutput.optimalSuggestion;
@@ -242,13 +249,12 @@ const optimizeInventoryFlow = ai.defineFlow(
        opt.masterSheetSizeHeight = parseFloat(Number(opt.masterSheetSizeHeight || 0).toFixed(2));
        opt.paperGsm = Number(opt.paperGsm || 0);
        opt.wastagePercentage = parseFloat(Number(opt.wastagePercentage || 0).toFixed(2));
-       opt.sheetsPerMasterSheet = Math.floor(Number(opt.sheetsPerMasterSheet || 0)); // Ensure integer
-       opt.totalMasterSheetsNeeded = Math.ceil(Number(opt.totalMasterSheetsNeeded || 0)); // Ensure integer
+       opt.sheetsPerMasterSheet = Math.floor(Number(opt.sheetsPerMasterSheet || 0));
+       opt.totalMasterSheetsNeeded = Math.ceil(Number(opt.totalMasterSheetsNeeded || 0));
     }
-    
+
     console.log(`[InventoryOptimization AI Flow] Returning processed output. Suggestions count: ${processedOutput.suggestions.length}. Optimal is ${processedOutput.optimalSuggestion ? 'defined' : 'undefined'}.`);
-    
-    // Cast to the final expected output type for type safety if using imported type from definitions
+
     const finalOutput: OptimizeInventoryOutput = {
         suggestions: processedOutput.suggestions,
         optimalSuggestion: processedOutput.optimalSuggestion,
@@ -256,6 +262,3 @@ const optimizeInventoryFlow = ai.defineFlow(
     return finalOutput;
   }
 );
-
-    
-    
