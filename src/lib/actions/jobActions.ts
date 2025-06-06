@@ -18,13 +18,16 @@ let templateCounter = jobTemplatesStore.length + 1;
 
 
 let inventoryItemsStore: InventoryItem[] = [
-  { id: 'inv001', name: 'Master Sheet 700x1000', type: 'Master Sheet', specification: '700mm x 1000mm', availableStock: 5000, unit: 'sheets', reorderPoint: 1000 },
-  { id: 'inv002', name: 'Master Sheet 720x1020', type: 'Master Sheet', specification: '720mm x 1020mm', availableStock: 3000, unit: 'sheets', reorderPoint: 500 },
-  { id: 'inv003', name: 'Master Sheet 650x900', type: 'Master Sheet', specification: '650mm x 900mm', availableStock: 4500, unit: 'sheets', reorderPoint: 800 },
-  { id: 'inv004', name: 'Art Card Paper', type: 'Paper Stock', specification: '300 GSM, Coated', availableStock: 10000, unit: 'sheets', reorderPoint: 2000 },
-  { id: 'inv005', name: 'Kraft Paper', type: 'Paper Stock', specification: '120 GSM, Uncoated', availableStock: 8000, unit: 'sheets', reorderPoint: 1500 },
-  { id: 'inv006', name: 'Black Ink', type: 'Ink', specification: 'Process Black', availableStock: 50, unit: 'kg', reorderPoint: 10 },
-  { id: 'inv007', name: 'Pantone 185C', type: 'Ink', specification: 'Red', availableStock: 20, unit: 'kg', reorderPoint: 5 },
+  { id: 'inv001', name: 'Master Sheet 700x1000', type: 'Master Sheet', itemGroup: 'Master Sheets', specification: '700mm x 1000mm', availableStock: 5000, unit: 'sheets', reorderPoint: 1000 },
+  { id: 'inv002', name: 'Master Sheet 720x1020', type: 'Master Sheet', itemGroup: 'Master Sheets', specification: '720mm x 1020mm', availableStock: 3000, unit: 'sheets', reorderPoint: 500 },
+  { id: 'inv003', name: 'Master Sheet 650x900', type: 'Master Sheet', itemGroup: 'Master Sheets', specification: '650mm x 900mm', availableStock: 4500, unit: 'sheets', reorderPoint: 800 },
+  { id: 'inv004', name: 'Art Card Paper 300GSM', type: 'Paper Stock', itemGroup: 'Art Card', specification: '300 GSM, Coated', availableStock: 10000, unit: 'sheets', reorderPoint: 2000 },
+  { id: 'inv005', name: 'Kraft Paper 120GSM', type: 'Paper Stock', itemGroup: 'Kraft Paper', specification: '120 GSM, Uncoated', availableStock: 8000, unit: 'sheets', reorderPoint: 1500 },
+  { id: 'inv006', name: 'Black Ink', type: 'Ink', itemGroup: 'Inks', specification: 'Process Black', availableStock: 50, unit: 'kg', reorderPoint: 10 },
+  { id: 'inv007', name: 'Pantone 185C', type: 'Ink', itemGroup: 'Inks', specification: 'Red', availableStock: 20, unit: 'kg', reorderPoint: 5 },
+  { id: 'inv008', name: 'SBS Board 280GSM', type: 'Paper Stock', itemGroup: 'SBS', specification: '280 GSM, C1S', availableStock: 7000, unit: 'sheets', reorderPoint: 1200 },
+  { id: 'inv009', name: 'Greyback Board 400GSM', type: 'Paper Stock', itemGroup: 'Greyback', specification: '400 GSM, Coated', availableStock: 6000, unit: 'sheets', reorderPoint: 1000 },
+  { id: 'inv010', name: 'Varnish Gloss', type: 'Other', itemGroup: 'Other Stock', specification: 'For Coating', availableStock: 100, unit: 'liters', reorderPoint: 20 },
 ];
 
 

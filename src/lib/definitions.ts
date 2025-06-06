@@ -189,10 +189,24 @@ export const BOX_MAKING_OPTIONS = [
 ] as const;
 
 
+export const ITEM_GROUP_TYPES = [
+  "All",
+  "Master Sheets",
+  "Art Card",
+  "Kraft Paper",
+  "SBS",
+  "Greyback",
+  "Inks",
+  "Other Stock"
+] as const;
+
+export type ItemGroupType = (typeof ITEM_GROUP_TYPES)[number];
+
 export type InventoryItem = {
   id: string;
   name: string;
-  type: 'Master Sheet' | 'Paper Stock' | 'Ink' | 'Other';
+  type: 'Master Sheet' | 'Paper Stock' | 'Ink' | 'Other'; // General category
+  itemGroup: ItemGroupType; // Specific group for tabbing/filtering
   specification: string; // e.g., "700x1000mm", "Art Card 300 GSM", "Pantone 185C"
   availableStock: number;
   unit: 'sheets' | 'kg' | 'liters' | 'units';
