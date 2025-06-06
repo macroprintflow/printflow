@@ -8,7 +8,7 @@ import { InventoryItemFormSchema, INVENTORY_CATEGORIES, PAPER_QUALITY_OPTIONS, V
 import { addInventoryItem } from "@/lib/actions/jobActions";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { cn } from "@/lib/utils";
 import { CalendarIcon, PlusCircle, ArrowRight, Loader2 } from "lucide-react";
 import { format } from "date-fns";
-import React, { type Dispatch, type SetStateAction } from "react";
+import React, { useState, type Dispatch, type SetStateAction, Fragment } from "react";
 import { useToast } from "@/hooks/use-toast";
 
 interface AddItemDialogProps {
@@ -25,9 +25,9 @@ interface AddItemDialogProps {
 }
 
 export function AddItemDialog({ isOpen, setIsOpen }: AddItemDialogProps) {
-  const [step, setStep] = React.useState(1);
-  const [selectedCategory, setSelectedCategory] = React.useState<InventoryCategory | null>(null);
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [step, setStep] = useState(1);
+  const [selectedCategory, setSelectedCategory] = useState<InventoryCategory | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<InventoryItemFormValues>({
@@ -76,9 +76,7 @@ export function AddItemDialog({ isOpen, setIsOpen }: AddItemDialogProps) {
         title: "Success!",
         description: "Inventory item added successfully.",
       });
-      form.reset();
-      setSelectedCategory(null);
-      setStep(1);
+      resetDialogState();
       setIsOpen(false);
     } else {
       toast({
@@ -88,11 +86,32 @@ export function AddItemDialog({ isOpen, setIsOpen }: AddItemDialogProps) {
       });
     }
   }
-
-  const watchedVendor = form.watch("vendorName");
+  
+  const resetDialogState = () => {
+    form.reset({
+        category: undefined,
+        paperMasterSheetSizeWidth: undefined,
+        paperMasterSheetSizeHeight: undefined,
+        paperQuality: "",
+        paperGsm: undefined,
+        inkName: "",
+        inkSpecification: "",
+        itemName: "",
+        itemSpecification: "",
+        availableStock: 0,
+        unit: "sheets",
+        purchaseBillNo: "",
+        vendorName: undefined,
+        otherVendorName: "",
+        dateOfEntry: new Date().toISOString(),
+        reorderPoint: undefined,
+    });
+    setSelectedCategory(null);
+    setStep(1);
+  };
 
   const renderStep1 = () => (
-    <>
+    <Fragment>
       <DialogHeader>
         <DialogTitle className="font-headline">Add New Inventory Item - Step 1</DialogTitle>
         <DialogDescription className="font-body">Select the category of the item you want to add.</DialogDescription>
@@ -106,16 +125,15 @@ export function AddItemDialog({ isOpen, setIsOpen }: AddItemDialogProps) {
         ))}
       </div>
       <DialogFooter>
-        <DialogClose asChild>
-            <Button type="button" variant="outline" onClick={() => { form.reset(); setSelectedCategory(null); setStep(1);}}>Cancel</Button>
-        </DialogClose>
+        <Button type="button" variant="outline" onClick={() => { resetDialogState(); setIsOpen(false); }}>Cancel</Button>
       </DialogFooter>
-    </>
+    </Fragment>
   );
 
   const renderStep2 = () => {
     if (!selectedCategory) return null;
     const categoryLabel = INVENTORY_CATEGORIES.find(c => c.value === selectedCategory)?.label || "Item";
+    const watchedVendor = form.watch("vendorName");
 
     return (
       <Form {...form}>
@@ -126,20 +144,20 @@ export function AddItemDialog({ isOpen, setIsOpen }: AddItemDialogProps) {
           </DialogHeader>
 
           {selectedCategory === 'PAPER' && (
-            <>
+            <React.Fragment key="paper-fields">
               <FormField control={form.control} name="itemName" render={({ field }) => (<FormItem><FormControl><Input type="hidden" {...field} /></FormControl></FormItem>)} />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField control={form.control} name="paperMasterSheetSizeWidth" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Paper Width (in)</FormLabel>
-                    <FormControl><Input type="number" placeholder="e.g., 27.56" {...field} value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)} onChange={e => { const numValue = parseFloat(e.target.value); field.onChange(isNaN(numValue) ? undefined : numValue); }} className="font-body"/></FormControl>
+                    <FormControl><Input type="number" placeholder="e.g., 27.56" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="font-body"/></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="paperMasterSheetSizeHeight" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Paper Height (in)</FormLabel>
-                    <FormControl><Input type="number" placeholder="e.g., 39.37" {...field} value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)} onChange={e => { const numValue = parseFloat(e.target.value); field.onChange(isNaN(numValue) ? undefined : numValue); }} className="font-body"/></FormControl>
+                    <FormControl><Input type="number" placeholder="e.g., 39.37" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="font-body"/></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
@@ -157,15 +175,15 @@ export function AddItemDialog({ isOpen, setIsOpen }: AddItemDialogProps) {
               <FormField control={form.control} name="paperGsm" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Paper GSM</FormLabel>
-                  <FormControl><Input type="number" placeholder="e.g., 300" {...field} value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)} onChange={e => { const numValue = parseFloat(e.target.value); field.onChange(isNaN(numValue) ? undefined : numValue); }} className="font-body"/></FormControl>
+                  <FormControl><Input type="number" placeholder="e.g., 300" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="font-body"/></FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
-            </>
+            </React.Fragment>
           )}
 
           {selectedCategory === 'INKS' && (
-             <>
+             <React.Fragment key="ink-fields">
                 <FormField control={form.control} name="itemName" render={({ field }) => (<FormItem><FormControl><Input type="hidden" {...field} /></FormControl></FormItem>)} />
                 <FormField control={form.control} name="inkName" render={({ field }) => (
                     <FormItem>
@@ -181,11 +199,11 @@ export function AddItemDialog({ isOpen, setIsOpen }: AddItemDialogProps) {
                         <FormMessage />
                     </FormItem>
                 )} />
-             </>
+             </React.Fragment>
           )}
 
           {(selectedCategory !== 'PAPER' && selectedCategory !== 'INKS') && (
-            <>
+            <React.Fragment key="other-category-fields">
               <FormField control={form.control} name="itemName" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Item Name</FormLabel>
@@ -200,14 +218,14 @@ export function AddItemDialog({ isOpen, setIsOpen }: AddItemDialogProps) {
                   <FormMessage />
                 </FormItem>
               )} />
-            </>
+            </React.Fragment>
           )}
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField control={form.control} name="availableStock" render={({ field }) => (
               <FormItem>
                 <FormLabel>Quantity</FormLabel>
-                <FormControl><Input type="number" placeholder="e.g., 1000" {...field} value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? 0 : Number(field.value)} onChange={e => { const numValue = parseFloat(e.target.value); field.onChange(isNaN(numValue) ? 0 : numValue); }} className="font-body"/></FormControl>
+                <FormControl><Input type="number" placeholder="e.g., 1000" {...field} value={field.value ?? 0} onChange={e => field.onChange(e.target.value === '' ? 0 : parseFloat(e.target.value))} className="font-body"/></FormControl>
                 <FormMessage />
               </FormItem>
             )} />
@@ -226,7 +244,7 @@ export function AddItemDialog({ isOpen, setIsOpen }: AddItemDialogProps) {
            <FormField control={form.control} name="reorderPoint" render={({ field }) => (
               <FormItem>
                 <FormLabel>Reorder Point (Optional)</FormLabel>
-                <FormControl><Input type="number" placeholder="e.g., 100" {...field} value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)} onChange={e => { const numValue = parseFloat(e.target.value); field.onChange(isNaN(numValue) ? undefined : numValue);}} className="font-body"/></FormControl>
+                <FormControl><Input type="number" placeholder="e.g., 100" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="font-body"/></FormControl>
                 <FormMessage />
               </FormItem>
             )} />
@@ -295,9 +313,7 @@ export function AddItemDialog({ isOpen, setIsOpen }: AddItemDialogProps) {
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
         if (!open) { 
-            form.reset();
-            setSelectedCategory(null);
-            setStep(1);
+           resetDialogState();
         }
         setIsOpen(open);
     }}>
@@ -307,5 +323,3 @@ export function AddItemDialog({ isOpen, setIsOpen }: AddItemDialogProps) {
     </Dialog>
   );
 }
-
-    
