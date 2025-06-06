@@ -12,6 +12,18 @@ interface HeaderProps {
   children?: ReactNode;
 }
 
+function getCategoryDisplayNameFromSlug(slug: string): string {
+  switch (slug) {
+    case "paper": return "Paper";
+    case "inks": return "Inks";
+    case "plastic-trays": return "Plastic Trays";
+    case "glass-jars": return "Glass Jars";
+    case "magnets": return "Magnets";
+    case "other-materials": return "Other Materials";
+    default: return slug; // Fallback to slug if not mapped
+  }
+}
+
 function getTitleFromPath(pathname: string): string {
   if (pathname.startsWith('/jobs/new')) return 'Create New Job Card';
   if (pathname.startsWith('/jobs')) return 'All Job Cards';
@@ -20,7 +32,14 @@ function getTitleFromPath(pathname: string): string {
   if (pathname.startsWith('/templates')) return 'Manage Job Templates';
   if (pathname.startsWith('/planning')) return 'Production Planning';
   if (pathname.startsWith('/tasks')) return 'Departmental Tasks';
+  
+  const inventoryCategoryMatch = pathname.match(/^\/inventory\/([a-zA-Z0-9-]+)$/);
+  if (inventoryCategoryMatch) {
+    const categorySlug = inventoryCategoryMatch[1];
+    return `Inventory - ${getCategoryDisplayNameFromSlug(categorySlug)}`;
+  }
   if (pathname.startsWith('/inventory')) return 'Inventory Management';
+  
   return 'PrintFlow';
 }
 
