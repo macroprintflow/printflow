@@ -61,17 +61,17 @@ export type JobCardData = {
   masterSheetSizeWidth?: number;
   masterSheetSizeHeight?: number;
   netQuantity: number;
-  grossQuantity: number; // This might represent total master sheets used if not using optimizer
-  paperGsm: number; // Target/Job GSM
-  paperQuality: PaperQualityType; // Target/Job Quality
+  grossQuantity: number;
+  paperGsm: number;
+  paperQuality: PaperQualityType;
   wastagePercentage?: number;
   cuttingLayoutDescription?: string;
 
   selectedMasterSheetGsm?: number;
   selectedMasterSheetQuality?: PaperQualityType;
   sourceInventoryItemId?: string;
-  sheetsPerMasterSheet?: number; // From selected suggestion
-  totalMasterSheetsNeeded?: number; // From selected suggestion, used for deduction
+  sheetsPerMasterSheet?: number;
+  totalMasterSheetsNeeded?: number;
 
   kindOfJob: 'METPET' | 'NORMAL' | 'NO_PRINTING' | '';
   printingFront: 'SM74' | 'SORSZ' | 'DOMINANT' | 'NO_PRINTING' | '';
@@ -134,8 +134,8 @@ export const JobCardSchema = z.object({
   selectedMasterSheetGsm: z.coerce.number().optional(),
   selectedMasterSheetQuality: z.enum(paperQualityEnumValues).optional(),
   sourceInventoryItemId: z.string().optional(),
-  sheetsPerMasterSheet: z.coerce.number().optional(), // From selected suggestion
-  totalMasterSheetsNeeded: z.coerce.number().optional(), // From selected suggestion
+  sheetsPerMasterSheet: z.coerce.number().optional(),
+  totalMasterSheetsNeeded: z.coerce.number().optional(),
 
   kindOfJob: z.enum(['METPET', 'NORMAL', 'NO_PRINTING', '']).default('').optional(),
   printingFront: z.enum(['SM74', 'SORSZ', 'DOMINANT', 'NO_PRINTING', '']).default('').optional(),
@@ -237,7 +237,7 @@ export type ItemGroupType = (typeof ITEM_GROUP_TYPES)[number];
 
 export type InventoryItemType =
   | 'Master Sheet'
-  | 'Paper Stock' // This might be redundant if Master Sheet implies it's paper stock
+  | 'Paper Stock' 
   | 'Ink'
   | 'Plastic Tray'
   | 'Glass Jar'
@@ -245,7 +245,7 @@ export type InventoryItemType =
   | 'Other';
 
 export const UNIT_OPTIONS = [
-  { value: 'sheets', label: 'Sheets' }, // Changed 'inches' to 'sheets' for paper
+  { value: 'sheets', label: 'Sheets' },
   { value: 'kg', label: 'Kg' },
   { value: 'liters', label: 'Liters' },
   { value: 'pieces', label: 'Pieces' },
@@ -254,23 +254,29 @@ export const UNIT_OPTIONS = [
 ] as const;
 export type UnitValue = typeof UNIT_OPTIONS[number]['value'];
 
+// Represents a master definition of an inventory item type.
+// Actual stock levels are derived from InventoryAdjustment records.
 export type InventoryItem = {
-  id: string;
-  name: string;
+  id: string; // Unique ID for this master item type
+  name: string; // e.g., "SBS 300GSM 12x18in"
   type: InventoryItemType;
   itemGroup: ItemGroupType;
-  specification: string;
+  specification: string; // Detailed spec, e.g., "300GSM SBS, 12.00in x 18.00in"
   paperGsm?: number;
   paperQuality?: PaperQualityType;
   masterSheetSizeWidth?: number;
   masterSheetSizeHeight?: number;
-  availableStock: number;
-  unit: UnitValue;
+  unit: UnitValue; // Primary unit for this item type
   reorderPoint?: number;
-  supplier?: string;
-  purchaseBillNo?: string;
-  vendorName?: string;
-  dateOfEntry?: string; // ISO string date
+  // Fields below might represent details of the first time this item was added, or general vendor info.
+  // Specific purchase details belong to InventoryAdjustment.
+  supplier?: string; // This field was in the original type, keeping for now.
+  purchaseBillNo?: string; // Details of the *first* purchase or a general reference
+  vendorName?: string; // Primary/default vendor for this item type
+  dateOfEntry?: string; // Date this item *type* was first entered
+  // `availableStock` is now dynamically calculated by summing adjustments.
+  // It will be added to this type by `getInventoryItems` before sending to client.
+  availableStock?: number; // This will be populated by getInventoryItems
 };
 
 
@@ -285,7 +291,7 @@ export const VENDOR_OPTIONS = [
 
 
 export const INVENTORY_CATEGORIES = [
-  { value: 'PAPER', label: 'Paper' }, // This will create 'Master Sheet' type items
+  { value: 'PAPER', label: 'Paper' },
   { value: 'INKS', label: 'Inks' },
   { value: 'PLASTIC_TRAY', label: 'Plastic Tray' },
   { value: 'GLASS_JAR', label: 'Glass Jars' },
@@ -308,16 +314,16 @@ export const InventoryItemFormSchema = z.object({
   inkName: z.string().optional(),
   inkSpecification: z.string().optional(),
 
-  itemName: z.string().min(1, "Item name is required"),
+  itemName: z.string().min(1, "Item name is required"), // For 'OTHER', this is the main name. For Paper/Ink, it's auto-generated.
   itemSpecification: z.string().optional(),
 
-  availableStock: z.coerce.number().min(0, "Stock quantity must be non-negative"),
+  quantity: z.coerce.number().min(0, "Quantity to add must be non-negative"), // Renamed from availableStock
   unit: z.enum(unitEnumValues),
   purchaseBillNo: z.string().optional(),
   vendorName: z.enum(VENDOR_OPTIONS.map(v => v.value) as [string, ...string[]]).optional(),
   otherVendorName: z.string().optional(),
-  dateOfEntry: z.string().refine(val => !isNaN(Date.parse(val)), { message: "Invalid date"}),
-  reorderPoint: z.coerce.number().optional(),
+  dateOfEntry: z.string().refine(val => !isNaN(Date.parse(val)), { message: "Invalid date"}), // Date of this transaction
+  reorderPoint: z.coerce.number().optional(), // This applies to the master item type
 }).superRefine((data, ctx) => {
   if (data.category === 'PAPER') {
     if (!data.paperQuality || data.paperQuality === '') {
@@ -332,11 +338,6 @@ export const InventoryItemFormSchema = z.object({
     if (data.paperMasterSheetSizeHeight === undefined || data.paperMasterSheetSizeHeight <= 0) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Valid Paper Height (must be > 0) is required for paper items.", path: ["paperMasterSheetSizeHeight"] });
     }
-     if (data.unit !== 'sheets' && data.unit !== 'pieces') { // Assuming paper is tracked in sheets or pieces
-      // This check might be too strict if other units are valid for paper.
-      // For now, let's guide towards sheets/pieces for master sheets.
-      // ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Unit for paper should typically be 'Sheets' or 'Pieces'.", path: ["unit"] });
-    }
   }
   if (data.category === 'INKS') {
     if (!data.inkName || data.inkName.trim() === '') {
@@ -346,6 +347,14 @@ export const InventoryItemFormSchema = z.object({
   if (data.vendorName === 'OTHER' && (!data.otherVendorName || data.otherVendorName.trim() === '')) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Please specify the vendor name.", path: ["otherVendorName"] });
   }
+  if (data.quantity <= 0 && data.category !== 'PAPER' && data.category !== 'INKS' ) { // Allowing 0 for initial setup of paper/ink if it's just type definition
+     // For non-paper/ink, if they are adding, quantity should be > 0
+     // This rule might need refinement based on if user can "define" an item with 0 stock initially.
+     // For now, this allows paper/ink to be defined, actual stock comes from this 'quantity' field as first adjustment.
+  }
+   if (data.quantity < 0) {
+       ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Quantity cannot be negative.", path: ["quantity"] });
+   }
 });
 
 export type InventoryItemFormValues = z.infer<typeof InventoryItemFormSchema>;
@@ -353,14 +362,13 @@ export type InventoryItemFormValues = z.infer<typeof InventoryItemFormSchema>;
 export type OptimizeInventoryOutput = {
   suggestions: InventorySuggestion[];
   optimalSuggestion?: InventorySuggestion;
-  // debugLog?: string; // Removed as per previous request
 };
 
-// New definitions for Inventory Adjustments
 export const INVENTORY_ADJUSTMENT_REASONS = [
-  { value: 'INITIAL_STOCK', label: 'Initial Stock Entry' },
+  { value: 'INITIAL_STOCK', label: 'Initial Stock Entry' }, // For the very first stock of a new item type
+  { value: 'PURCHASE_RECEIVED', label: 'Purchase Received' }, // For subsequent purchases of existing item types
+  { value: 'STOCK_ADDITION', label: 'Manual Stock Addition' }, // Generic manual addition
   { value: 'JOB_USAGE', label: 'Job Card Usage' },
-  { value: 'PURCHASE_RECEIVED', label: 'Purchase Received' },
   { value: 'MANUAL_CORRECTION_ADD', label: 'Manual Correction (Add)' },
   { value: 'MANUAL_CORRECTION_SUB', label: 'Manual Correction (Subtract)' },
   { value: 'STOCK_TAKE_GAIN', label: 'Stock Take (Gain)' },
@@ -378,10 +386,13 @@ export function getInventoryAdjustmentReasonLabel(value: InventoryAdjustmentReas
 export type InventoryAdjustment = {
   id: string; // Unique ID for the adjustment itself
   inventoryItemId: string; // Foreign key to InventoryItem.id
-  date: string; // ISO date string
+  date: string; // ISO date string of the transaction
   quantityChange: number; // Positive for addition, negative for subtraction
   reason: InventoryAdjustmentReasonValue;
   reference?: string; // e.g., JobCardNumber, PurchaseBillNo, user note
   userId?: string; // Optional: ID of user making adjustment
-  notes?: string; // Optional: further details
+  notes?: string; // Optional: further details for this specific transaction
+  vendorName?: string; // Vendor for this specific purchase/adjustment
+  purchaseBillNo?: string; // Bill number for this specific purchase/adjustment
 };
+

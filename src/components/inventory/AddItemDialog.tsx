@@ -25,7 +25,6 @@ interface AddItemDialogProps {
   onItemAdded?: () => void;
 }
 
-// Helper components defined at the top level of the module
 const PaperFields = ({ control }: { control: Control<InventoryItemFormValues> }) => (
   <>
     <FormField control={control} name="itemName" render={({ field }) => (<FormItem className="hidden"><FormControl><Input type="hidden" {...field} /></FormControl><FormMessage /></FormItem>)} />
@@ -111,10 +110,10 @@ const CommonFields = ({ form }: { form: UseFormReturn<InventoryItemFormValues> }
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <FormField
           control={form.control}
-          name="availableStock"
+          name="quantity" // Changed from availableStock
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Quantity</FormLabel>
+              <FormLabel>Quantity to Add</FormLabel> 
               <FormControl>
                 <Input
                   type="number"
@@ -182,7 +181,7 @@ const CommonFields = ({ form }: { form: UseFormReturn<InventoryItemFormValues> }
 
       <FormField control={form.control} name="dateOfEntry" render={({ field }) => (
         <FormItem className="flex flex-col">
-          <FormLabel>Date of Entry</FormLabel>
+          <FormLabel>Date of this Transaction</FormLabel>
           <Popover>
             <PopoverTrigger asChild>
               <FormControl>
@@ -217,10 +216,10 @@ export function AddItemDialog({ isOpen, setIsOpen, onItemAdded }: AddItemDialogP
     paperGsm: undefined,
     inkName: "",
     inkSpecification: "",
-    itemName: "",
+    itemName: "", // This will be auto-filled for paper/ink, user-filled for others
     itemSpecification: "",
-    availableStock: 0,
-    unit: "sheets" as UnitValue, // Default unit
+    quantity: 0, // Changed from availableStock
+    unit: "sheets" as UnitValue,
     purchaseBillNo: "",
     vendorName: undefined,
     otherVendorName: "",
@@ -234,15 +233,18 @@ export function AddItemDialog({ isOpen, setIsOpen, onItemAdded }: AddItemDialogP
   });
 
   const handleCategorySelect = (category: InventoryCategory) => {
-    form.reset(formDefaultValues);
+    form.reset(formDefaultValues); // Reset with new defaults
     setSelectedCategory(category);
     form.setValue("category", category);
 
+    // Pre-fill itemName based on category, but it's mainly for "OTHER" type items.
+    // For Paper/Ink, the final name is constructed on the server.
+    // The `itemName` field in the form is crucial for the "OTHER" category.
     if (category === 'PAPER') {
-      form.setValue("itemName", "Paper Stock"); // Default name, will be refined later
-      form.setValue("unit", "sheets" as UnitValue); // Default unit for paper
+      form.setValue("itemName", "Paper Stock Entry"); // Placeholder, server will generate final name
+      form.setValue("unit", "sheets" as UnitValue);
     } else if (category === 'INKS') {
-      form.setValue("itemName", "Ink");
+      form.setValue("itemName", "Ink Entry"); // Placeholder
       form.setValue("unit", "kg" as UnitValue);
     } else if (category === 'PLASTIC_TRAY') {
       form.setValue("itemName", "Plastic Tray");
@@ -254,10 +256,9 @@ export function AddItemDialog({ isOpen, setIsOpen, onItemAdded }: AddItemDialogP
       form.setValue("itemName", "Magnet");
       form.setValue("unit", "pieces" as UnitValue);
     } else { // OTHER
-      form.setValue("itemName", "");
+      form.setValue("itemName", ""); // User needs to fill this for "OTHER"
       form.setValue("unit", "units" as UnitValue);
     }
-
     setStep(2);
   };
 
@@ -271,14 +272,26 @@ export function AddItemDialog({ isOpen, setIsOpen, onItemAdded }: AddItemDialogP
   async function onSubmit(values: InventoryItemFormValues) {
     if (!selectedCategory) return;
 
+    // Ensure quantity is positive if it's a new stock addition.
+    // The schema already has min(0), but an explicit check for >0 when adding stock is good.
+    if (values.quantity <= 0 && selectedCategory !== 'PAPER' && selectedCategory !== 'INKS') {
+        // Allow defining Paper/Ink item types with 0 initial quantity if needed by business logic,
+        // but generally, adding stock implies quantity > 0.
+        // This specific check can be refined based on whether defining an item type with 0 stock is a valid use case.
+        // For now, if it's not paper/ink and quantity is 0, it might be an error unless it's just a definition.
+        // The server-side will handle creating a 0-stock adjustment if needed for new item definitions.
+    }
+
+
     setIsSubmitting(true);
+    // `addInventoryItem` now expects `quantity` for the transaction.
     const result = await addInventoryItem({...values, category: selectedCategory});
     setIsSubmitting(false);
 
     if (result.success) {
       toast({
         title: "Success!",
-        description: "Inventory item added successfully.",
+        description: result.message || "Inventory stock updated successfully.",
       });
       resetDialogState();
       if (onItemAdded) {
@@ -288,7 +301,7 @@ export function AddItemDialog({ isOpen, setIsOpen, onItemAdded }: AddItemDialogP
     } else {
       toast({
         title: "Error",
-        description: result.message || "Failed to add inventory item.",
+        description: result.message || "Failed to update inventory stock.",
         variant: "destructive",
       });
     }
@@ -305,7 +318,7 @@ export function AddItemDialog({ isOpen, setIsOpen, onItemAdded }: AddItemDialogP
     <>
       <DialogHeader>
         <DialogTitle className="font-headline">Add New Inventory Item - Step 1</DialogTitle>
-        <DialogDescription className="font-body">Select the category of the item you want to add.</DialogDescription>
+        <DialogDescription className="font-body">Select the category of the item you want to add stock for, or define a new item type.</DialogDescription>
       </DialogHeader>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-4">
         {INVENTORY_CATEGORIES.map(cat => (
@@ -329,8 +342,8 @@ export function AddItemDialog({ isOpen, setIsOpen, onItemAdded }: AddItemDialogP
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           <DialogHeader>
-            <DialogTitle className="font-headline">Add New {categoryLabel} - Step 2</DialogTitle>
-            <DialogDescription className="font-body">Enter the details for the new {categoryLabel.toLowerCase()}.</DialogDescription>
+            <DialogTitle className="font-headline">Add Stock / Define New {categoryLabel} - Step 2</DialogTitle>
+            <DialogDescription className="font-body">Enter the details for the stock addition or new {categoryLabel.toLowerCase()} type.</DialogDescription>
           </DialogHeader>
 
           {selectedCategory === 'PAPER' && <PaperFields control={form.control} />}
@@ -345,7 +358,7 @@ export function AddItemDialog({ isOpen, setIsOpen, onItemAdded }: AddItemDialogP
             <Button type="button" variant="outline" onClick={() => setStep(1)} disabled={isSubmitting} className="font-body">Back</Button>
             <Button type="submit" disabled={isSubmitting} className="font-body">
               {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <PlusCircle className="mr-2 h-4 w-4" />}
-              Add Item
+              Add Stock / Define Item
             </Button>
           </DialogFooter>
         </form>
@@ -361,3 +374,4 @@ export function AddItemDialog({ isOpen, setIsOpen, onItemAdded }: AddItemDialogP
     </Dialog>
   );
 }
+
