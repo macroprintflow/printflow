@@ -67,9 +67,28 @@ const prompt = ai.definePrompt({
   - 25.20 x 18.90
   - 19.69 x 27.56
 
-  For each suggestion, also determine the optimal way to cut the job sheets (job size: {{{jobSizeWidth}}}in x {{{jobSizeHeight}}}in) from the master sheet. This involves finding how many job pieces fit along the master sheet's width (N_across) and how many fit along its height (M_down). You should consider placing the job sheet in both portrait (width={{{jobSizeWidth}}}, height={{{jobSizeHeight}}}) and landscape (width={{{jobSizeHeight}}}, height={{{jobSizeWidth}}}) orientations on the master sheet to maximize the total number of pieces. Return a cuttingLayoutDescription field as a string like 'N_across x M_down (job orientation)', e.g., '3 across x 4 down (job portrait)' or '2 across x 5 down (job landscape)'.
+  For each suggestion, determine the optimal way to cut the job sheets (job size: {{{jobSizeWidth}}}in x {{{jobSizeHeight}}}in) from the master sheet.
+  This involves calculating how many job pieces fit on the master sheet.
 
-  Additionally, provide a simple ASCII art representation of the cutting layout, named 'cuttingLayoutAsciiArt'. This should be a multi-line string. Use 'J' to represent a job sheet piece, and 'W' for significant waste areas. Try to make it roughly proportional to the master sheet, showing rows and columns of 'J' and 'W'. For example, for 2 across x 3 down on a master sheet that allows for some waste:
+  When calculating 'sheetsPerMasterSheet' and 'cuttingLayoutDescription' for each master sheet suggestion, you MUST consider two orientations for the job sheet and select the one that yields the maximum number of pieces:
+
+  1.  **Portrait Orientation of Job (Job as {{{jobSizeWidth}}}W x {{{jobSizeHeight}}}H on Master Sheet):**
+      Let MasterSheetWidth and MasterSheetHeight be the dimensions of the current master sheet suggestion.
+      N_across_portrait = floor(MasterSheetWidth / {{{jobSizeWidth}}})
+      M_down_portrait = floor(MasterSheetHeight / {{{jobSizeHeight}}})
+      Total_ups_portrait = N_across_portrait * M_down_portrait
+
+  2.  **Landscape Orientation of Job (Job as {{{jobSizeHeight}}}W x {{{jobSizeWidth}}}H on Master Sheet):**
+      Let MasterSheetWidth and MasterSheetHeight be the dimensions of the current master sheet suggestion.
+      N_across_landscape = floor(MasterSheetWidth / {{{jobSizeHeight}}})
+      M_down_landscape = floor(MasterSheetHeight / {{{jobSizeWidth}}})
+      Total_ups_landscape = N_across_landscape * M_down_landscape
+
+  The 'sheetsPerMasterSheet' for the suggestion MUST be the maximum of Total_ups_portrait and Total_ups_landscape.
+  The 'cuttingLayoutDescription' must correspond to the orientation that yielded this maximum.
+  For example, if Total_ups_landscape is greater, the description should be like 'N_across_landscape across x M_down_landscape down (job landscape)'. If Total_ups_portrait is greater, it should be 'N_across_portrait across x M_down_portrait down (job portrait)'.
+
+  Additionally, provide a simple ASCII art representation of the cutting layout, named 'cuttingLayoutAsciiArt'. This should be a multi-line string. Use 'J' to represent a job sheet piece, and 'W' for significant waste areas. Try to make it roughly proportional to the master sheet, showing rows and columns of 'J' and 'W' based on the chosen optimal layout (portrait or landscape). For example, for 2 across x 3 down on a master sheet that allows for some waste:
   cuttingLayoutAsciiArt:
   "JJW\\nJJW\\nJJW\\nWWW"
   (Ensure the ASCII art is a single string with '\\n' for newlines).
@@ -105,3 +124,4 @@ const optimizeInventoryFlow = ai.defineFlow(
     return output!;
   }
 );
+
