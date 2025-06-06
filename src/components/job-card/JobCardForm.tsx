@@ -488,7 +488,11 @@ export function JobCardForm() {
                     className="font-body text-xs h-auto py-2 flex flex-col items-start text-left"
                   >
                      <div className="flex items-center">
-                       {selectedStep && <span className="font-bold mr-1">{selectedStep.order}.</span>}
+                       {selectedStep && (
+                        <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mr-1.5 leading-none">
+                          {selectedStep.order}
+                        </span>
+                       )}
                        <step.icon className={`mr-1.5 h-4 w-4 ${selectedStep ? 'text-primary' : 'text-muted-foreground'}`} />
                        {step.name}
                     </div>
@@ -502,7 +506,10 @@ export function JobCardForm() {
                 <div className="flex flex-wrap gap-2">
                   {currentWorkflowSteps.sort((a,b) => a.order - b.order).map(step => (
                     <Badge key={step.slug} variant="secondary" className="font-body">
-                      {step.order}. {step.name}
+                      <span className="bg-primary text-primary-foreground rounded-full w-4 h-4 flex items-center justify-center text-xs font-semibold mr-1.5 leading-none">
+                        {step.order}
+                      </span>
+                      {step.name}
                     </Badge>
                   ))}
                 </div>
@@ -611,3 +618,5 @@ export function JobCardForm() {
     </Form>
   );
 }
+
+    
