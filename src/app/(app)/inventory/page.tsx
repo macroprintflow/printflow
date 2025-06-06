@@ -7,8 +7,7 @@ import { Archive, PlusCircle, Search, History } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getInventoryItems } from "@/lib/actions/jobActions";
-import { getPaperQualityLabel } from "@/lib/definitions";
-import type { InventoryItem, ItemGroupType, PaperQualityType } from "@/lib/definitions";
+import type { InventoryItem, ItemGroupType } from "@/lib/definitions";
 import { ITEM_GROUP_TYPES } from "@/lib/definitions";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -51,9 +50,7 @@ export default function InventoryPage() {
           item.name.toLowerCase().includes(lowerCaseQuery) ||
           item.type.toLowerCase().includes(lowerCaseQuery) ||
           (item.itemGroup && item.itemGroup.toLowerCase().includes(lowerCaseQuery)) ||
-          (item.specification && item.specification.toLowerCase().includes(lowerCaseQuery)) ||
           (item.paperGsm && item.paperGsm.toString().includes(lowerCaseQuery)) ||
-          (item.paperQuality && getPaperQualityLabel(item.paperQuality as PaperQualityType).toLowerCase().includes(lowerCaseQuery)) ||
           (item.id && item.id.toLowerCase().includes(lowerCaseQuery))
         );
       });
@@ -98,12 +95,10 @@ export default function InventoryPage() {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="font-headline">Item Name</TableHead>
+            <TableHead className="font-headline">Item Name (Size)</TableHead>
             <TableHead className="font-headline">Type</TableHead>
             <TableHead className="font-headline">Item Group</TableHead>
-            <TableHead className="font-headline">Specification</TableHead>
             <TableHead className="font-headline">Paper GSM</TableHead>
-            <TableHead className="font-headline">Paper Quality</TableHead>
             <TableHead className="font-headline text-right">Available Stock</TableHead>
             <TableHead className="font-headline text-right">Unit</TableHead>
             <TableHead className="font-headline text-right">Reorder Point</TableHead>
@@ -133,9 +128,7 @@ export default function InventoryPage() {
                   {item.itemGroup}
                 </Badge>
               </TableCell>
-              <TableCell className="font-body text-sm text-muted-foreground">{item.specification}</TableCell>
               <TableCell className="font-body">{item.paperGsm || '-'}</TableCell>
-              <TableCell className="font-body">{item.paperQuality ? getPaperQualityLabel(item.paperQuality as PaperQualityType) : '-'}</TableCell>
               <TableCell className="font-body text-right">{item.availableStock?.toLocaleString() ?? 0}</TableCell>
               <TableCell className="font-body text-right">{item.unit}</TableCell>
               <TableCell className="font-body text-right">{item.reorderPoint ? item.reorderPoint.toLocaleString() : '-'}</TableCell>
@@ -149,7 +142,7 @@ export default function InventoryPage() {
         </TableBody>
       </Table>
     );
-  }, [isLoading, searchQuery]); // Removed inventoryItems from dependency array as filteredItems covers it.
+  }, [isLoading, searchQuery]);
 
 
   return (

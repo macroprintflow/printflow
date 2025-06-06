@@ -11,10 +11,10 @@ declare global {
   var __jobCounter__: number | undefined;
   var __jobTemplatesStore__: JobTemplateData[] | undefined;
   var __templateCounter__: number | undefined;
-  var __inventoryItemsStore__: InventoryItem[] | undefined; // Stores master item definitions
-  var __inventoryCounter__: number | undefined; // For generating inventory item IDs
-  var __inventoryAdjustmentsStore__: InventoryAdjustment[] | undefined; // Stores all stock transactions
-  var __adjustmentCounter__: number | undefined; // For generating adjustment IDs
+  var __inventoryItemsStore__: InventoryItem[] | undefined; 
+  var __inventoryCounter__: number | undefined; 
+  var __inventoryAdjustmentsStore__: InventoryAdjustment[] | undefined; 
+  var __adjustmentCounter__: number | undefined; 
 }
 
 // Initialize global stores if they don't exist
@@ -66,6 +66,8 @@ export async function createJobCard(data: JobCardFormValues): Promise<{ success:
       jobCardNumber: generateJobCardNumber(),
       date: new Date().toISOString().split('T')[0],
       cuttingLayoutDescription: data.cuttingLayoutDescription,
+      sheetsPerMasterSheet: data.sheetsPerMasterSheet,
+      totalMasterSheetsNeeded: data.totalMasterSheetsNeeded,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -79,7 +81,7 @@ export async function createJobCard(data: JobCardFormValues): Promise<{ success:
           id: `adj${global.__adjustmentCounter__!++}`,
           inventoryItemId: data.sourceInventoryItemId,
           date: new Date().toISOString(),
-          quantityChange: -data.totalMasterSheetsNeeded, // Negative for deduction
+          quantityChange: -data.totalMasterSheetsNeeded, 
           reason: 'JOB_USAGE',
           reference: newJobCard.jobCardNumber,
           notes: `Used for job: ${newJobCard.jobName}`,
@@ -94,7 +96,7 @@ export async function createJobCard(data: JobCardFormValues): Promise<{ success:
     console.log('[JobActions] Created job card:', newJobCard.jobCardNumber);
     revalidatePath('/jobs');
     revalidatePath('/jobs/new');
-    revalidatePath('/inventory'); // Revalidate inventory in case stock changed
+    revalidatePath('/inventory'); 
     return { success: true, message: 'Job card created successfully!', jobCard: newJobCard };
   } catch (error) {
     console.error('[JobActions Error] Error creating job card:', error);
@@ -125,7 +127,7 @@ export async function getInventoryOptimizationSuggestions(
         return { suggestions: [], optimalSuggestion: undefined };
     }
     
-    const allInventoryMasterItems = await getInventoryItems(); // This now returns items with calculated availableStock
+    const allInventoryMasterItems = await getInventoryItems(); 
     console.log(`[JobActions TS Calc] Full inventory fetched (${allInventoryMasterItems.length} master items).`);
 
     const targetQualityLower = jobInput.paperQuality.toLowerCase();
@@ -133,14 +135,14 @@ export async function getInventoryOptimizationSuggestions(
     const processedSuggestions: InventorySuggestion[] = allInventoryMasterItems
       .filter(item => {
         const hasRequiredSheetFields =
-          item.type === 'Master Sheet' && // Ensure it's a master sheet type
+          item.type === 'Master Sheet' && 
           item.masterSheetSizeWidth && item.masterSheetSizeWidth > 0 &&
           item.masterSheetSizeHeight && item.masterSheetSizeHeight > 0 &&
           item.paperGsm && item.paperGsm > 0 &&
           item.paperQuality && item.paperQuality !== '';
         
         if (!hasRequiredSheetFields) return false;
-        if ((item.availableStock || 0) <= 0) { // Check calculated available stock
+        if ((item.availableStock || 0) <= 0) { 
           console.log(`[JobActions TS Calc] Sheet ID ${item.id} (${item.name}) has 0 or less available stock. Skipping.`);
           return false;
         }
@@ -166,10 +168,10 @@ export async function getInventoryOptimizationSuggestions(
         const usedArea = layoutInfo.ups * jobArea;
         
         let wastagePercentage = 0;
-        if (sheetArea > 0) { // Avoid division by zero if sheetArea is somehow 0
+        if (sheetArea > 0) { 
             wastagePercentage = 100 - (usedArea / sheetArea) * 100;
         } else {
-            wastagePercentage = 100; // Or some other indicator of an issue
+            wastagePercentage = 100; 
         }
 
         const totalMasterSheetsNeeded = Math.ceil(jobInput.netQuantity / layoutInfo.ups);
@@ -188,7 +190,7 @@ export async function getInventoryOptimizationSuggestions(
         console.log(`[JobActions TS Calc] Processed sheet ID ${sheet.id}: Ups: ${layoutInfo.ups}, Wastage: ${suggestion.wastagePercentage}%, Layout: ${suggestion.cuttingLayoutDescription}`);
         return suggestion;
       })
-      .filter((s): s is InventorySuggestion => s !== null) // Ensure s is not null
+      .filter((s): s is InventorySuggestion => s !== null) 
       .sort((a, b) => {
         if (a.wastagePercentage === b.wastagePercentage) {
           return a.totalMasterSheetsNeeded - b.totalMasterSheetsNeeded;
@@ -244,10 +246,8 @@ export async function createJobTemplate(data: JobTemplateFormValues): Promise<{ 
   }
 }
 
-// Helper to generate a unique key for an inventory item type
 function generateItemTypeKey(data: InventoryItemFormValues): string {
     if (data.category === 'PAPER') {
-        // Ensure all parts of the key are defined and consistently formatted
         const quality = data.paperQuality || 'unknown_quality';
         const gsm = data.paperGsm || 0;
         const width = data.paperMasterSheetSizeWidth || 0;
@@ -257,7 +257,6 @@ function generateItemTypeKey(data: InventoryItemFormValues): string {
         const inkName = data.inkName || 'unknown_ink';
         return `ink_${inkName}`.toLowerCase();
     } else {
-        // For 'OTHER' categories, use the item name provided in the form.
         const itemName = data.itemName || 'unknown_item';
         return `other_${data.category}_${itemName}`.toLowerCase().replace(/\s+/g, '_');
     }
@@ -273,21 +272,15 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
 
     const itemTypeKey = generateItemTypeKey(data);
     let existingItem = global.__inventoryItemsStore__!.find(item => {
-        // This is a simplified check. A more robust way would be to store the key on the item itself.
-        // For now, we'll regenerate a key for comparison (less efficient but works for in-memory).
-        // This assumes InventoryItemFormValues has enough info to reconstruct the key for stored items.
-        // This part needs careful handling if stored items don't map directly to form values for key generation.
-        // For this example, we assume `item.name` is constructed similarly or use specific fields.
         if (item.type === 'Master Sheet' && data.category === 'PAPER') {
             const existingKey = `paper_${item.paperQuality}_${item.paperGsm}gsm_${item.masterSheetSizeWidth?.toFixed(2)}x${item.masterSheetSizeHeight?.toFixed(2)}`.toLowerCase();
             return existingKey === itemTypeKey;
         } else if (item.type === 'Ink' && data.category === 'INKS') {
-            const existingKey = `ink_${item.name}`.toLowerCase(); // Assuming ink name is stored in item.name for inks
+            const existingKey = `ink_${item.name}`.toLowerCase();
             return existingKey === itemTypeKey;
         } else if (data.category !== 'PAPER' && data.category !== 'INKS') {
-             // For 'OTHER' categories, match based on the original item name and category
              const normalizedItemName = (item.name || "unknown_item").toLowerCase().replace(/\s+/g, '_');
-             const originalCategoryGuess = item.itemGroup === 'Other Stock' ? 'OTHER' : item.itemGroup; // Approximation
+             const originalCategoryGuess = item.itemGroup === 'Other Stock' ? 'OTHER' : item.itemGroup;
              const existingKey = `other_${originalCategoryGuess}_${normalizedItemName}`.toLowerCase();
              return existingKey === itemTypeKey;
         }
@@ -296,15 +289,16 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
 
     let inventoryItemId: string;
     let adjustmentReason: InventoryAdjustmentReasonValue = 'INITIAL_STOCK';
+    let itemForMessage: InventoryItem;
 
     if (existingItem) {
       console.log(`[InventoryManagement] Existing item found (ID: ${existingItem.id}, Key: ${itemTypeKey}). Adding stock.`);
       inventoryItemId = existingItem.id;
-      adjustmentReason = 'PURCHASE_RECEIVED'; // Or 'STOCK_ADDITION'
-      // Update reorder point if new one is provided and higher, or if not set
+      adjustmentReason = 'PURCHASE_RECEIVED'; 
       if (data.reorderPoint && (!existingItem.reorderPoint || data.reorderPoint > existingItem.reorderPoint)) {
         existingItem.reorderPoint = data.reorderPoint;
       }
+      itemForMessage = existingItem;
     } else {
       console.log(`[InventoryManagement] No existing item found for key: ${itemTypeKey}. Creating new master item.`);
       const currentInventoryCounter = global.__inventoryCounter__!++;
@@ -312,7 +306,7 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
       
       let itemType: InventoryItemType = 'Other';
       let itemGroup: ItemGroupType = 'Other Stock';
-      let specificName = data.itemName; // Default from form
+      let specificName = data.itemName; 
       let specificSpecification = data.itemSpecification || '';
       let masterSheetSizeWidth_val: number | undefined = undefined;
       let masterSheetSizeHeight_val: number | undefined = undefined;
@@ -327,15 +321,17 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
         itemType = 'Master Sheet';
         const qualityLabel = getPaperQualityLabel(paperQuality_val);
         itemGroup = qualityLabel as ItemGroupType;
-        specificName = `${qualityLabel} ${paperGsm_val}GSM ${masterSheetSizeWidth_val?.toFixed(2)}x${masterSheetSizeHeight_val?.toFixed(2)}in`.trim();
-        specificSpecification = `${paperGsm_val}GSM ${qualityLabel}, ${masterSheetSizeWidth_val?.toFixed(2)}in x ${masterSheetSizeHeight_val?.toFixed(2)}in`;
+        // Item name for paper is now just dimensions
+        specificName = `${masterSheetSizeWidth_val?.toFixed(2)}x${masterSheetSizeHeight_val?.toFixed(2)}in`.trim();
+        // Specification still contains full details for internal data richness
+        specificSpecification = `${qualityLabel} ${paperGsm_val}GSM, ${masterSheetSizeWidth_val?.toFixed(2)}in x ${masterSheetSizeHeight_val?.toFixed(2)}in`;
       } else if (data.category === 'INKS') {
         itemType = 'Ink';
         itemGroup = 'Inks';
-        specificName = data.inkName!; // Schema ensures inkName is present if category is INKS
+        specificName = data.inkName!; 
         specificSpecification = data.inkSpecification || 'N/A';
-      } else { // OTHER, PLASTIC_TRAY, GLASS_JAR, MAGNET
-        specificName = data.itemName; // Already validated by schema to be present
+      } else { 
+        specificName = data.itemName; 
         itemType = data.category === 'PLASTIC_TRAY' ? 'Plastic Tray' :
                      data.category === 'GLASS_JAR' ? 'Glass Jar' :
                      data.category === 'MAGNET' ? 'Magnet' : 'Other';
@@ -356,22 +352,20 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
         masterSheetSizeHeight: masterSheetSizeHeight_val,
         unit: data.unit as UnitValue,
         reorderPoint: data.reorderPoint,
-        // These details are for the first entry/purchase
         purchaseBillNo: data.purchaseBillNo,
         vendorName: data.vendorName === 'OTHER' ? data.otherVendorName : data.vendorName,
-        dateOfEntry: data.dateOfEntry, // Date this item *type* was first effectively stocked
+        dateOfEntry: data.dateOfEntry, 
       };
       global.__inventoryItemsStore__!.push(newItemMaster);
-      existingItem = newItemMaster; // for the toast message
+      itemForMessage = newItemMaster; 
     }
 
-    // Create the stock adjustment record
-    if (data.quantity > 0) { // Only add adjustment if quantity is positive
+    if (data.quantity > 0) { 
         const adjustment: InventoryAdjustment = {
             id: `adj${global.__adjustmentCounter__!++}`,
             inventoryItemId: inventoryItemId,
-            date: data.dateOfEntry, // Date of this specific transaction
-            quantityChange: data.quantity, // Quantity from the form for this transaction
+            date: data.dateOfEntry, 
+            quantityChange: data.quantity, 
             reason: adjustmentReason,
             reference: data.purchaseBillNo || (adjustmentReason === 'INITIAL_STOCK' ? 'Initial Entry' : 'Stock Added'),
             notes: adjustmentReason === 'INITIAL_STOCK' ? 'Initial stock for new item type.' : `Added stock. Bill: ${data.purchaseBillNo || 'N/A'}`,
@@ -380,7 +374,6 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
         };
         global.__inventoryAdjustmentsStore__!.push(adjustment);
     } else if (adjustmentReason === 'INITIAL_STOCK' && data.quantity === 0) {
-        // If it's a new item and quantity is 0, still log an "Initial Stock" of 0 to mark its existence.
         const adjustment: InventoryAdjustment = {
             id: `adj${global.__adjustmentCounter__!++}`,
             inventoryItemId: inventoryItemId,
@@ -396,9 +389,9 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
     }
 
 
-    console.log(`[InventoryManagement] ${existingItem ? 'Added to' : 'Created'} item: ${existingItem!.name}. Transaction Quantity: ${data.quantity}`);
+    console.log(`[InventoryManagement] ${existingItem ? 'Added to' : 'Created'} item: ${itemForMessage!.name}. Transaction Quantity: ${data.quantity}`);
     revalidatePath('/inventory');
-    return { success: true, message: `Stock updated for: ${existingItem!.name}. Quantity added: ${data.quantity}`, item: existingItem };
+    return { success: true, message: `Stock updated for: ${itemForMessage!.name}. Quantity added: ${data.quantity}`, item: itemForMessage };
   } catch (error) {
     console.error('[InventoryManagement Error] Error adding/updating inventory item:', error);
     const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred.';
