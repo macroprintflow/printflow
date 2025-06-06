@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/sidebar';
 import AppLogo from '@/components/AppLogo';
 import { Header } from '@/components/layout/Header';
-import { LayoutDashboard, Briefcase, FilePlus2, CalendarCheck2, ClipboardList, UserCircle, Settings, LayoutList, Archive } from 'lucide-react';
+import { LayoutDashboard, Briefcase, FilePlus2, CalendarCheck2, ClipboardList, UserCircle, Settings, Archive } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -35,7 +35,7 @@ const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/jobs', label: 'All Jobs', icon: Briefcase },
   { href: '/jobs/new', label: 'New Job Card', icon: FilePlus2 },
-  { href: '/templates', label: 'Manage Templates', icon: LayoutList },
+  // { href: '/templates', label: 'Manage Templates', icon: LayoutList }, // Removed from here
   { href: '/planning', label: 'Production Planning', icon: CalendarCheck2 },
   { href: '/tasks', label: 'Departmental Tasks', icon: ClipboardList },
   { href: '/inventory', label: 'Inventory', icon: Archive },
