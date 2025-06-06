@@ -7,17 +7,19 @@ import { Archive, PlusCircle, Search } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getInventoryItems } from "@/lib/actions/jobActions";
-import { getPaperQualityLabel } from "@/lib/definitions"; // Updated import
+import { getPaperQualityLabel } from "@/lib/definitions";
 import type { InventoryItem, ItemGroupType, PaperQualityType } from "@/lib/definitions";
 import { ITEM_GROUP_TYPES } from "@/lib/definitions";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { AddItemDialog } from "@/components/inventory/AddItemDialog"; // Import the new dialog
 
 export default function InventoryPage() {
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<ItemGroupType>(ITEM_GROUP_TYPES[0]); // Default to "All"
+  const [activeTab, setActiveTab] = useState<ItemGroupType>(ITEM_GROUP_TYPES[0]); 
+  const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false); // State for dialog
 
   useEffect(() => {
     async function fetchData() {
@@ -33,7 +35,6 @@ export default function InventoryPage() {
     if (activeTab === "All") {
       return inventoryItems;
     }
-    // For paper quality tabs, itemGroup stores the label. For others, it's direct.
     return inventoryItems.filter(item => item.itemGroup === activeTab);
   }, [activeTab, inventoryItems]);
 
@@ -54,7 +55,7 @@ export default function InventoryPage() {
           <p className="mt-1 text-sm text-muted-foreground font-body">
             There are no inventory items matching the selected group, or the inventory is empty.
           </p>
-           <Button className="mt-6">
+           <Button className="mt-6" onClick={() => setIsAddItemDialogOpen(true)}>
             <PlusCircle className="mr-2 h-4 w-4" /> Add New Item
           </Button>
         </div>
@@ -82,7 +83,8 @@ export default function InventoryPage() {
               <TableCell>
                 <Badge variant={
                   item.type === 'Master Sheet' ? 'secondary' :
-                  item.type === 'Paper Stock' ? 'outline' : 'default'
+                  item.type === 'Paper Stock' ? 'outline' : 
+                  item.type === 'Ink' ? 'default' : 'secondary' // Added more variants for other types
                 } className="font-body capitalize">
                   {item.type}
                 </Badge>
@@ -123,7 +125,7 @@ export default function InventoryPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input placeholder="Search inventory..." className="pl-10 w-full sm:w-64 font-body" disabled />
             </div>
-            <Button className="w-full sm:w-auto">
+            <Button className="w-full sm:w-auto" onClick={() => setIsAddItemDialogOpen(true)}>
               <PlusCircle className="mr-2 h-4 w-4" /> Add Item
             </Button>
           </div>
@@ -145,8 +147,7 @@ export default function InventoryPage() {
           </Tabs>
         </CardContent>
       </Card>
+      <AddItemDialog isOpen={isAddItemDialogOpen} setIsOpen={setIsAddItemDialogOpen} />
     </div>
   );
 }
-
-    

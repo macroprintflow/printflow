@@ -24,7 +24,6 @@ export type InventorySuggestion = {
   sheetsPerMasterSheet: number;
   totalMasterSheetsNeeded: number;
   cuttingLayoutDescription?: string;
-  cuttingLayoutAsciiArt?: string; // Optional: for text-based visualization
 };
 
 export const PAPER_QUALITY_OPTIONS = [
@@ -67,7 +66,6 @@ export type JobCardData = {
   paperQuality: PaperQualityType; // Target/Job Quality
   wastagePercentage?: number;
   cuttingLayoutDescription?: string;
-  cuttingLayoutAsciiArt?: string; // Added to store the ASCII art
   // Fields to store the actual selected master sheet details from suggestion
   selectedMasterSheetGsm?: number;
   selectedMasterSheetQuality?: PaperQualityType;
@@ -132,7 +130,6 @@ export const JobCardSchema = z.object({
   masterSheetSizeHeight: z.coerce.number().optional(), // From suggestion
   wastagePercentage: z.coerce.number().optional(), // From suggestion
   cuttingLayoutDescription: z.string().optional(), // From suggestion
-  cuttingLayoutAsciiArt: z.string().optional(), // Added for form validation
   selectedMasterSheetGsm: z.coerce.number().optional(), // Actual GSM from suggestion
   selectedMasterSheetQuality: z.enum(paperQualityEnumValues).optional(), // Actual quality from suggestion
   sourceInventoryItemId: z.string().optional(), // ID of inventory item from suggestion
@@ -224,32 +221,124 @@ export const BOX_MAKING_OPTIONS = [
   { value: 'COMBINED', label: 'Combined' },
 ] as const;
 
-
 // ITEM_GROUP_TYPES will now include all paper qualities for more granular filtering on inventory page
+// Plus new general categories
 export const ITEM_GROUP_TYPES = [
   "All",
-  "Master Sheets", // Generic group for sheets not fitting specific paper qualities or for bulk entry
   ...PAPER_QUALITY_OPTIONS.map(opt => opt.label), // Use labels for display
   "Inks",
+  "Plastic Trays",
+  "Glass Jars",
+  "Magnets",
   "Other Stock"
 ] as const;
 
 export type ItemGroupType = (typeof ITEM_GROUP_TYPES)[number];
 
+export type InventoryItemType = 
+  | 'Master Sheet' 
+  | 'Paper Stock' 
+  | 'Ink' 
+  | 'Plastic Tray'
+  | 'Glass Jar'
+  | 'Magnet'
+  | 'Other';
+
+export const UNIT_OPTIONS = [
+  { value: 'sheets', label: 'Sheets' },
+  { value: 'kg', label: 'Kg' },
+  { value: 'liters', label: 'Liters' },
+  { value: 'pieces', label: 'Pieces' },
+  { value: 'rolls', label: 'Rolls' },
+  { value: 'units', label: 'Units' },
+] as const;
+type UnitValue = typeof UNIT_OPTIONS[number]['value'];
+
 export type InventoryItem = {
   id: string;
   name: string;
-  type: 'Master Sheet' | 'Paper Stock' | 'Ink' | 'Other';
-  itemGroup: ItemGroupType; // Specific group for tabbing/filtering
+  type: InventoryItemType;
+  itemGroup: ItemGroupType; 
   specification: string; 
-  paperGsm?: number; // GSM of the paper/sheet
-  paperQuality?: PaperQualityType; // Quality of the paper/sheet
-  masterSheetSizeWidth?: number; // Width in inches, if it's a master sheet
-  masterSheetSizeHeight?: number; // Height in inches, if it's a master sheet
+  paperGsm?: number; 
+  paperQuality?: PaperQualityType;
+  masterSheetSizeWidth?: number; 
+  masterSheetSizeHeight?: number; 
   availableStock: number;
-  unit: 'sheets' | 'kg' | 'liters' | 'units';
+  unit: UnitValue;
   reorderPoint?: number;
-  supplier?: string;
+  supplier?: string; // Keeping this for now, vendorName is more specific for new entries
+  purchaseBillNo?: string;
+  vendorName?: string;
+  dateOfEntry?: string; // ISO string date
 };
 
-    
+
+export const VENDOR_OPTIONS = [
+  { value: 'JV_TRADERS', label: 'JV Traders' },
+  { value: 'MLM_INDIA', label: 'MLM India' },
+  { value: 'PAPER_LINK', label: 'Paper Link' },
+  { value: 'ROHIT_AGENCIES', label: 'Rohit Agencies' },
+  { value: 'SUMAT_PARSHAD', label: 'Sumat Parshad' },
+  { value: 'OTHER', label: 'Other (Specify)'},
+] as const;
+type VendorValue = typeof VENDOR_OPTIONS[number]['value'];
+
+
+export const INVENTORY_CATEGORIES = [
+  { value: 'PAPER', label: 'Paper' },
+  { value: 'INKS', label: 'Inks' },
+  { value: 'PLASTIC_TRAY', label: 'Plastic Tray' },
+  { value: 'GLASS_JAR', label: 'Glass Jars' },
+  { value: 'MAGNET', label: 'Magnets' },
+  { value: 'OTHER', label: 'Other Material/Stock' },
+] as const;
+export type InventoryCategory = typeof INVENTORY_CATEGORIES[number]['value'];
+
+
+const unitEnumValues = UNIT_OPTIONS.map(opt => opt.value) as [string, ...string[]]; // Zod needs at least one value for enum
+
+export const InventoryItemFormSchema = z.object({
+  category: z.enum(INVENTORY_CATEGORIES.map(c => c.value) as [string, ...string[]]),
+  
+  // Paper specific
+  paperMasterSheetSizeWidth: z.coerce.number().optional(),
+  paperMasterSheetSizeHeight: z.coerce.number().optional(),
+  paperQuality: z.enum(paperQualityEnumValues).optional(),
+  paperGsm: z.coerce.number().optional(),
+  
+  // Ink specific
+  inkName: z.string().optional(),
+  inkSpecification: z.string().optional(), // e.g. color
+
+  // Common fields for other categories & general use
+  itemName: z.string().min(1, "Item name is required"), // Generic name, can be prefilled for paper/ink
+  itemSpecification: z.string().optional(), // Generic spec, can be prefilled for paper/ink
+
+  availableStock: z.coerce.number().min(0, "Stock quantity must be non-negative"),
+  unit: z.enum(unitEnumValues),
+  purchaseBillNo: z.string().optional(),
+  vendorName: z.enum(VENDOR_OPTIONS.map(v => v.value) as [string, ...string[]]).optional(),
+  otherVendorName: z.string().optional(), // For manual entry if "Other" is selected
+  dateOfEntry: z.string().refine(val => !isNaN(Date.parse(val)), { message: "Invalid date"}),
+  reorderPoint: z.coerce.number().optional(),
+}).superRefine((data, ctx) => {
+  if (data.category === 'PAPER') {
+    if (!data.paperQuality || data.paperQuality === '') {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Paper quality is required for paper items.", path: ["paperQuality"] });
+    }
+    if (data.paperGsm === undefined || data.paperGsm <= 0) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Valid Paper GSM is required for paper items.", path: ["paperGsm"] });
+    }
+  }
+  if (data.category === 'INKS') {
+    if (!data.inkName || data.inkName.trim() === '') {
+       ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Ink name is required for ink items.", path: ["inkName"] });
+    }
+  }
+  if (data.vendorName === 'OTHER' && (!data.otherVendorName || data.otherVendorName.trim() === '')) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Please specify the vendor name.", path: ["otherVendorName"] });
+  }
+});
+
+export type InventoryItemFormValues = z.infer<typeof InventoryItemFormSchema>;
