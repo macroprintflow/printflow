@@ -72,7 +72,6 @@ export function JobCardForm() {
     setSelectedTemplate(templateId);
     const template = templates.find(t => t.id === templateId);
     if (template) {
-      // Preserve user-entered basic info and paper specs
       const currentValues = form.getValues();
       form.reset({
         jobName: currentValues.jobName,
@@ -86,7 +85,6 @@ export function JobCardForm() {
         masterSheetSizeWidth: currentValues.masterSheetSizeWidth,
         masterSheetSizeHeight: currentValues.masterSheetSizeHeight,
         wastagePercentage: currentValues.wastagePercentage,
-        // Apply template values for processes
         kindOfJob: template.kindOfJob || "",
         printingFront: template.printingFront || "",
         printingBack: template.printingBack || "",
@@ -96,15 +94,13 @@ export function JobCardForm() {
         emboss: template.emboss || "",
         pasting: template.pasting || "",
         boxMaking: template.boxMaking || "",
-        // Preserve other fields if needed, or set to template defaults
-        specialInks: currentValues.specialInks, // Or template.specialInks if you add it
-        assignedDieMachine: currentValues.assignedDieMachine, // Or template.assignedDieMachine
-        remarks: currentValues.remarks, // Or template.remarks
-        dispatchDate: currentValues.dispatchDate, // Or template.dispatchDate
+        specialInks: currentValues.specialInks, 
+        assignedDieMachine: currentValues.assignedDieMachine, 
+        remarks: currentValues.remarks, 
+        dispatchDate: currentValues.dispatchDate, 
       });
     } else {
-      // If "None" or an invalid template is selected, potentially clear process fields or reset to defaults
-      // For now, we'll just ensure the selectedTemplate state is cleared
+      // If "None" or an invalid template is selected
     }
   };
 
@@ -124,7 +120,7 @@ export function JobCardForm() {
         description: result.message,
       });
       form.reset(); 
-      setSelectedTemplate(''); // Clear selected template
+      setSelectedTemplate(''); 
       router.push(`/jobs`); 
     } else {
       toast({
@@ -208,7 +204,19 @@ export function JobCardForm() {
             <FormField control={form.control} name="paperGsm" render={({ field }) => (
               <FormItem>
                 <FormLabel>Paper GSM</FormLabel>
-                <FormControl><Input type="number" placeholder="e.g., 300" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} className="font-body"/></FormControl>
+                <FormControl>
+                  <Input
+                    type="number"
+                    placeholder="e.g., 300"
+                    {...field}
+                    value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
+                    onChange={e => {
+                      const numValue = parseFloat(e.target.value);
+                      field.onChange(isNaN(numValue) ? undefined : numValue);
+                    }}
+                    className="font-body"
+                  />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )} />
@@ -223,14 +231,38 @@ export function JobCardForm() {
               <FormField control={form.control} name="netQuantity" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Net Quantity</FormLabel>
-                  <FormControl><Input type="number" placeholder="e.g., 1000" {...field} onChange={e => field.onChange(parseInt(e.target.value) || undefined)} className="font-body"/></FormControl>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      placeholder="e.g., 1000"
+                      {...field}
+                      value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
+                      onChange={e => {
+                        const numValue = parseFloat(e.target.value);
+                        field.onChange(isNaN(numValue) ? undefined : numValue);
+                      }}
+                      className="font-body"
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
               <FormField control={form.control} name="grossQuantity" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Gross Quantity</FormLabel>
-                  <FormControl><Input type="number" placeholder="e.g., 1100" {...field} onChange={e => field.onChange(parseInt(e.target.value) || undefined)} className="font-body"/></FormControl>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      placeholder="e.g., 1100"
+                      {...field}
+                      value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
+                      onChange={e => {
+                        const numValue = parseFloat(e.target.value);
+                        field.onChange(isNaN(numValue) ? undefined : numValue);
+                      }}
+                      className="font-body"
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
@@ -239,14 +271,38 @@ export function JobCardForm() {
                 <FormField control={form.control} name="jobSizeWidth" render={({ field }) => (
                     <FormItem>
                         <FormLabel>Job Size Width (mm)</FormLabel>
-                        <FormControl><Input type="number" placeholder="e.g., 210" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} className="font-body"/></FormControl>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="e.g., 210"
+                            {...field}
+                            value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
+                            onChange={e => {
+                              const numValue = parseFloat(e.target.value);
+                              field.onChange(isNaN(numValue) ? undefined : numValue);
+                            }}
+                            className="font-body"
+                          />
+                        </FormControl>
                         <FormMessage />
                     </FormItem>
                 )} />
                 <FormField control={form.control} name="jobSizeHeight" render={({ field }) => (
                     <FormItem>
                         <FormLabel>Job Size Height (mm)</FormLabel>
-                        <FormControl><Input type="number" placeholder="e.g., 297" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} className="font-body"/></FormControl>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="e.g., 297"
+                            {...field}
+                            value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
+                            onChange={e => {
+                              const numValue = parseFloat(e.target.value);
+                              field.onChange(isNaN(numValue) ? undefined : numValue);
+                            }}
+                            className="font-body"
+                          />
+                        </FormControl>
                         <FormMessage />
                     </FormItem>
                 )} />
@@ -257,21 +313,58 @@ export function JobCardForm() {
             <FormField control={form.control} name="masterSheetSizeWidth" render={({ field }) => (
                 <FormItem>
                     <FormLabel>Master Sheet Width (mm)</FormLabel>
-                    <FormControl><Input type="number" placeholder="Optimized or manual" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} className="font-body"/></FormControl>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        placeholder="Optimized or manual"
+                        {...field}
+                        value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
+                        onChange={e => {
+                          const numValue = parseFloat(e.target.value);
+                          field.onChange(isNaN(numValue) ? undefined : numValue);
+                        }}
+                        className="font-body"
+                      />
+                    </FormControl>
                     <FormMessage />
                 </FormItem>
             )} />
             <FormField control={form.control} name="masterSheetSizeHeight" render={({ field }) => (
                 <FormItem>
                     <FormLabel>Master Sheet Height (mm)</FormLabel>
-                    <FormControl><Input type="number" placeholder="Optimized or manual" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} className="font-body"/></FormControl>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        placeholder="Optimized or manual"
+                        {...field}
+                        value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
+                        onChange={e => {
+                          const numValue = parseFloat(e.target.value);
+                          field.onChange(isNaN(numValue) ? undefined : numValue);
+                        }}
+                        className="font-body"
+                      />
+                    </FormControl>
                     <FormMessage />
                 </FormItem>
             )} />
             <FormField control={form.control} name="wastagePercentage" render={({ field }) => (
                 <FormItem>
                     <FormLabel>Wastage (%)</FormLabel>
-                    <FormControl><Input type="number" placeholder="Calculated" {...field} readOnly onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} className="font-body bg-muted"/></FormControl>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        placeholder="Calculated"
+                        {...field}
+                        value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
+                        readOnly
+                        onChange={e => { // Still useful for programmatic changes via form.setValue
+                          const numValue = parseFloat(e.target.value);
+                          field.onChange(isNaN(numValue) ? undefined : numValue);
+                        }}
+                        className="font-body bg-muted"
+                      />
+                    </FormControl>
                     <FormMessage />
                 </FormItem>
             )} />
@@ -384,3 +477,4 @@ export function JobCardForm() {
     </Form>
   );
 }
+
