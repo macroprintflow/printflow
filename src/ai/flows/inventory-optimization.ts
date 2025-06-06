@@ -60,7 +60,7 @@ const prompt = ai.definePrompt({
   name: 'optimizeInventoryPrompt',
   input: {schema: OptimizeInventoryInputSchema},
   output: {schema: OptimizeInventoryOutputSchema},
-  prompt: `IMPORTANT: Your response MUST ONLY consider the master sheets explicitly provided in the \`{{{availableMasterSheets}}}\` input array. Do not include any sheets not found in this input. If this input array is empty or contains no suitable sheets based on the job requirements, the \`suggestions\` array in your output must be empty.
+  prompt: `IMPORTANT: Your response MUST ONLY consider the master sheets explicitly provided in the \`{{{availableMasterSheets}}}\` input array. Do not include any sheets not found in this input. If this input array is empty or contains no suitable sheets based on the job requirements (e.g. all sheets result in sheetsPerMasterSheet = 0), the \`suggestions\` array in your output must be empty and optimalSuggestion should be undefined.
 
   You are an expert in printing and packaging, specializing in optimizing material usage to minimize waste.
 
@@ -138,35 +138,62 @@ const optimizeInventoryFlow = ai.defineFlow(
     outputSchema: OptimizeInventoryOutputSchema,
   },
   async input => {
-    // If AI is called with no sheets, it might hallucinate.
-    // This check ensures we short-circuit if the JS-side filtering results in no valid sheets.
+    console.log(`[InventoryOptimization AI Flow] optimizeInventoryFlow called. Received ${input.availableMasterSheets?.length || 0} availableMasterSheets from caller.`);
+    if (input.availableMasterSheets?.length) {
+      console.log('[InventoryOptimization AI Flow] Preview of received availableMasterSheets (first 2):', JSON.stringify(input.availableMasterSheets.slice(0,2), null, 2));
+    }
+
     if (!input.availableMasterSheets || input.availableMasterSheets.length === 0) {
-      console.log('[InventoryOptimization AI Flow] Received empty or no availableMasterSheets. Returning empty suggestions.');
+      console.log('[InventoryOptimization AI Flow] Input availableMasterSheets is empty or undefined. Returning empty suggestions immediately as per flow logic.');
       return { suggestions: [], optimalSuggestion: undefined };
     }
-    const {output} = await prompt(input);
+
+    console.log('[InventoryOptimization AI Flow] Proceeding to call AI prompt...');
+    const {output, usage} = await prompt(input); // Capture usage for logging
+    
+    console.log('[InventoryOptimization AI Flow] Raw output from AI prompt:', JSON.stringify(output, null, 2));
+    if (usage) {
+      console.log('[InventoryOptimization AI Flow] AI prompt usage stats:', JSON.stringify(usage, null, 2));
+    }
+
+    if (!output) {
+      console.error('[InventoryOptimization AI Flow] AI prompt returned null or undefined output. Returning empty suggestions to prevent errors.');
+      return { suggestions: [], optimalSuggestion: undefined };
+    }
+    
+    // Ensure suggestions is an array, even if AI fails to provide it, to prevent runtime errors.
+    if (!output.suggestions) {
+        console.warn('[InventoryOptimization AI Flow] AI output was missing the suggestions array. Defaulting to empty array.');
+        output.suggestions = [];
+    }
     
     // Post-processing to ensure data types and rounding
-    if (output?.suggestions) {
-      output.suggestions.forEach(s => {
-        s.masterSheetSizeWidth = parseFloat(Number(s.masterSheetSizeWidth || 0).toFixed(2));
-        s.masterSheetSizeHeight = parseFloat(Number(s.masterSheetSizeHeight || 0).toFixed(2));
-        s.paperGsm = Number(s.paperGsm || 0);
-        s.wastagePercentage = parseFloat(Number(s.wastagePercentage || 0).toFixed(2));
-        s.sheetsPerMasterSheet = Math.floor(Number(s.sheetsPerMasterSheet || 0)); // Ensure integer
-        s.totalMasterSheetsNeeded = Math.ceil(Number(s.totalMasterSheetsNeeded || 0)); // Ensure integer
-      });
-    }
-    if (output?.optimalSuggestion) {
+    output.suggestions.forEach(s => {
+      s.masterSheetSizeWidth = parseFloat(Number(s.masterSheetSizeWidth || 0).toFixed(2));
+      s.masterSheetSizeHeight = parseFloat(Number(s.masterSheetSizeHeight || 0).toFixed(2));
+      s.paperGsm = Number(s.paperGsm || 0);
+      s.wastagePercentage = parseFloat(Number(s.wastagePercentage || 0).toFixed(2));
+      s.sheetsPerMasterSheet = Math.floor(Number(s.sheetsPerMasterSheet || 0));
+      s.totalMasterSheetsNeeded = Math.ceil(Number(s.totalMasterSheetsNeeded || 0));
+    });
+    
+    if (output.optimalSuggestion) {
        const opt = output.optimalSuggestion;
        opt.masterSheetSizeWidth = parseFloat(Number(opt.masterSheetSizeWidth || 0).toFixed(2));
        opt.masterSheetSizeHeight = parseFloat(Number(opt.masterSheetSizeHeight || 0).toFixed(2));
        opt.paperGsm = Number(opt.paperGsm || 0);
        opt.wastagePercentage = parseFloat(Number(opt.wastagePercentage || 0).toFixed(2));
-       opt.sheetsPerMasterSheet = Math.floor(Number(opt.sheetsPerMasterSheet || 0)); // Ensure integer
-       opt.totalMasterSheetsNeeded = Math.ceil(Number(opt.totalMasterSheetsNeeded || 0)); // Ensure integer
+       opt.sheetsPerMasterSheet = Math.floor(Number(opt.sheetsPerMasterSheet || 0));
+       opt.totalMasterSheetsNeeded = Math.ceil(Number(opt.totalMasterSheetsNeeded || 0));
+    } else if (output.suggestions.length > 0) {
+        // If optimalSuggestion is missing but suggestions exist, assign the first suggestion as optimal.
+        // (The prompt already asks for sorting, so the first should be optimal)
+        console.warn('[InventoryOptimization AI Flow] OptimalSuggestion was missing in AI output, but suggestions exist. Assigning first suggestion as optimal.');
+        output.optimalSuggestion = output.suggestions[0];
     }
-    return output!;
+    
+    console.log('[InventoryOptimization AI Flow] Returning processed output. Suggestions count:', output.suggestions.length);
+    return output;
   }
 );
 
