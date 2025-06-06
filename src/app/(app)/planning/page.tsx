@@ -62,6 +62,9 @@ export default function PlanningPage() {
   const handleGeneratePlan = async () => {
     setIsLoading(true);
     setAiSuggestions(null);
+    // Reset job counts on initial steps before fetching new plan
+    setProductionSteps(initialProductionSteps.map(step => ({ ...step, jobCount: 0 })));
+
     try {
       const allJobs = await getJobCards();
       
@@ -107,9 +110,10 @@ export default function PlanningPage() {
       const suggestions = await suggestProductionPlan(planningInput);
       setAiSuggestions(suggestions);
 
+      // Update job counts based on all assignments in the suggestion, not just for planningInput.planningDate
       const updatedSteps = initialProductionSteps.map(step => {
         const count = suggestions.suggestedAssignments.filter(
-          sa => sa.assignedDepartment === step.name && sa.targetDate === planningInput.planningDate 
+          sa => sa.assignedDepartment === step.name
         ).length;
         return { ...step, jobCount: count };
       });
