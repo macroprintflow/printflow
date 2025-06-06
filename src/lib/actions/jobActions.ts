@@ -38,14 +38,10 @@ if (typeof global.__templateCounter__ === 'undefined') {
   global.__templateCounter__ = initialJobTemplates.length + 1;
 }
 
-// Critical: Ensure inventory store starts empty if initialInventoryItems is empty.
-// This handles cases where hot-reloading might not fully clear global state.
-if (!global.__inventoryItemsStore__ || (initialInventoryItems.length === 0 && global.__inventoryItemsStore__.length > 0) ) {
-  console.log('[InventoryManagement] Initializing/Resetting global inventory store to be empty based on initialInventoryItems.');
-  global.__inventoryItemsStore__ = [...initialInventoryItems];
-} else if (!global.__inventoryItemsStore__) {
-  // Standard initialization if initialInventoryItems might have items in the future
-  global.__inventoryItemsStore__ = [...initialInventoryItems];
+// Ensures inventory store starts empty if initialInventoryItems is empty.
+if (!global.__inventoryItemsStore__ || initialInventoryItems.length === 0) {
+  console.log('[InventoryManagement] Initializing/Resetting global inventory store to be empty.');
+  global.__inventoryItemsStore__ = [...initialInventoryItems]; // which is []
 }
 
 if (typeof global.__inventoryCounter__ === 'undefined') {
@@ -103,34 +99,51 @@ export async function getInventoryOptimizationSuggestions(
     console.log(`[InventoryOptimization Debug] Job Input: GSM=${targetGsm}, Quality=${targetQuality}, Size=${jobInput.jobSizeWidth}x${jobInput.jobSizeHeight}, Qty=${jobInput.netQuantity}`);
     
     const allInventory = await getInventoryItems();
-    console.log('[InventoryOptimization Debug] Full inventory fetched:', JSON.stringify(allInventory.map(i => ({id: i.id, name: i.name, w: i.masterSheetSizeWidth, h: i.masterSheetSizeHeight, gsm: i.paperGsm, quality: i.paperQuality})), null, 2));
+    console.log('[InventoryOptimization Debug] Full inventory fetched:', JSON.stringify(allInventory.map(i => ({id: i.id, name: i.name, type: i.type, w: i.masterSheetSizeWidth, h: i.masterSheetSizeHeight, gsm: i.paperGsm, quality: i.paperQuality})), null, 2));
     
     const availableMasterSheets: AvailableSheet[] = [];
 
     for (const item of allInventory) {
-      // Basic check for essential master sheet properties
-      if (!item.masterSheetSizeWidth || item.masterSheetSizeWidth <= 0 ||
-          !item.masterSheetSizeHeight || item.masterSheetSizeHeight <= 0 ||
-          !item.paperGsm || item.paperGsm <= 0 ||
-          !item.paperQuality || item.paperQuality === '') {
-        console.log(`[InventoryOptimization Debug] Filtering out item ${item.id} ('${item.name}') due to missing/invalid critical master sheet fields. W: ${item.masterSheetSizeWidth}, H: ${item.masterSheetSizeHeight}, GSM: ${item.paperGsm}, Q: ${item.paperQuality}`);
-        continue; 
+      let sheetData: AvailableSheet;
+      // Check if item has the basic properties of a master sheet
+      if (item.masterSheetSizeWidth && item.masterSheetSizeWidth > 0 &&
+          item.masterSheetSizeHeight && item.masterSheetSizeHeight > 0 &&
+          item.paperGsm && item.paperGsm > 0 &&
+          item.paperQuality && item.paperQuality !== '') {
+        // Item looks like a sheet, use its actual properties
+        sheetData = {
+          id: item.id,
+          masterSheetSizeWidth: item.masterSheetSizeWidth,
+          masterSheetSizeHeight: item.masterSheetSizeHeight,
+          paperGsm: item.paperGsm,
+          paperQuality: item.paperQuality,
+        };
+        console.log(`[InventoryOptimization Debug] Item ${item.id} ('${item.name}') is a sheet. Adding to AI list with actual values.`);
+      } else {
+        // Item doesn't look like a sheet, provide defaults to satisfy AvailableSheetSchema
+        // The AI is expected to filter this out if it's not usable based on its prompt.
+        sheetData = {
+          id: item.id,
+          masterSheetSizeWidth: 0, // Default
+          masterSheetSizeHeight: 0, // Default
+          paperGsm: 0, // Default
+          paperQuality: item.name || 'N/A_ITEM_TYPE', // Use item name or a placeholder for quality
+        };
+        console.log(`[InventoryOptimization Debug] Item ${item.id} ('${item.name}') is NOT a standard sheet. Sending with defaults to AI.`);
       }
-      // No JS-based filtering for quality or GSM is currently active. All valid sheets go to AI.
-      console.log(`[InventoryOptimization Debug] Item ${item.id} ('${item.name}') PASSED basic property checks and WILL BE SENT TO AI. W: ${item.masterSheetSizeWidth}, H: ${item.masterSheetSizeHeight}, GSM: ${item.paperGsm}, Q: ${item.paperQuality}`);
-      availableMasterSheets.push({
-        id: item.id,
-        masterSheetSizeWidth: item.masterSheetSizeWidth,
-        masterSheetSizeHeight: item.masterSheetSizeHeight,
-        paperGsm: item.paperGsm,
-        paperQuality: item.paperQuality,
-      });
+      availableMasterSheets.push(sheetData);
     }
 
-    console.log('[InventoryOptimization Debug] Available master sheets being sent to AI (NO JS pre-filtering by quality/GSM):', JSON.stringify(availableMasterSheets, null, 2));
+    console.log('[InventoryOptimization Debug] Available master sheets being sent to AI (includes all items, with defaults for non-sheets):', JSON.stringify(availableMasterSheets, null, 2));
     
-    if (availableMasterSheets.length === 0) {
-      console.log('[InventoryOptimization Debug] No master sheets found with basic properties to send to AI.');
+    if (availableMasterSheets.length === 0 && allInventory.length > 0) {
+      // This case should ideally not be hit if we're forcing all items through,
+      // but good for sanity if allInventory itself was empty.
+      console.log('[InventoryOptimization Debug] No items from inventory could be formatted for AI (allInventory might be empty or all items lacked an ID).');
+      return { suggestions: [], optimalSuggestion: undefined };
+    }
+     if (allInventory.length === 0) {
+      console.log('[InventoryOptimization Debug] Inventory is empty. No items to send to AI.');
       return { suggestions: [], optimalSuggestion: undefined };
     }
     
@@ -212,7 +225,7 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
       paperGsm = data.paperGsm!;
       paperQuality = data.paperQuality as PaperQualityType;
       
-      itemType = 'Master Sheet';
+      itemType = 'Master Sheet'; // Ensuring it's Master Sheet for paper category with dimensions
       itemGroup = getPaperQualityLabel(paperQuality) as ItemGroupType; 
 
       specificName = `${getPaperQualityLabel(paperQuality)} ${paperGsm}GSM ${masterSheetSizeWidth.toFixed(2)}x${masterSheetSizeHeight.toFixed(2)}in`.trim();
@@ -276,5 +289,4 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
     return { success: false, message: 'Failed to add inventory item.' };
   }
 }
-
     
