@@ -20,7 +20,7 @@ function getCategoryDisplayNameFromSlug(slug: string): string {
     case "glass-jars": return "Glass Jars";
     case "magnets": return "Magnets";
     case "other-materials": return "Other Materials";
-    default: return slug; // Fallback to slug if not mapped
+    default: return slug; 
   }
 }
 
@@ -48,21 +48,21 @@ export function Header({ title, children }: HeaderProps) {
   const pageTitle = title || getTitleFromPath(pathname);
 
   return (
-    <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur md:px-6">
+    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-white/10 dark:border-black/20 bg-background/70 dark:bg-background/60 px-4 backdrop-blur-lg md:px-6">
       <div className="md:hidden">
         <SidebarTrigger />
       </div>
-      <h1 className="text-lg font-headline font-semibold md:text-xl">{pageTitle}</h1>
+      <h1 className="text-lg font-headline font-semibold md:text-xl text-foreground">{pageTitle}</h1>
       <div className="ml-auto flex items-center gap-4">
         {pathname === '/jobs' && (
-          <Button asChild size="sm">
+          <Button asChild size="sm" variant="secondary">
             <Link href="/jobs/new">
               <PlusCircle className="mr-2 h-4 w-4" /> Create Job Card
             </Link>
           </Button>
         )}
         {pathname === '/templates' && (
-          <Button asChild size="sm">
+          <Button asChild size="sm" variant="secondary">
             <Link href="/templates/new">
               <PlusCircle className="mr-2 h-4 w-4" /> Create Template
             </Link>

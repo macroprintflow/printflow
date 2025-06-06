@@ -5,33 +5,35 @@
 
 @layer base {
   :root {
-    --background: 0 0% 98%; /* Near White */
-    --foreground: 215 20% 30%; /* Softer Dark Gray */
+    /* iOS Light Theme Inspired */
+    --background: 220 13% 96%; /* #F5F5F7 */
+    --foreground: 240 2% 12%; /* #1D1D1F */
+    
+    /* Card is for solid cards. Glassmorphism applied directly. */
+    --card: 0 0% 100%; 
+    --card-foreground: 240 2% 12%;
 
-    --card: 0 0% 100%; /* White */
-    --card-foreground: 215 20% 30%; /* Softer Dark Gray */
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 2% 12%;
 
-    --popover: 0 0% 100%; /* White */
-    --popover-foreground: 215 20% 30%; /* Softer Dark Gray */
+    --primary: 212 100% 50%; /* #007AFF */
+    --primary-foreground: 0 0% 100%;
 
-    --primary: 212 100% 50%; /* Vibrant iOS-like Blue */
-    --primary-foreground: 0 0% 100%; /* White */
+    --secondary: 220 14% 90%; /* Light gray for secondary elements/backgrounds */
+    --secondary-foreground: 240 2% 30%; /* Darker gray for text on secondary */
 
-    --secondary: 210 20% 92%; /* Lighter Secondary */
-    --secondary-foreground: 215 20% 35%; /* Darker Secondary Foreground */
+    --muted: 220 14% 90%;
+    --muted-foreground: 240 2% 45%; /* #6E6E73 for muted text */
 
-    --muted: 210 20% 92%; /* Lighter Muted */
-    --muted-foreground: 215 15% 55%; /* Lighter Muted Foreground */
+    --accent: 212 100% 50%; /* iOS blue for interactive accents */
+    --accent-foreground: 0 0% 100%;
 
-    --accent: 212 100% 60%; /* Lighter Vibrant Blue */
-    --accent-foreground: 0 0% 100%; /* White */
+    --destructive: 0 84% 60%; /* Standard red for destructive actions */
+    --destructive-foreground: 0 0% 100%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-
-    --border: 210 20% 92%; /* Lighter Border */
-    --input: 210 20% 95%; /* Lighter Input Background */
-    --ring: 212 100% 50%; /* Vibrant iOS-like Blue for rings */
+    --border: 220 10% 85%; /* #D1D1D6 like border */
+    --input: 0 0% 100%; /* Inputs often white on light theme */
+    --ring: 212 100% 50%; /* Focus ring blue */
     
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
@@ -39,47 +41,49 @@
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
     
-    --radius: 0.65rem; /* Slightly softer corners */
+    --radius: 1rem; /* Increased base radius for iOS feel */
 
     /* iOS-inspired Sidebar Light Theme */
-    --sidebar-background: 0 0% 96%; /* Very Light Gray */
-    --sidebar-foreground: 215 20% 25%; /* Dark Gray Text */
-    --sidebar-primary: 212 100% 50%; /* Vibrant Blue */
-    --sidebar-primary-foreground: 0 0% 100%; /* White */
-    --sidebar-accent: 212 95% 90%; /* Very Light Blue for hover */
-    --sidebar-accent-foreground: 212 100% 45%; /* Darker Blue text on hover */
-    --sidebar-border: 0 0% 90%; /* Light Border */
-    --sidebar-ring: 212 100% 50%; /* Vibrant Blue */
+    --sidebar-background: 220 15% 94%; /* Slightly off-white, distinct from main bg */
+    --sidebar-foreground: 240 2% 25%; 
+    --sidebar-primary: 212 100% 50%; 
+    --sidebar-primary-foreground: 0 0% 100%; 
+    --sidebar-accent: 220 15% 88%; /* Hover for sidebar items */
+    --sidebar-accent-foreground: 212 100% 45%;
+    --sidebar-border: 220 10% 82%; 
+    --sidebar-ring: 212 100% 50%;
   }
 
   .dark {
-    --background: 222 25% 7%; /* Deeper, slightly more saturated dark blue */
-    --foreground: 210 40% 98%; /* Brighter white for text */
+    /* iOS Dark Theme Inspired */
+    --background: 240 4% 9%; /* Very dark gray #1C1C1E (a bit darker) */
+    --foreground: 0 0% 95%; /* Off-white #F5F5F7 for text */
 
-    --card: 222 25% 12%; /* Slightly lighter than background, more saturated */
-    --card-foreground: 210 40% 98%;
+    /* Card is for solid cards. Glassmorphism applied directly. */
+    --card: 240 4% 12%; /* Slightly lighter than bg #2C2C2E */
+    --card-foreground: 0 0% 95%;
 
-    --popover: 222 25% 10%; /* Popover slightly darker than card */
-    --popover-foreground: 210 40% 98%;
+    --popover: 240 4% 12%;
+    --popover-foreground: 0 0% 95%;
 
-    --primary: 210 100% 58%; /* More saturated, classic iOS blue */
-    --primary-foreground: 210 100% 98%; /* Very light, almost white, for contrast on blue */
+    --primary: 212 100% 58%; /* Brighter blue for dark mode #0A84FF */
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 222 20% 20%; /* Darker secondary elements */
-    --secondary-foreground: 210 30% 80%;
+    --secondary: 240 4% 15%; /* Dark gray for secondary elements/backgrounds */
+    --secondary-foreground: 0 0% 70%; /* Lighter gray for text on secondary */
 
-    --muted: 222 15% 18%; /* Darker muted elements */
-    --muted-foreground: 210 25% 70%;
+    --muted: 240 4% 15%;
+    --muted-foreground: 240 2% 60%; /* #8E8E93 for muted text */
 
-    --accent: 210 100% 65%; /* Lighter accent for hover states, still blue */
-    --accent-foreground: 210 100% 98%;
+    --accent: 212 100% 58%;
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 72% 51%; 
-    --destructive-foreground: 0 0% 98%;
+    --destructive: 0 70% 55%; /* Vivid red for destructive */
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 222 25% 18%; /* Subtle borders */
-    --input: 222 25% 14%; /* Input slightly lighter than card for visibility */
-    --ring: 210 100% 58%; /* Primary blue for rings */
+    --border: 240 2% 23%; /* #3A3A3C like border */
+    --input: 240 4% 18%; /* Dark inputs */
+    --ring: 212 100% 58%;
     
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
@@ -88,14 +92,14 @@
     --chart-5: 340 75% 55%;
 
     /* iOS-inspired Sidebar Dark Theme */
-    --sidebar-background: 222 28% 5%; /* Even darker, distinct sidebar */
-    --sidebar-foreground: 210 35% 90%; 
-    --sidebar-primary: 210 100% 58%; 
-    --sidebar-primary-foreground: 210 100% 98%;
-    --sidebar-accent: 222 25% 15%; /* Subtle hover for sidebar items */
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 222 25% 10%;
-    --sidebar-ring: 210 100% 58%;
+    --sidebar-background: 240 4% 7%; /* Even darker for sidebar */
+    --sidebar-foreground: 0 0% 90%; 
+    --sidebar-primary: 212 100% 58%; 
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 4% 14%; /* Hover for sidebar items */
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 240 4% 10%;
+    --sidebar-ring: 212 100% 58%;
   }
 }
 
@@ -105,5 +109,7 @@
   }
   body {
     @apply bg-background text-foreground;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }

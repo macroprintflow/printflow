@@ -1,3 +1,4 @@
+
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
@@ -9,7 +10,8 @@ const Card = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "rounded-lg border bg-card text-card-foreground shadow-sm",
+      "rounded-2xl border border-transparent bg-background/60 text-card-foreground shadow-lg backdrop-blur-xl", // Glassmorphism base
+      "dark:bg-background/50 dark:border-white/5", // Dark mode glassmorphism adjustments
       className
     )}
     {...props}

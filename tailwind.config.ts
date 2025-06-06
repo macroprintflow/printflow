@@ -1,3 +1,4 @@
+
 import type {Config} from 'tailwindcss';
 
 export default {
@@ -10,7 +11,35 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        body: ['Inter', 'sans-serif'],
+        // Use system UI font stack for an iOS-like feel, with Inter as a fallback
+        sans: [
+          '-apple-system',
+          'BlinkMacSystemFont',
+          '"Segoe UI"',
+          'Roboto',
+          '"Helvetica Neue"',
+          'Arial',
+          '"Noto Sans"',
+          'sans-serif',
+          '"Apple Color Emoji"',
+          '"Segoe UI Emoji"',
+          '"Segoe UI Symbol"',
+          '"Noto Color Emoji"',
+        ],
+        body: [
+          '-apple-system',
+          'BlinkMacSystemFont',
+          '"Segoe UI"',
+          'Roboto',
+          '"Helvetica Neue"',
+          'Arial',
+          '"Noto Sans"',
+          'sans-serif',
+          '"Apple Color Emoji"',
+          '"Segoe UI Emoji"',
+          '"Segoe UI Symbol"',
+          '"Noto Color Emoji"',
+        ],
         headline: ['Space Grotesk', 'sans-serif'],
         code: ['monospace'],
       },
@@ -67,9 +96,12 @@ export default {
         },
       },
       borderRadius: {
-        lg: 'var(--radius)',
-        md: 'calc(var(--radius) - 2px)',
-        sm: 'calc(var(--radius) - 4px)',
+        lg: 'var(--radius)', // Will be 1rem
+        md: 'calc(var(--radius) - 0.25rem)', // 0.75rem
+        sm: 'calc(var(--radius) - 0.5rem)', // 0.5rem
+        xl: 'calc(var(--radius) + 0.25rem)', // 1.25rem
+        '2xl': 'calc(var(--radius) + 0.5rem)', // 1.5rem
+        '3xl': 'calc(var(--radius) + 1rem)', // 2rem
       },
       keyframes: {
         'accordion-down': {
