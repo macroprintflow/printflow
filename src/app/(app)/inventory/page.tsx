@@ -11,7 +11,7 @@ import type { InventoryItem, ItemGroupType } from "@/lib/definitions";
 import { ITEM_GROUP_TYPES } from "@/lib/definitions";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 
 export default function InventoryPage() {
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
@@ -28,11 +28,14 @@ export default function InventoryPage() {
     fetchData();
   }, []);
 
-  const filteredItems = activeTab === "All"
-    ? inventoryItems
-    : inventoryItems.filter(item => item.itemGroup === activeTab);
+  const filteredItems = useMemo(() => {
+    if (activeTab === "All") {
+      return inventoryItems;
+    }
+    return inventoryItems.filter(item => item.itemGroup === activeTab);
+  }, [activeTab, inventoryItems]);
 
-  const renderInventoryTable = (items: InventoryItem[]) => {
+  const renderInventoryTable = useCallback((items: InventoryItem[]) => {
     if (isLoading) {
       return (
         <div className="text-center py-12">
@@ -94,7 +97,7 @@ export default function InventoryPage() {
         </TableBody>
       </Table>
     );
-  };
+  }, [isLoading]);
 
 
   return (
@@ -139,3 +142,4 @@ export default function InventoryPage() {
     </div>
   );
 }
+
