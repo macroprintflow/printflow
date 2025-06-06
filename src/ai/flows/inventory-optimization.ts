@@ -48,48 +48,62 @@ const prompt = ai.definePrompt({
   output: {schema: OptimizeInventoryOutputSchema},
   prompt: `You are an expert in printing and packaging, specializing in optimizing material usage to minimize waste.
 
-  Given the following paper specifications and job requirements, suggest the best possible master sheet sizes from available inventory. Calculate the percentage of wastage for each suggested master sheet size. All dimensions are in INCHES.
-
-  Paper GSM: {{{paperGsm}}} gsm
-  Paper Quality: {{{paperQuality}}}
-  Job Size Width: {{{jobSizeWidth}}} inches
-  Job Size Height: {{{jobSizeHeight}}} inches
+  Given the following paper specifications and job requirements, suggest the best possible master sheet sizes.
+  All dimensions are in INCHES.
+  Job Size: {{{jobSizeWidth}}}W x {{{jobSizeHeight}}}H inches
   Net Quantity: {{{netQuantity}}} sheets
 
-  Consider common master sheet sizes and prioritize those that minimize wastage.
-  Also calculate how many sheets fit on the master sheet (sheetsPerMasterSheet), and how many total master sheets are needed.
-
-  Available Master Sheet Sizes (Width x Height in INCHES):
+  The following are the 'Available Master Sheet Sizes' (Width x Height in INCHES) you MUST consider:
   - 27.56 x 39.37
   - 28.35 x 40.16
   - 25.59 x 35.43
   - 25.20 x 18.90
   - 19.69 x 27.56
 
-  For each suggestion, determine the optimal way to cut the job sheets (job size: {{{jobSizeWidth}}}in x {{{jobSizeHeight}}}in) from the master sheet.
-  This involves calculating how many job pieces fit on the master sheet.
+  For EACH of these 'Available Master Sheet Sizes':
+  1. Calculate how many job sheets (job size: {{{jobSizeWidth}}}in x {{{jobSizeHeight}}}in) can be cut. This is 'sheetsPerMasterSheet'.
+     To do this, you MUST consider two orientations for the job sheet on the current Master Sheet and select the orientation that yields the maximum number of pieces:
 
-  When calculating 'sheetsPerMasterSheet' and 'cuttingLayoutDescription' for each master sheet suggestion, you MUST consider two orientations for the job sheet and select the one that yields the maximum number of pieces:
+     a. **Job Portrait Orientation on Master (Job as {{{jobSizeWidth}}}W x {{{jobSizeHeight}}}H):**
+        Let CurrentMasterSheetWidth and CurrentMasterSheetHeight be the dimensions of the master sheet being evaluated.
+        Pieces_Across_Portrait = floor(CurrentMasterSheetWidth / {{{jobSizeWidth}}})
+        Pieces_Down_Portrait = floor(CurrentMasterSheetHeight / {{{jobSizeHeight}}})
+        Total_Ups_Portrait = Pieces_Across_Portrait * Pieces_Down_Portrait
 
-  1.  **Portrait Orientation of Job (Job as {{{jobSizeWidth}}}W x {{{jobSizeHeight}}}H on Master Sheet):**
-      Let MasterSheetWidth and MasterSheetHeight be the dimensions of the current master sheet suggestion.
-      N_across_portrait = floor(MasterSheetWidth / {{{jobSizeWidth}}})
-      M_down_portrait = floor(MasterSheetHeight / {{{jobSizeHeight}}})
-      Total_ups_portrait = N_across_portrait * M_down_portrait
+     b. **Job Landscape Orientation on Master (Job as {{{jobSizeHeight}}}W x {{{jobSizeWidth}}}H):**
+        Let CurrentMasterSheetWidth and CurrentMasterSheetHeight be the dimensions of the master sheet being evaluated.
+        Pieces_Across_Landscape = floor(CurrentMasterSheetWidth / {{{jobSizeHeight}}})
+        Pieces_Down_Landscape = floor(CurrentMasterSheetHeight / {{{jobSizeWidth}}})
+        Total_Ups_Landscape = Pieces_Across_Landscape * Pieces_Down_Landscape
 
-  2.  **Landscape Orientation of Job (Job as {{{jobSizeHeight}}}W x {{{jobSizeWidth}}}H on Master Sheet):**
-      Let MasterSheetWidth and MasterSheetHeight be the dimensions of the current master sheet suggestion.
-      N_across_landscape = floor(MasterSheetWidth / {{{jobSizeHeight}}})
-      M_down_landscape = floor(MasterSheetHeight / {{{jobSizeWidth}}})
-      Total_ups_landscape = N_across_landscape * M_down_landscape
+     The 'sheetsPerMasterSheet' for the current Master Sheet is the MAXIMUM of Total_Ups_Portrait and Total_Ups_Landscape.
+     The 'cuttingLayoutDescription' for the current Master Sheet must describe the orientation (portrait or landscape) and the arrangement (e.g., 'Pieces_Across x Pieces_Down') that yielded this maximum. For example: '2 across x 2 down (job portrait)' or '1 across x 3 down (job landscape)'.
 
-  The 'sheetsPerMasterSheet' for the suggestion MUST be the maximum of Total_ups_portrait and Total_ups_landscape.
-  The 'cuttingLayoutDescription' must correspond to the orientation that yielded this maximum.
-  For example, if Total_ups_landscape is greater, the description should be like 'N_across_landscape across x M_down_landscape down (job landscape)'. If Total_ups_portrait is greater, it should be 'N_across_portrait across x M_down_portrait down (job portrait)'.
+  2. Calculate the 'wastagePercentage' for the current Master Sheet.
+     JobSheetArea = {{{jobSizeWidth}}} * {{{jobSizeHeight}}}
+     MasterSheetArea = CurrentMasterSheetWidth * CurrentMasterSheetHeight
+     UsedArea = JobSheetArea * sheetsPerMasterSheet
+     WastagePercentage = ((MasterSheetArea - UsedArea) / MasterSheetArea) * 100
+     Ensure WastagePercentage is a number.
 
-  Return an array of suggestions sorted by wastage percentage (lowest first). Each suggestion must include the master sheet size (width and height in inches), wastage percentage, sheets per master sheet, total master sheets needed, and cuttingLayoutDescription.
-  Also include the optimalSuggestion based on the lowest wastage percentage.
-  The optimalSuggestion should take into account both minimizing waste and minimizing the total number of master sheets required.
+  3. Calculate 'totalMasterSheetsNeeded' for the current Master Sheet.
+     totalMasterSheetsNeeded = ceil({{{netQuantity}}} / sheetsPerMasterSheet)
+
+  After performing these calculations for ALL 'Available Master Sheet Sizes', compile a list of suggestions.
+  Each suggestion in the output array must include:
+  - masterSheetSizeWidth (from the available list)
+  - masterSheetSizeHeight (from the available list)
+  - wastagePercentage (calculated)
+  - sheetsPerMasterSheet (calculated maximum)
+  - totalMasterSheetsNeeded (calculated)
+  - cuttingLayoutDescription (corresponding to the maximum ups)
+
+  The \`suggestions\` array in your output should be sorted by \`wastagePercentage\` (lowest first). If wastage percentages are equal, prioritize the suggestion that results in fewer \`totalMasterSheetsNeeded\`.
+
+  The \`optimalSuggestion\` in your output should be the first item from this sorted \`suggestions\` array.
+
+  Paper GSM: {{{paperGsm}}} gsm
+  Paper Quality: {{{paperQuality}}}
 
   Ensure the output is a valid JSON.
   `,
@@ -118,3 +132,4 @@ const optimizeInventoryFlow = ai.defineFlow(
     return output!;
   }
 );
+
