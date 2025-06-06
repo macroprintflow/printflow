@@ -76,15 +76,17 @@ const prompt = ai.definePrompt({
         Pieces_Down_Landscape = floor(CurrentMasterSheetHeight / {{{jobSizeWidth}}})
         Total_Ups_Landscape = Pieces_Across_Landscape * Pieces_Down_Landscape
 
-     The 'sheetsPerMasterSheet' for the current Master Sheet is the MAXIMUM of Total_Ups_Portrait and Total_Ups_Landscape.
+     The 'sheetsPerMasterSheet' for the current Master Sheet is the MAXIMUM of Total_Ups_Portrait and Total_Ups_Landscape. This value MUST be an integer.
      The 'cuttingLayoutDescription' for the current Master Sheet must describe the orientation (portrait or landscape) and the arrangement (e.g., 'Pieces_Across x Pieces_Down') that yielded this maximum. For example: '2 across x 2 down (job portrait)' or '1 across x 3 down (job landscape)'.
 
   2. Calculate the 'wastagePercentage' for the current Master Sheet.
-     JobSheetArea = {{{jobSizeWidth}}} * {{{jobSizeHeight}}}
-     MasterSheetArea = CurrentMasterSheetWidth * CurrentMasterSheetHeight
-     UsedArea = JobSheetArea * sheetsPerMasterSheet
-     WastagePercentage = ((MasterSheetArea - UsedArea) / MasterSheetArea) * 100
-     Ensure WastagePercentage is a number.
+     Let JobSheetArea = {{{jobSizeWidth}}} * {{{jobSizeHeight}}}.
+     Let MasterSheetAreaForCurrent = CurrentMasterSheetWidth * CurrentMasterSheetHeight.
+     The 'sheetsPerMasterSheet' value used in the calculation below MUST be the integer value determined in step 1 for the current master sheet.
+     UsedAreaForWastageCalc = JobSheetArea * sheetsPerMasterSheet.
+     WastedArea = MasterSheetAreaForCurrent - UsedAreaForWastageCalc.
+     WastagePercentage = (WastedArea / MasterSheetAreaForCurrent) * 100.
+     Round the WastagePercentage to two decimal places. Ensure it is a number.
 
   3. Calculate 'totalMasterSheetsNeeded' for the current Master Sheet.
      totalMasterSheetsNeeded = ceil({{{netQuantity}}} / sheetsPerMasterSheet)
@@ -93,8 +95,8 @@ const prompt = ai.definePrompt({
   Each suggestion in the output array must include:
   - masterSheetSizeWidth (from the available list)
   - masterSheetSizeHeight (from the available list)
-  - wastagePercentage (calculated)
-  - sheetsPerMasterSheet (calculated maximum)
+  - wastagePercentage (calculated and rounded)
+  - sheetsPerMasterSheet (calculated maximum integer)
   - totalMasterSheetsNeeded (calculated)
   - cuttingLayoutDescription (corresponding to the maximum ups)
 
@@ -117,17 +119,18 @@ const optimizeInventoryFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await prompt(input);
+    // Post-process to ensure numerical precision if needed, though AI is now asked to round.
     if (output?.suggestions) {
       output.suggestions.forEach(s => {
-        s.wastagePercentage = parseFloat(s.wastagePercentage.toFixed(2));
-        s.masterSheetSizeWidth = parseFloat(s.masterSheetSizeWidth.toFixed(2));
-        s.masterSheetSizeHeight = parseFloat(s.masterSheetSizeHeight.toFixed(2));
+        s.wastagePercentage = parseFloat(Number(s.wastagePercentage).toFixed(2));
+        s.masterSheetSizeWidth = parseFloat(Number(s.masterSheetSizeWidth).toFixed(2));
+        s.masterSheetSizeHeight = parseFloat(Number(s.masterSheetSizeHeight).toFixed(2));
       });
     }
     if (output?.optimalSuggestion) {
-       output.optimalSuggestion.wastagePercentage = parseFloat(output.optimalSuggestion.wastagePercentage.toFixed(2));
-       output.optimalSuggestion.masterSheetSizeWidth = parseFloat(output.optimalSuggestion.masterSheetSizeWidth.toFixed(2));
-       output.optimalSuggestion.masterSheetSizeHeight = parseFloat(output.optimalSuggestion.masterSheetSizeHeight.toFixed(2));
+       output.optimalSuggestion.wastagePercentage = parseFloat(Number(output.optimalSuggestion.wastagePercentage).toFixed(2));
+       output.optimalSuggestion.masterSheetSizeWidth = parseFloat(Number(output.optimalSuggestion.masterSheetSizeWidth).toFixed(2));
+       output.optimalSuggestion.masterSheetSizeHeight = parseFloat(Number(output.optimalSuggestion.masterSheetSizeHeight).toFixed(2));
     }
     return output!;
   }
