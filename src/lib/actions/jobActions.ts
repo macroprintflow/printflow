@@ -281,6 +281,26 @@ export async function createJobTemplate(data: JobTemplateFormValues): Promise<{ 
   }
 }
 
+export async function getUniqueCustomerNames(): Promise<string[]> {
+  const jobs = await getJobCards();
+  const customerNames = new Set(jobs.map(job => job.customerName));
+  return Array.from(customerNames).sort();
+}
+
+export async function getJobsByCustomerName(customerName: string): Promise<JobCardData[]> {
+  const jobs = await getJobCards();
+  return jobs.filter(job => job.customerName === customerName).sort((a, b) => {
+    // Sort by date descending (newest first), then by job name
+    const dateA = new Date(a.date).getTime();
+    const dateB = new Date(b.date).getTime();
+    if (dateB !== dateA) {
+      return dateB - dateA;
+    }
+    return a.jobName.localeCompare(b.jobName);
+  });
+}
+
+
 function generateItemTypeKey(data: InventoryItemFormValues): string {
     const quality = data.paperQuality as PaperQualityType;
     const unit = getPaperQualityUnit(quality);
@@ -483,3 +503,4 @@ export async function getInventoryAdjustmentsForItem(inventoryItemId: string): P
   console.log(`[InventoryManagement] Found ${adjustments.length} adjustments for item ID ${inventoryItemId}`);
   return adjustments;
 }
+
