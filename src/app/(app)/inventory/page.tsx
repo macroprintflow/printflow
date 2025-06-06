@@ -1,13 +1,13 @@
 
-"use client"; // This page now uses client-side state for tabs
+"use client"; 
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Archive, PlusCircle, Search } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getInventoryItems } from "@/lib/actions/jobActions";
-import type { InventoryItem, ItemGroupType } from "@/lib/definitions";
+import { getInventoryItems, getPaperQualityLabel } from "@/lib/actions/jobActions";
+import type { InventoryItem, ItemGroupType, PaperQualityType } from "@/lib/definitions";
 import { ITEM_GROUP_TYPES } from "@/lib/definitions";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -32,6 +32,7 @@ export default function InventoryPage() {
     if (activeTab === "All") {
       return inventoryItems;
     }
+    // For paper quality tabs, itemGroup stores the label. For others, it's direct.
     return inventoryItems.filter(item => item.itemGroup === activeTab);
   }, [activeTab, inventoryItems]);
 
@@ -66,6 +67,8 @@ export default function InventoryPage() {
             <TableHead className="font-headline">Type</TableHead>
             <TableHead className="font-headline">Item Group</TableHead>
             <TableHead className="font-headline">Specification</TableHead>
+            <TableHead className="font-headline">Paper GSM</TableHead>
+            <TableHead className="font-headline">Paper Quality</TableHead>
             <TableHead className="font-headline text-right">Available Stock</TableHead>
             <TableHead className="font-headline text-right">Unit</TableHead>
             <TableHead className="font-headline text-right">Reorder Point</TableHead>
@@ -89,6 +92,8 @@ export default function InventoryPage() {
                 </Badge>
               </TableCell>
               <TableCell className="font-body text-sm text-muted-foreground">{item.specification}</TableCell>
+              <TableCell className="font-body">{item.paperGsm || '-'}</TableCell>
+              <TableCell className="font-body">{item.paperQuality ? getPaperQualityLabel(item.paperQuality) : '-'}</TableCell>
               <TableCell className="font-body text-right">{item.availableStock.toLocaleString()}</TableCell>
               <TableCell className="font-body text-right">{item.unit}</TableCell>
               <TableCell className="font-body text-right">{item.reorderPoint ? item.reorderPoint.toLocaleString() : '-'}</TableCell>
@@ -117,14 +122,14 @@ export default function InventoryPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input placeholder="Search inventory..." className="pl-10 w-full sm:w-64 font-body" disabled />
             </div>
-            <Button disabled className="w-full sm:w-auto"> {/* Placeholder for future add item */}
+            <Button disabled className="w-full sm:w-auto">
               <PlusCircle className="mr-2 h-4 w-4" /> Add Item
             </Button>
           </div>
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as ItemGroupType)} className="w-full">
-            <TabsList className="grid w-full grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-8 mb-4">
+            <TabsList className="grid w-full grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 mb-4">
               {ITEM_GROUP_TYPES.map(group => (
                 <TabsTrigger key={group} value={group} className="font-body text-xs sm:text-sm">
                   {group}
@@ -143,3 +148,4 @@ export default function InventoryPage() {
   );
 }
 
+    

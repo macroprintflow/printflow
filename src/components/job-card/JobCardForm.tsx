@@ -3,9 +3,9 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import type { JobCardFormValues, InventorySuggestion, JobTemplateData } from "@/lib/definitions";
+import type { JobCardFormValues, InventorySuggestion, JobTemplateData, PaperQualityType } from "@/lib/definitions";
 import { JobCardSchema, KINDS_OF_JOB_OPTIONS, PRINTING_MACHINE_OPTIONS, COATING_OPTIONS, DIE_OPTIONS, DIE_MACHINE_OPTIONS, HOT_FOIL_OPTIONS, YES_NO_OPTIONS, BOX_MAKING_OPTIONS, PAPER_QUALITY_OPTIONS } from "@/lib/definitions";
-import { createJobCard, getJobTemplates } from "@/lib/actions/jobActions";
+import { createJobCard, getJobTemplates, getPaperQualityLabel } from "@/lib/actions/jobActions";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,7 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { CalendarIcon, Wand2, Link2, PlusCircle, Trash2, Loader2 } from "lucide-react";
+import { CalendarIcon, Wand2, Link2, PlusCircle, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { useState, useEffect } from "react";
 import { InventoryOptimizationModal } from "./InventoryOptimizationModal";
@@ -39,12 +39,15 @@ export function JobCardForm() {
       jobSizeHeight: undefined,
       netQuantity: undefined,
       grossQuantity: undefined,
-      paperGsm: undefined,
-      paperQuality: "",
-      masterSheetSizeWidth: undefined,
-      masterSheetSizeHeight: undefined,
-      wastagePercentage: undefined,
-      cuttingLayoutDescription: "",
+      paperGsm: undefined, // Target GSM
+      paperQuality: "", // Target Quality
+      masterSheetSizeWidth: undefined, // From suggestion
+      masterSheetSizeHeight: undefined, // From suggestion
+      wastagePercentage: undefined, // From suggestion
+      cuttingLayoutDescription: "", // From suggestion
+      selectedMasterSheetGsm: undefined, // Actual GSM from suggestion
+      selectedMasterSheetQuality: "", // Actual quality from suggestion
+      sourceInventoryItemId: "", // Inventory ID from suggestion
       kindOfJob: "",
       printingFront: "",
       printingBack: "",
@@ -75,21 +78,22 @@ export function JobCardForm() {
     if (template) {
       const currentValues = form.getValues();
       form.reset({
-        // Keep basic job info
         jobName: currentValues.jobName,
         customerName: currentValues.customerName,
-        // Keep paper & quantity info
         jobSizeWidth: currentValues.jobSizeWidth,
         jobSizeHeight: currentValues.jobSizeHeight,
         netQuantity: currentValues.netQuantity,
         grossQuantity: currentValues.grossQuantity,
-        paperGsm: currentValues.paperGsm,
+        paperGsm: currentValues.paperGsm, // Keep target GSM if already entered
         masterSheetSizeWidth: currentValues.masterSheetSizeWidth,
         masterSheetSizeHeight: currentValues.masterSheetSizeHeight,
         wastagePercentage: currentValues.wastagePercentage,
         cuttingLayoutDescription: currentValues.cuttingLayoutDescription,
-        // Apply template values for processes and paper quality
-        paperQuality: template.paperQuality || "",
+        selectedMasterSheetGsm: currentValues.selectedMasterSheetGsm,
+        selectedMasterSheetQuality: currentValues.selectedMasterSheetQuality,
+        sourceInventoryItemId: currentValues.sourceInventoryItemId,
+        
+        paperQuality: template.paperQuality || "", // Apply from template
         kindOfJob: template.kindOfJob || "",
         printingFront: template.printingFront || "",
         printingBack: template.printingBack || "",
@@ -99,15 +103,12 @@ export function JobCardForm() {
         emboss: template.emboss || "",
         pasting: template.pasting || "",
         boxMaking: template.boxMaking || "",
-        // Keep other fields
+        
         specialInks: currentValues.specialInks,
         assignedDieMachine: currentValues.assignedDieMachine,
         remarks: currentValues.remarks,
         dispatchDate: currentValues.dispatchDate,
       });
-    } else {
-      // If "None" or an invalid template is selected, potentially clear template-related fields
-      // For now, only explicit template fields are set.
     }
   };
 
@@ -116,6 +117,9 @@ export function JobCardForm() {
     form.setValue("masterSheetSizeHeight", suggestion.masterSheetSizeHeight);
     form.setValue("wastagePercentage", suggestion.wastagePercentage);
     form.setValue("cuttingLayoutDescription", suggestion.cuttingLayoutDescription || "");
+    form.setValue("selectedMasterSheetGsm", suggestion.paperGsm);
+    form.setValue("selectedMasterSheetQuality", suggestion.paperQuality as PaperQualityType);
+    form.setValue("sourceInventoryItemId", suggestion.sourceInventoryItemId || "");
   };
 
   async function onSubmit(values: JobCardFormValues) {
@@ -161,6 +165,8 @@ export function JobCardForm() {
   ] as const;
 
   const cuttingLayoutDescription = form.watch("cuttingLayoutDescription");
+  const selectedMasterSheetGsm = form.watch("selectedMasterSheetGsm");
+  const selectedMasterSheetQuality = form.watch("selectedMasterSheetQuality");
 
   return (
     <Form {...form}>
@@ -209,11 +215,12 @@ export function JobCardForm() {
         <Card>
           <CardHeader>
             <CardTitle className="font-headline">Paper & Quantity Specifications</CardTitle>
+            <CardDescription className="font-body">Specify the target paper and job dimensions. Then use the optimizer.</CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <FormField control={form.control} name="paperGsm" render={({ field }) => (
               <FormItem>
-                <FormLabel>Paper GSM</FormLabel>
+                <FormLabel>Target Paper GSM</FormLabel>
                 <FormControl>
                   <Input
                     type="number"
@@ -235,7 +242,7 @@ export function JobCardForm() {
               name="paperQuality"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Paper Quality</FormLabel>
+                  <FormLabel>Target Paper Quality</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value || ""}>
                     <FormControl>
                       <SelectTrigger className="font-body">
@@ -337,20 +344,23 @@ export function JobCardForm() {
                     <Wand2 className="mr-2 h-4 w-4" /> Optimize Master Sheet
                  </Button>
             </div>
+
+            <CardTitle className="font-headline text-lg col-span-1 md:col-span-2 lg:col-span-3 mt-4 border-t pt-4">Optimized Sheet Details</CardTitle>
             <FormField control={form.control} name="masterSheetSizeWidth" render={({ field }) => (
                 <FormItem>
-                    <FormLabel>Master Sheet Width (in)</FormLabel>
+                    <FormLabel>Selected Master Width (in)</FormLabel>
                     <FormControl>
                       <Input
                         type="number"
-                        placeholder="Optimized or manual"
+                        placeholder="From optimizer"
                         {...field}
+                        readOnly
                         value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
                         onChange={e => {
                           const numValue = parseFloat(e.target.value);
                           field.onChange(isNaN(numValue) ? undefined : numValue);
                         }}
-                        className="font-body"
+                        className="font-body bg-muted"
                       />
                     </FormControl>
                     <FormMessage />
@@ -358,18 +368,19 @@ export function JobCardForm() {
             )} />
             <FormField control={form.control} name="masterSheetSizeHeight" render={({ field }) => (
                 <FormItem>
-                    <FormLabel>Master Sheet Height (in)</FormLabel>
+                    <FormLabel>Selected Master Height (in)</FormLabel>
                     <FormControl>
                       <Input
                         type="number"
-                        placeholder="Optimized or manual"
+                        placeholder="From optimizer"
                         {...field}
+                        readOnly
                         value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
                         onChange={e => {
                           const numValue = parseFloat(e.target.value);
                           field.onChange(isNaN(numValue) ? undefined : numValue);
                         }}
-                        className="font-body"
+                        className="font-body bg-muted"
                       />
                     </FormControl>
                     <FormMessage />
@@ -383,8 +394,8 @@ export function JobCardForm() {
                         type="number"
                         placeholder="Calculated"
                         {...field}
-                        value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
                         readOnly
+                        value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
                         onChange={e => {
                           const numValue = parseFloat(e.target.value);
                           field.onChange(isNaN(numValue) ? undefined : numValue);
@@ -395,10 +406,41 @@ export function JobCardForm() {
                     <FormMessage />
                 </FormItem>
             )} />
+            <FormField control={form.control} name="selectedMasterSheetGsm" render={({ field }) => (
+                <FormItem>
+                    <FormLabel>Selected Master GSM</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        placeholder="From optimizer"
+                        {...field}
+                        readOnly
+                        value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
+                        className="font-body bg-muted"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                </FormItem>
+            )} />
+             <FormField control={form.control} name="selectedMasterSheetQuality" render={({ field }) => (
+                <FormItem>
+                    <FormLabel>Selected Master Quality</FormLabel>
+                    <FormControl>
+                       <Input
+                        placeholder="From optimizer"
+                        value={field.value ? getPaperQualityLabel(field.value) : ""}
+                        readOnly
+                        className="font-body bg-muted"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                </FormItem>
+            )} />
+
 
             {cuttingLayoutDescription && (
-              <div className="col-span-1 md:col-span-2 lg:col-span-3 mt-4 p-4 border rounded-md bg-muted/50">
-                <h4 className="font-medium mb-2 font-headline text-sm">Selected Cutting Layout:</h4>
+              <div className="col-span-1 md:col-span-2 lg:col-span-3 mt-2 p-3 border rounded-md bg-muted/50">
+                <h4 className="font-medium mb-1 font-headline text-sm">Selected Cutting Layout:</h4>
                 <p className="text-sm font-body">{cuttingLayoutDescription}</p>
               </div>
             )}
@@ -511,3 +553,5 @@ export function JobCardForm() {
     </Form>
   );
 }
+
+    

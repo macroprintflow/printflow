@@ -1,9 +1,9 @@
 
 "use client";
 
-import type { OptimizeInventoryInput, OptimizeInventoryOutput } from '@/ai/flows/inventory-optimization';
-import type { InventorySuggestion } from '@/lib/definitions';
-import { getInventoryOptimizationSuggestions } from '@/lib/actions/jobActions';
+import type { OptimizeInventoryOutput } from '@/ai/flows/inventory-optimization';
+import type { InventorySuggestion, PaperQualityType } from '@/lib/definitions';
+import { getInventoryOptimizationSuggestions, getPaperQualityLabel } from '@/lib/actions/jobActions';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -18,11 +18,12 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useState, type Dispatch, type SetStateAction } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Badge } from '@/components/ui/badge';
 
 interface InventoryOptimizationModalProps {
   jobDetails: {
     paperGsm?: number;
-    paperQuality?: string;
+    paperQuality?: PaperQualityType; // Use PaperQualityType
     jobSizeWidth?: number;
     jobSizeHeight?: number;
     netQuantity?: number;
@@ -44,10 +45,10 @@ export function InventoryOptimizationModal({
   const { toast } = useToast();
 
   const handleFetchSuggestions = async () => {
-    if (!jobDetails.paperGsm || !jobDetails.paperQuality || !jobDetails.jobSizeWidth || !jobDetails.jobSizeHeight || !jobDetails.netQuantity) {
+    if (!jobDetails.paperGsm || !jobDetails.paperQuality || jobDetails.paperQuality === '' || !jobDetails.jobSizeWidth || !jobDetails.jobSizeHeight || !jobDetails.netQuantity) {
        toast({
         title: "Missing Information",
-        description: "Please fill in Paper GSM, Quality, Job Size, and Net Quantity to get suggestions.",
+        description: "Please fill in Target Paper GSM, Quality, Job Size (in inches), and Net Quantity to get suggestions.",
         variant: "destructive",
       });
       return;
@@ -57,7 +58,8 @@ export function InventoryOptimizationModal({
     setSuggestions([]);
     setOptimalSuggestion(undefined);
 
-    const input: OptimizeInventoryInput = {
+    // Prepare input for the action, which then prepares for AI
+    const actionInput = {
       paperGsm: jobDetails.paperGsm,
       paperQuality: jobDetails.paperQuality,
       jobSizeWidth: jobDetails.jobSizeWidth,
@@ -65,7 +67,7 @@ export function InventoryOptimizationModal({
       netQuantity: jobDetails.netQuantity,
     };
 
-    const result = await getInventoryOptimizationSuggestions(input);
+    const result = await getInventoryOptimizationSuggestions(actionInput);
 
     if ('error' in result) {
       toast({
@@ -78,8 +80,8 @@ export function InventoryOptimizationModal({
       setOptimalSuggestion(result.optimalSuggestion);
       if (!result.suggestions || result.suggestions.length === 0) {
         toast({
-          title: "No Suggestions",
-          description: "No suitable master sheet sizes found for the given criteria.",
+          title: "No Suitable Inventory Found",
+          description: "No master sheets found in inventory matching the criteria or suitable for the job size.",
         });
       }
     }
@@ -93,19 +95,20 @@ export function InventoryOptimizationModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="sm:max-w-4xl font-body">
+      <DialogContent className="sm:max-w-5xl font-body"> {/* Increased width */}
         <DialogHeader>
-          <DialogTitle className="font-headline">Master Sheet Optimization</DialogTitle>
+          <DialogTitle className="font-headline">Master Sheet Optimization (from Inventory)</DialogTitle>
           <DialogDescription>
-            Get suggestions for the best master sheet size to minimize wastage based on your job specifications.
-            Click "Fetch Suggestions" after filling in Paper GSM, Quality, Job Size (in inches), and Net Quantity.
+            Get suggestions for the best master sheet size from your current inventory to minimize wastage.
+            Click "Fetch Suggestions" after filling in Target Paper GSM, Quality, Job Size (in inches), and Net Quantity.
+            Suggestions are based on inventory items matching quality (exact) and GSM (+/- tolerance).
           </DialogDescription>
         </DialogHeader>
         
         <div className="my-4">
           <Button onClick={handleFetchSuggestions} disabled={isLoading} className="w-full">
             {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            Fetch Suggestions
+            Fetch Suggestions from Inventory
           </Button>
         </div>
 
@@ -113,7 +116,8 @@ export function InventoryOptimizationModal({
           <div className="my-4 p-4 border border-green-500 bg-green-50 rounded-md">
             <h3 className="text-lg font-semibold text-green-700 font-headline">Optimal Suggestion</h3>
             <p className="text-sm text-green-600">
-              Size: {optimalSuggestion.masterSheetSizeWidth.toFixed(2)}in x {optimalSuggestion.masterSheetSizeHeight.toFixed(2)}in | 
+              Sheet: {optimalSuggestion.masterSheetSizeWidth.toFixed(2)}in x {optimalSuggestion.masterSheetSizeHeight.toFixed(2)}in 
+              (GSM: {optimalSuggestion.paperGsm}, Quality: {getPaperQualityLabel(optimalSuggestion.paperQuality as PaperQualityType)}) <br />
               Wastage: {optimalSuggestion.wastagePercentage.toFixed(2)}% | 
               Sheets/Master: {optimalSuggestion.sheetsPerMasterSheet} | 
               Total Masters: {optimalSuggestion.totalMasterSheetsNeeded} <br />
@@ -130,7 +134,9 @@ export function InventoryOptimizationModal({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="font-headline">Master Sheet Size (in)</TableHead>
+                  <TableHead className="font-headline">Master Sheet (Inventory)</TableHead>
+                  <TableHead className="font-headline">GSM</TableHead>
+                  <TableHead className="font-headline">Quality</TableHead>
                   <TableHead className="font-headline">Layout</TableHead>
                   <TableHead className="font-headline text-right">Wastage %</TableHead>
                   <TableHead className="font-headline text-right">Sheets/Master</TableHead>
@@ -140,8 +146,12 @@ export function InventoryOptimizationModal({
               </TableHeader>
               <TableBody>
                 {suggestions.map((s, index) => (
-                  <TableRow key={index} className={s === optimalSuggestion ? "bg-green-50" : ""}>
+                  <TableRow key={s.sourceInventoryItemId || index} className={s.sourceInventoryItemId === optimalSuggestion?.sourceInventoryItemId ? "bg-green-50" : ""}>
                     <TableCell>{s.masterSheetSizeWidth.toFixed(2)} x {s.masterSheetSizeHeight.toFixed(2)}</TableCell>
+                    <TableCell>{s.paperGsm}</TableCell>
+                    <TableCell>
+                        <Badge variant="outline">{getPaperQualityLabel(s.paperQuality as PaperQualityType)}</Badge>
+                    </TableCell>
                     <TableCell className="text-xs">
                       {s.cuttingLayoutDescription || '-'}
                     </TableCell>
@@ -169,3 +179,5 @@ export function InventoryOptimizationModal({
     </Dialog>
   );
 }
+
+    
