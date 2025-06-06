@@ -35,7 +35,6 @@ const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/jobs', label: 'All Jobs', icon: Briefcase },
   { href: '/jobs/new', label: 'New Job Card', icon: FilePlus2 },
-  // { href: '/templates', label: 'Manage Templates', icon: LayoutList }, // Removed from here
   { href: '/planning', label: 'Production Planning', icon: CalendarCheck2 },
   { href: '/tasks', label: 'Departmental Tasks', icon: ClipboardList },
   { href: '/inventory', label: 'Inventory', icon: Archive },
@@ -43,15 +42,22 @@ const navItems = [
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const [isClient, setIsClient] = React.useState(false);
+
+  React.useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   return (
     <SidebarProvider defaultOpen>
       <Sidebar variant="sidebar" collapsible="icon">
         <SidebarHeader className="p-4 justify-between items-center">
           <AppLogo />
-          <div className="hidden group-data-[collapsible=icon]:block">
-            <SidebarTrigger />
-          </div>
+          {isClient && (
+            <div className="hidden group-data-[collapsible=icon]:block">
+              <SidebarTrigger />
+            </div>
+          )}
         </SidebarHeader>
         <SidebarContent>
           <SidebarMenu>

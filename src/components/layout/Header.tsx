@@ -1,6 +1,7 @@
 
 "use client";
 import type { ReactNode } from 'react';
+import * as React from 'react'; // Ensure React is imported for useState and useEffect
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -46,12 +47,19 @@ function getTitleFromPath(pathname: string): string {
 export function Header({ title, children }: HeaderProps) {
   const pathname = usePathname();
   const pageTitle = title || getTitleFromPath(pathname);
+  const [isClient, setIsClient] = React.useState(false);
+
+  React.useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-white/10 dark:border-black/20 bg-background/70 dark:bg-background/60 px-4 backdrop-blur-lg md:px-6">
-      <div className="md:hidden">
-        <SidebarTrigger />
-      </div>
+    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-[var(--ios-border)] bg-[var(--ios-bg)] px-4 backdrop-blur-xl md:px-6">
+      {isClient && (
+        <div className="md:hidden">
+          <SidebarTrigger />
+        </div>
+      )}
       <h1 className="text-lg font-headline font-semibold md:text-xl text-foreground">{pageTitle}</h1>
       <div className="ml-auto flex items-center gap-4">
         {pathname === '/jobs' && (
