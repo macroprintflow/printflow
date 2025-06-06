@@ -8,7 +8,7 @@ import {
   Scissors, 
   Sparkles, 
   ChevronsUpDown, 
-  Glue, 
+  ClipboardPaste, // Changed from Glue
   Box, 
   ShieldCheck, 
   Truck,
@@ -31,7 +31,7 @@ const productionSteps: ProcessStep[] = [
   { name: "Die Cutting & Creasing", icon: Scissors, jobCount: 15, description: "Cutting and creasing sheets to shape." },
   { name: "Foil Stamping", icon: Sparkles, jobCount: 4, description: "Applying metallic foils." },
   { name: "Embossing & Debossing", icon: ChevronsUpDown, jobCount: 2, description: "Creating raised or recessed designs." },
-  { name: "Pasting & Gluing", icon: Glue, jobCount: 9, description: "Folder-gluer and manual pasting." },
+  { name: "Pasting & Gluing", icon: ClipboardPaste, jobCount: 9, description: "Folder-gluer and manual pasting." }, // Changed icon here
   { name: "Box Making & Assembly", icon: Box, jobCount: 7, description: "Rigid box and other assembly." },
   { name: "Quality Check", icon: ShieldCheck, jobCount: 22, description: "Final inspection of finished goods." },
   { name: "Dispatch", icon: Truck, jobCount: 18, description: "Jobs ready for delivery or awaiting pickup." },
@@ -79,3 +79,4 @@ export default function PlanningPage() {
     </div>
   );
 }
+
