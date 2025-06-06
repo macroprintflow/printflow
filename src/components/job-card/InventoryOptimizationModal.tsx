@@ -1,7 +1,7 @@
 
 "use client";
 
-import type { OptimizeInventoryOutput } from '@/ai/flows/inventory-optimization'; // Uses the type from AI flow which includes debugLog schema
+import type { OptimizeInventoryOutput } from '@/ai/flows/inventory-optimization';
 import type { InventorySuggestion, PaperQualityType } from '@/lib/definitions';
 import { getPaperQualityLabel } from '@/lib/definitions';
 import { getInventoryOptimizationSuggestions } from '@/lib/actions/jobActions';
@@ -17,7 +17,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useState, type Dispatch, type SetStateAction } from 'react';
-import { Loader2, FileText } from 'lucide-react';
+import { Loader2 } from 'lucide-react'; // Removed FileText as debug log is removed
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 
@@ -43,7 +43,7 @@ export function InventoryOptimizationModal({
   const [isLoading, setIsLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<InventorySuggestion[]>([]);
   const [optimalSuggestion, setOptimalSuggestion] = useState<InventorySuggestion | undefined>(undefined);
-  const [debugTrace, setDebugTrace] = useState<string | null>(null);
+  // Removed debugTrace state
   const { toast } = useToast();
 
   const handleFetchSuggestions = async () => {
@@ -59,7 +59,7 @@ export function InventoryOptimizationModal({
     setIsLoading(true);
     setSuggestions([]);
     setOptimalSuggestion(undefined);
-    setDebugTrace(null);
+    // Removed setDebugTrace(null);
 
     const actionInput = {
       paperGsm: jobDetails.paperGsm,
@@ -69,12 +69,13 @@ export function InventoryOptimizationModal({
       netQuantity: jobDetails.netQuantity,
     };
 
-    // The result type now potentially includes debugLog
-    const result = await getInventoryOptimizationSuggestions(actionInput) as OptimizeInventoryOutput | { error: string; debugLog?: string };
+    // The result type no longer includes debugLog
+    const result = await getInventoryOptimizationSuggestions(actionInput) as OptimizeInventoryOutput | { error: string };
     
-    if (result.debugLog) {
-      setDebugTrace(result.debugLog);
-    }
+    // Removed debugLog handling
+    // if (result.debugLog) {
+    //   setDebugTrace(result.debugLog);
+    // }
 
     if ('error' in result) {
       toast({
@@ -89,7 +90,7 @@ export function InventoryOptimizationModal({
       if (!aiResult.suggestions || aiResult.suggestions.length === 0) {
         toast({
           title: "No Suitable Inventory Found",
-          description: "No master sheets found in inventory matching the criteria or suitable for the job size. Check debug log for details.",
+          description: "No master sheets found in inventory matching the criteria or suitable for the job size.",
         });
       }
     }
@@ -120,18 +121,7 @@ export function InventoryOptimizationModal({
           </Button>
         </div>
 
-        {debugTrace && (
-          <div className="my-4 p-3 border rounded-md bg-muted/30">
-            <h4 className="font-semibold mb-2 flex items-center font-headline text-sm">
-              <FileText className="mr-2 h-4 w-4" /> Server Debug Trace:
-            </h4>
-            <ScrollArea className="h-[200px] w-full">
-              <pre className="text-xs whitespace-pre-wrap break-all p-2 bg-background rounded-sm">
-                {debugTrace}
-              </pre>
-            </ScrollArea>
-          </div>
-        )}
+        {/* Removed debugTrace rendering section */}
 
         {optimalSuggestion && (
           <div className="my-4 p-4 border border-green-500 bg-green-50 rounded-md">

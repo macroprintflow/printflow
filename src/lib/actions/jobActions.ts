@@ -15,15 +15,16 @@ declare global {
   var __inventoryCounter__: number | undefined;
 }
 
-// Initialize Job Cards store and counter
+// Initialize global stores if they don't exist
 if (global.__jobCards__ === undefined) {
   global.__jobCards__ = [];
+  console.log('[JobActions] Initialized global.__jobCards__');
 }
 if (global.__jobCounter__ === undefined) {
   global.__jobCounter__ = 1;
+  console.log('[JobActions] Initialized global.__jobCounter__');
 }
 
-// Initialize Job Templates store and counter
 const initialJobTemplates: JobTemplateData[] = [
     { id: 'template1', name: 'Golden Tray (Predefined)', kindOfJob: 'METPET', coating: 'VARNISH_GLOSS', hotFoilStamping: 'GOLDEN', paperQuality: 'GOLDEN_SHEET' },
     { id: 'template2', name: 'Rigid Top and Bottom Box (Predefined)', boxMaking: 'COMBINED', pasting: 'YES', paperQuality: 'WG_KAPPA' },
@@ -31,19 +32,25 @@ const initialJobTemplates: JobTemplateData[] = [
 ];
 if (global.__jobTemplatesStore__ === undefined) {
   global.__jobTemplatesStore__ = [...initialJobTemplates];
+  console.log('[JobActions] Initialized global.__jobTemplatesStore__');
 }
 if (global.__templateCounter__ === undefined) {
   global.__templateCounter__ = initialJobTemplates.length + 1;
+  console.log('[JobActions] Initialized global.__templateCounter__');
 }
 
-// Initialize Inventory store and counter
 if (global.__inventoryItemsStore__ === undefined) {
   console.log('[InventoryManagement] Global inventory ITEMS store was UNDEFINED. Initializing to empty array.');
   global.__inventoryItemsStore__ = [];
+} else {
+  console.log('[InventoryManagement] Global inventory ITEMS store already exists. Count:', global.__inventoryItemsStore__.length);
 }
+
 if (global.__inventoryCounter__ === undefined) {
   console.log('[InventoryManagement] Global inventory COUNTER was UNDEFINED. Initializing to 1.');
   global.__inventoryCounter__ = 1;
+} else {
+   console.log('[InventoryManagement] Global inventory COUNTER already exists. Value:', global.__inventoryCounter__);
 }
 
 
@@ -91,45 +98,45 @@ export async function getInventoryOptimizationSuggestions(
     jobSizeHeight: number;
     netQuantity: number;
   }
-): Promise<OptimizeInventoryOutput | { error: string; debugLog?: string }> {
-  let currentDebugLog = "[JobActions Debug] === Get Inventory Optimization Suggestions START ===\n";
-  currentDebugLog += `[JobActions Debug] Job Input received: ${JSON.stringify(jobInput, null, 2)}\n`;
+): Promise<OptimizeInventoryOutput | { error: string }> { // Removed debugLog from return type
+  console.log('[JobActions] === Get Inventory Optimization Suggestions START ===');
+  console.log('[JobActions] Job Input received:', JSON.stringify(jobInput, null, 2));
 
   try {
     if (!jobInput.paperQuality || jobInput.paperQuality === "") {
-        currentDebugLog += "[JobActions Debug] Target paper quality from jobInput is empty. Returning empty suggestions immediately.\n";
-        return { suggestions: [], optimalSuggestion: undefined, debugLog: currentDebugLog };
+        console.log('[JobActions] Target paper quality from jobInput is empty. Returning empty suggestions immediately.');
+        return { suggestions: [], optimalSuggestion: undefined };
     }
     
     const allInventory = await getInventoryItems();
-    currentDebugLog += `[JobActions Debug] Full inventory fetched (${allInventory.length} items). Preview (first 5): ${JSON.stringify(allInventory.slice(0, 5), null, 2)}\n`;
+    console.log(`[JobActions] Full inventory fetched (${allInventory.length} items). Preview (first 5):`, JSON.stringify(allInventory.slice(0, 5), null, 2));
 
     const availableMasterSheets: AvailableSheet[] = [];
     const targetQualityLower = jobInput.paperQuality.toLowerCase();
 
-    currentDebugLog += `[JobActions Debug] Filtering inventory. Target Quality (lowercase): '${targetQualityLower}'\n`;
+    console.log(`[JobActions] Filtering inventory. Target Quality (lowercase): '${targetQualityLower}'`);
 
     for (const item of allInventory) {
-      currentDebugLog += `[JobActions Debug] Processing item ID: ${item.id}, Name: '${item.name}', W: ${item.masterSheetSizeWidth}, H: ${item.masterSheetSizeHeight}, GSM: ${item.paperGsm}, Quality: '${item.paperQuality}'\n`;
+      console.log(`[JobActions] Processing item ID: ${item.id}, Name: '${item.name}', W: ${item.masterSheetSizeWidth}, H: ${item.masterSheetSizeHeight}, GSM: ${item.paperGsm}, Quality: '${item.paperQuality}'`);
 
       const hasRequiredSheetFields =
         item.masterSheetSizeWidth && item.masterSheetSizeWidth > 0 &&
         item.masterSheetSizeHeight && item.masterSheetSizeHeight > 0 &&
         item.paperGsm && item.paperGsm > 0 &&
         item.paperQuality && item.paperQuality !== '';
-      currentDebugLog += `[JobActions Debug] Item ID: ${item.id} - Check 'hasRequiredSheetFields': ${hasRequiredSheetFields}\n`;
+      console.log(`[JobActions] Item ID: ${item.id} - Check 'hasRequiredSheetFields': ${hasRequiredSheetFields}`);
 
       if (!hasRequiredSheetFields) {
-        currentDebugLog += `[JobActions Debug] Item ID: ${item.id} - Filtered out: Missing critical master sheet fields.\n`;
+        console.log(`[JobActions] Item ID: ${item.id} - Filtered out: Missing critical master sheet fields.`);
         continue;
       }
 
-      const itemQualityLower = item.paperQuality!.toLowerCase();
+      const itemQualityLower = item.paperQuality!.toLowerCase(); 
       const qualityMatch = itemQualityLower === targetQualityLower;
-      currentDebugLog += `[JobActions Debug] Item ID: ${item.id} - Check 'qualityMatch' (ItemQ: '${itemQualityLower}', TargetQ: '${targetQualityLower}'): ${qualityMatch}\n`;
+      console.log(`[JobActions] Item ID: ${item.id} - Check 'qualityMatch' (ItemQ: '${itemQualityLower}', TargetQ: '${targetQualityLower}'): ${qualityMatch}`);
       
       if (qualityMatch) {
-        currentDebugLog += `[JobActions Debug] Item ID: ${item.id} - Passed JS filters. Adding to AI candidate list.\n`;
+        console.log(`[JobActions] Item ID: ${item.id} - Passed JS filters. Adding to AI candidate list.`);
         availableMasterSheets.push({
           id: item.id,
           masterSheetSizeWidth: item.masterSheetSizeWidth!,
@@ -138,19 +145,20 @@ export async function getInventoryOptimizationSuggestions(
           paperQuality: item.paperQuality!,
         });
       } else {
-        currentDebugLog += `[JobActions Debug] Item ID: ${item.id} - Filtered out: Quality mismatch.\n`;
+        console.log(`[JobActions] Item ID: ${item.id} - Filtered out: Quality mismatch.`);
       }
     }
     
-    currentDebugLog += `[JobActions Debug] JavaScript filtering complete. ${availableMasterSheets.length} sheets are candidates for AI.\n`;
+    console.log(`[JobActions] JavaScript filtering complete. ${availableMasterSheets.length} sheets are candidates for AI.`);
     if (availableMasterSheets.length > 0) {
-        currentDebugLog += `[JobActions Debug] Candidate sheets (first 5): ${JSON.stringify(availableMasterSheets.slice(0,5), null, 2)}\n`;
+        console.log('[JobActions] Candidate sheets (first 5):', JSON.stringify(availableMasterSheets.slice(0,5), null, 2));
     }
 
+
     if (availableMasterSheets.length === 0) {
-      currentDebugLog += "[JobActions Debug] No master sheets passed JavaScript filters. Bypassing AI and returning empty suggestions.\n";
-      currentDebugLog += "[JobActions Debug] === Get Inventory Optimization Suggestions END (No suitable sheets found by JS filter) ===\n";
-      return { suggestions: [], optimalSuggestion: undefined, debugLog: currentDebugLog };
+      console.log('[JobActions] No master sheets passed JavaScript filters. Bypassing AI and returning empty suggestions.');
+      console.log('[JobActions] === Get Inventory Optimization Suggestions END (No suitable sheets found by JS filter) ===');
+      return { suggestions: [], optimalSuggestion: undefined };
     }
     
     const aiInput: OptimizeInventoryInput = {
@@ -162,24 +170,18 @@ export async function getInventoryOptimizationSuggestions(
       availableMasterSheets: availableMasterSheets,
     };
 
-    currentDebugLog += `[JobActions Debug] Calling AI flow 'optimizeInventory' with input: ${JSON.stringify(aiInput, (key, value) => key === 'availableMasterSheets' ? `${value.length} sheets` : value, 2)}\n`;
+    console.log('[JobActions] Calling AI flow `optimizeInventory` with input (availableMasterSheets count):', aiInput.availableMasterSheets.length);
     const result = await optimizeInventory(aiInput);
+    console.log('[JobActions] Raw AI Output from `optimizeInventory` flow:', JSON.stringify(result, null, 2));
+    console.log('[JobActions] === Get Inventory Optimization Suggestions END ===');
     
-    let aiFlowDebugLog = "";
-    // Type guard to check if result has debugLog property
-    if (result && typeof result === 'object' && 'debugLog' in result && typeof result.debugLog === 'string') {
-        aiFlowDebugLog = `\n--- AI Flow Internal Log ---\n${result.debugLog}`;
-    }
-    currentDebugLog += `[JobActions Debug] Raw AI Output from 'optimizeInventory' flow: ${JSON.stringify(result, null, 2)}\n`;
-    currentDebugLog += "[JobActions Debug] === Get Inventory Optimization Suggestions END ===\n";
-    
-    return { ...result, debugLog: currentDebugLog + aiFlowDebugLog };
+    return result; // result is OptimizeInventoryOutput, which no longer has debugLog
 
   } catch (error) {
+    console.error('[JobActions Error] Error in getInventoryOptimizationSuggestions:', error);
     const errorMessage = error instanceof Error ? error.message : 'Failed to fetch suggestions.';
-    currentDebugLog += `[JobActions Error] Error in getInventoryOptimizationSuggestions: ${errorMessage}\nStack: ${error instanceof Error ? error.stack : 'N/A'}\n`;
-    currentDebugLog += "[JobActions Debug] === Get Inventory Optimization Suggestions END (Error) ===\n";
-    return { error: `Failed to fetch inventory optimization suggestions: ${errorMessage}`, debugLog: currentDebugLog };
+    console.log('[JobActions] === Get Inventory Optimization Suggestions END (Error) ===');
+    return { error: `Failed to fetch inventory optimization suggestions: ${errorMessage}` };
   }
 }
 
@@ -212,18 +214,23 @@ export async function createJobTemplate(data: JobTemplateFormValues): Promise<{ 
 
 export async function getInventoryItems(): Promise<InventoryItem[]> {
   // Ensured by module-level initialization
+  if (global.__inventoryItemsStore__ === undefined) {
+     console.warn("[InventoryManagement] getInventoryItems: __inventoryItemsStore__ was undefined! Re-initializing to empty for safety, but this is unexpected.");
+     global.__inventoryItemsStore__ = [];
+  }
+  console.log('[InventoryManagement] getInventoryItems: Returning store. Count:', global.__inventoryItemsStore__!.length);
   return [...global.__inventoryItemsStore__!]; 
 }
 
 export async function addInventoryItem(data: InventoryItemFormValues): Promise<{ success: boolean; message: string; item?: InventoryItem }> {
   try {
-    // Defensive checks, though module-level init should handle this.
+    // Defensive initialization
     if (global.__inventoryItemsStore__ === undefined) {
-      console.error("CRITICAL: __inventoryItemsStore__ undefined in addInventoryItem. Re-initializing.");
+      console.warn("CRITICAL: __inventoryItemsStore__ undefined in addInventoryItem at start. Initializing.");
       global.__inventoryItemsStore__ = [];
     }
     if (global.__inventoryCounter__ === undefined) {
-      console.error("CRITICAL: __inventoryCounter__ undefined in addInventoryItem. Re-initializing.");
+      console.warn("CRITICAL: __inventoryCounter__ undefined in addInventoryItem at start. Initializing.");
       global.__inventoryCounter__ = (global.__inventoryItemsStore__?.length || 0) + 1;
     }
 
@@ -265,7 +272,7 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
       specificSpecification = `${paperGsm_val}GSM ${qualityLabel}, ${masterSheetSizeWidth_val.toFixed(2)}in x ${masterSheetSizeHeight_val.toFixed(2)}in`;
     
     } else if (data.category === 'INKS') {
-      if (!data.inkName || data.inkName.trim() === '') { // Zod requires inkName for INKS
+      if (!data.inkName || data.inkName.trim() === '') { 
          throw new Error("Ink Name is required for INKS category.");
       }
       itemType = 'Ink';
@@ -275,17 +282,17 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
     } else if (data.category === 'PLASTIC_TRAY') {
       itemType = 'Plastic Tray';
       itemGroup = 'Plastic Trays';
-      specificName = data.itemName; // Zod requires itemName
+      specificName = data.itemName || "Plastic Tray";
     } else if (data.category === 'GLASS_JAR') {
       itemType = 'Glass Jar';
       itemGroup = 'Glass Jars';
-      specificName = data.itemName;
+      specificName = data.itemName || "Glass Jar";
     } else if (data.category === 'MAGNET') {
       itemType = 'Magnet';
       itemGroup = 'Magnets';
-      specificName = data.itemName;
-    } else { // OTHER category
-        if (!data.itemName || data.itemName.trim() === '') { // Zod requires itemName
+      specificName = data.itemName || "Magnet";
+    } else { 
+        if (!data.itemName || data.itemName.trim() === '') { 
              throw new Error("Item Name is required for OTHER category.");
         }
         itemType = 'Other';
@@ -314,7 +321,7 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
     global.__inventoryItemsStore__!.push(newItem);
     global.__inventoryCounter__ = currentInventoryCounter + 1;
 
-    console.log('[InventoryManagement] Added inventory item. Current store size:', global.__inventoryItemsStore__!.length, 'New item:', JSON.stringify(newItem, null, 2));
+    console.log('[InventoryManagement] Added inventory item. Current store size:', global.__inventoryItemsStore__!.length, 'New item ID:', newItem.id);
     revalidatePath('/inventory');
     return { success: true, message: 'Inventory item added successfully!', item: newItem };
   } catch (error) {
@@ -323,4 +330,5 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
     return { success: false, message: `Failed to add inventory item: ${errorMessage}` };
   }
 }
+
     

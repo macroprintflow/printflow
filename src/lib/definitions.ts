@@ -352,5 +352,6 @@ export type InventoryItemFormValues = z.infer<typeof InventoryItemFormSchema>;
 export type OptimizeInventoryOutput = { // This is for the AI flow
   suggestions: InventorySuggestion[];
   optimalSuggestion?: InventorySuggestion;
-  debugLog?: string; // Added for UI debugging
 };
+
+    
