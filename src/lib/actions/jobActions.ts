@@ -2,7 +2,7 @@
 'use server';
 
 import type { JobCardFormValues, JobCardData, JobTemplateData, JobTemplateFormValues, InventoryItem, PaperQualityType, InventorySuggestion, InventoryItemFormValues, InventoryItemType, ItemGroupType, UnitValue, OptimizeInventoryOutput, InventoryAdjustment, InventoryAdjustmentReasonValue } from '@/lib/definitions';
-import { PAPER_QUALITY_OPTIONS, getPaperQualityLabel, INVENTORY_ADJUSTMENT_REASONS } from '@/lib/definitions';
+import { PAPER_QUALITY_OPTIONS, getPaperQualityLabel, INVENTORY_ADJUSTMENT_REASONS, KAPPA_MDF_QUALITIES, getPaperQualityUnit } from '@/lib/definitions';
 import { calculateUps } from '@/lib/calculateUps';
 import { revalidatePath } from 'next/cache';
 
@@ -17,7 +17,6 @@ declare global {
   var __adjustmentCounter__: number | undefined; 
 }
 
-// Initialize global stores if they don't exist
 if (global.__jobCards__ === undefined) global.__jobCards__ = [];
 if (global.__jobCounter__ === undefined) global.__jobCounter__ = 1;
 
@@ -29,7 +28,6 @@ const initialJobTemplates: JobTemplateData[] = [
 if (global.__jobTemplatesStore__ === undefined) global.__jobTemplatesStore__ = [...initialJobTemplates];
 if (global.__templateCounter__ === undefined) global.__templateCounter__ = initialJobTemplates.length + 1;
 
-// Initialize inventory master items store
 if (global.__inventoryItemsStore__ === undefined) {
   console.log('[InventoryManagement] Initializing global master inventory items store.');
   global.__inventoryItemsStore__ = [];
@@ -38,7 +36,6 @@ if (global.__inventoryCounter__ === undefined) {
   global.__inventoryCounter__ = 1;
 }
 
-// Initialize inventory adjustments store
 if (global.__inventoryAdjustmentsStore__ === undefined) {
   console.log('[InventoryManagement] Initializing global inventory adjustments store.');
   global.__inventoryAdjustmentsStore__ = [];
@@ -68,6 +65,10 @@ export async function createJobCard(data: JobCardFormValues): Promise<{ success:
       cuttingLayoutDescription: data.cuttingLayoutDescription,
       sheetsPerMasterSheet: data.sheetsPerMasterSheet,
       totalMasterSheetsNeeded: data.totalMasterSheetsNeeded,
+      paperGsm: KAPPA_MDF_QUALITIES.includes(data.paperQuality as PaperQualityType) ? undefined : data.paperGsm,
+      targetPaperThicknessMm: KAPPA_MDF_QUALITIES.includes(data.paperQuality as PaperQualityType) ? data.targetPaperThicknessMm : undefined,
+      selectedMasterSheetGsm: KAPPA_MDF_QUALITIES.includes(data.selectedMasterSheetQuality as PaperQualityType) ? undefined : data.selectedMasterSheetGsm,
+      selectedMasterSheetThicknessMm: KAPPA_MDF_QUALITIES.includes(data.selectedMasterSheetQuality as PaperQualityType) ? data.selectedMasterSheetThicknessMm : undefined,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -107,7 +108,8 @@ export async function createJobCard(data: JobCardFormValues): Promise<{ success:
 
 export async function getInventoryOptimizationSuggestions(
   jobInput: {
-    paperGsm: number;
+    paperGsm?: number;
+    paperThicknessMm?: number;
     paperQuality: PaperQualityType;
     jobSizeWidth: number;
     jobSizeHeight: number;
@@ -118,11 +120,21 @@ export async function getInventoryOptimizationSuggestions(
   console.log('[JobActions TS Calc] Job Input received:', JSON.stringify(jobInput, null, 2));
 
   try {
-    if (!jobInput.paperQuality || jobInput.paperQuality === "") {
-        console.log('[JobActions TS Calc] Target paper quality from jobInput is empty. Returning empty suggestions immediately.');
+    const targetQualityUnit = getPaperQualityUnit(jobInput.paperQuality);
+
+    if (!jobInput.paperQuality || jobInput.paperQuality === "" || !targetQualityUnit) {
+        console.log('[JobActions TS Calc] Target paper quality or unit from jobInput is empty/invalid. Returning empty suggestions immediately.');
         return { suggestions: [], optimalSuggestion: undefined };
     }
-     if (jobInput.jobSizeWidth <= 0 || jobInput.jobSizeHeight <= 0 || jobInput.netQuantity <=0) {
+    if (targetQualityUnit === 'gsm' && (jobInput.paperGsm === undefined || jobInput.paperGsm <=0)) {
+        console.log('[JobActions TS Calc] Invalid target GSM for GSM-based quality. Returning empty suggestions.');
+        return { suggestions: [], optimalSuggestion: undefined };
+    }
+    if (targetQualityUnit === 'mm' && (jobInput.paperThicknessMm === undefined || jobInput.paperThicknessMm <=0)) {
+        console.log('[JobActions TS Calc] Invalid target thickness for mm-based quality. Returning empty suggestions.');
+        return { suggestions: [], optimalSuggestion: undefined };
+    }
+    if (jobInput.jobSizeWidth <= 0 || jobInput.jobSizeHeight <= 0 || jobInput.netQuantity <=0) {
         console.log('[JobActions TS Calc] Invalid job dimensions or net quantity. Returning empty suggestions.');
         return { suggestions: [], optimalSuggestion: undefined };
     }
@@ -131,15 +143,18 @@ export async function getInventoryOptimizationSuggestions(
     console.log(`[JobActions TS Calc] Full inventory fetched (${allInventoryMasterItems.length} master items).`);
 
     const targetQualityLower = jobInput.paperQuality.toLowerCase();
+    const THICKNESS_TOLERANCE = 0.1; // e.g., +/- 0.1mm for thickness matching
+    const GSM_TOLERANCE_PERCENT = 5; // e.g., +/- 5% for GSM matching
 
     const processedSuggestions: InventorySuggestion[] = allInventoryMasterItems
       .filter(item => {
+        const itemQualityUnit = getPaperQualityUnit(item.paperQuality as PaperQualityType);
         const hasRequiredSheetFields =
           item.type === 'Master Sheet' && 
           item.masterSheetSizeWidth && item.masterSheetSizeWidth > 0 &&
           item.masterSheetSizeHeight && item.masterSheetSizeHeight > 0 &&
-          item.paperGsm && item.paperGsm > 0 &&
-          item.paperQuality && item.paperQuality !== '';
+          item.paperQuality && item.paperQuality !== '' &&
+          itemQualityUnit !== null; // Ensure the item has a known unit
         
         if (!hasRequiredSheetFields) return false;
         if ((item.availableStock || 0) <= 0) { 
@@ -148,7 +163,19 @@ export async function getInventoryOptimizationSuggestions(
         }
 
         const itemQualityLower = item.paperQuality!.toLowerCase();
-        return itemQualityLower === targetQualityLower;
+        if (itemQualityLower !== targetQualityLower) return false; // Strict quality match
+
+        // Match based on unit
+        if (targetQualityUnit === 'mm' && itemQualityUnit === 'mm') {
+            if (item.paperThicknessMm === undefined || jobInput.paperThicknessMm === undefined) return false;
+            return Math.abs(item.paperThicknessMm - jobInput.paperThicknessMm) <= THICKNESS_TOLERANCE;
+        } else if (targetQualityUnit === 'gsm' && itemQualityUnit === 'gsm') {
+            if (item.paperGsm === undefined || jobInput.paperGsm === undefined) return false;
+            const lowerBound = jobInput.paperGsm * (1 - GSM_TOLERANCE_PERCENT / 100);
+            const upperBound = jobInput.paperGsm * (1 + GSM_TOLERANCE_PERCENT / 100);
+            return item.paperGsm >= lowerBound && item.paperGsm <= upperBound;
+        }
+        return false; // If units don't match or aren't handled
       })
       .map(sheet => {
         const layoutInfo = calculateUps({
@@ -167,11 +194,9 @@ export async function getInventoryOptimizationSuggestions(
         const jobArea = jobInput.jobSizeWidth * jobInput.jobSizeHeight;
         const usedArea = layoutInfo.ups * jobArea;
         
-        let wastagePercentage = 0;
+        let wastagePercentage = 100;
         if (sheetArea > 0) { 
             wastagePercentage = 100 - (usedArea / sheetArea) * 100;
-        } else {
-            wastagePercentage = 100; 
         }
 
         const totalMasterSheetsNeeded = Math.ceil(jobInput.netQuantity / layoutInfo.ups);
@@ -180,7 +205,8 @@ export async function getInventoryOptimizationSuggestions(
           sourceInventoryItemId: sheet.id,
           masterSheetSizeWidth: sheet.masterSheetSizeWidth!,
           masterSheetSizeHeight: sheet.masterSheetSizeHeight!,
-          paperGsm: sheet.paperGsm!,
+          paperGsm: sheet.paperGsm,
+          paperThicknessMm: sheet.paperThicknessMm,
           paperQuality: sheet.paperQuality!,
           sheetsPerMasterSheet: layoutInfo.ups,
           totalMasterSheetsNeeded,
@@ -247,12 +273,19 @@ export async function createJobTemplate(data: JobTemplateFormValues): Promise<{ 
 }
 
 function generateItemTypeKey(data: InventoryItemFormValues): string {
+    const quality = data.paperQuality as PaperQualityType;
+    const unit = getPaperQualityUnit(quality);
+
     if (data.category === 'PAPER') {
-        const quality = data.paperQuality || 'unknown_quality';
-        const gsm = data.paperGsm || 0;
         const width = data.paperMasterSheetSizeWidth || 0;
         const height = data.paperMasterSheetSizeHeight || 0;
-        return `paper_${quality}_${gsm}gsm_${width.toFixed(2)}x${height.toFixed(2)}`.toLowerCase();
+        if (unit === 'mm') {
+            const thickness = data.paperThicknessMm || 0;
+            return `paper_${quality}_${thickness}mm_${width.toFixed(2)}x${height.toFixed(2)}`.toLowerCase();
+        } else { // Default to GSM
+            const gsm = data.paperGsm || 0;
+            return `paper_${quality}_${gsm}gsm_${width.toFixed(2)}x${height.toFixed(2)}`.toLowerCase();
+        }
     } else if (data.category === 'INKS') {
         const inkName = data.inkName || 'unknown_ink';
         return `ink_${inkName}`.toLowerCase();
@@ -272,15 +305,23 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
 
     const itemTypeKey = generateItemTypeKey(data);
     let existingItem = global.__inventoryItemsStore__!.find(item => {
+        const quality = item.paperQuality as PaperQualityType;
+        const unit = getPaperQualityUnit(quality);
+
         if (item.type === 'Master Sheet' && data.category === 'PAPER') {
-            const existingKey = `paper_${item.paperQuality}_${item.paperGsm}gsm_${item.masterSheetSizeWidth?.toFixed(2)}x${item.masterSheetSizeHeight?.toFixed(2)}`.toLowerCase();
+            let existingKey = '';
+            if (unit === 'mm') {
+                existingKey = `paper_${quality}_${item.paperThicknessMm}mm_${item.masterSheetSizeWidth?.toFixed(2)}x${item.masterSheetSizeHeight?.toFixed(2)}`.toLowerCase();
+            } else {
+                existingKey = `paper_${quality}_${item.paperGsm}gsm_${item.masterSheetSizeWidth?.toFixed(2)}x${item.masterSheetSizeHeight?.toFixed(2)}`.toLowerCase();
+            }
             return existingKey === itemTypeKey;
         } else if (item.type === 'Ink' && data.category === 'INKS') {
             const existingKey = `ink_${item.name}`.toLowerCase();
             return existingKey === itemTypeKey;
         } else if (data.category !== 'PAPER' && data.category !== 'INKS') {
              const normalizedItemName = (item.name || "unknown_item").toLowerCase().replace(/\s+/g, '_');
-             const originalCategoryGuess = item.itemGroup === 'Other Stock' ? 'OTHER' : item.itemGroup;
+             const originalCategoryGuess = item.itemGroup === 'Other Stock' ? 'OTHER' : item.itemGroup; // This might need refinement if itemGroups are more varied
              const existingKey = `other_${originalCategoryGuess}_${normalizedItemName}`.toLowerCase();
              return existingKey === itemTypeKey;
         }
@@ -311,20 +352,27 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
       let masterSheetSizeWidth_val: number | undefined = undefined;
       let masterSheetSizeHeight_val: number | undefined = undefined;
       let paperGsm_val: number | undefined = undefined;
+      let paperThicknessMm_val: number | undefined = undefined;
       let paperQuality_val: PaperQualityType | undefined = undefined;
 
       if (data.category === 'PAPER') {
         masterSheetSizeWidth_val = data.paperMasterSheetSizeWidth;
         masterSheetSizeHeight_val = data.paperMasterSheetSizeHeight;
-        paperGsm_val = data.paperGsm;
         paperQuality_val = data.paperQuality as PaperQualityType;
         itemType = 'Master Sheet';
         const qualityLabel = getPaperQualityLabel(paperQuality_val);
-        itemGroup = qualityLabel as ItemGroupType;
-        // Item name for paper is now just dimensions
-        specificName = `${masterSheetSizeWidth_val?.toFixed(2)}x${masterSheetSizeHeight_val?.toFixed(2)}in`.trim();
-        // Specification still contains full details for internal data richness
-        specificSpecification = `${qualityLabel} ${paperGsm_val}GSM, ${masterSheetSizeWidth_val?.toFixed(2)}in x ${masterSheetSizeHeight_val?.toFixed(2)}in`;
+        itemGroup = qualityLabel as ItemGroupType; 
+        
+        const unit = getPaperQualityUnit(paperQuality_val);
+        if (unit === 'mm') {
+            paperThicknessMm_val = data.paperThicknessMm;
+            specificName = `${masterSheetSizeWidth_val?.toFixed(2)}x${masterSheetSizeHeight_val?.toFixed(2)}in - ${paperThicknessMm_val}mm`;
+            specificSpecification = `${qualityLabel} ${paperThicknessMm_val}mm, ${masterSheetSizeWidth_val?.toFixed(2)}in x ${masterSheetSizeHeight_val?.toFixed(2)}in`;
+        } else {
+            paperGsm_val = data.paperGsm;
+            specificName = `${masterSheetSizeWidth_val?.toFixed(2)}x${masterSheetSizeHeight_val?.toFixed(2)}in - ${paperGsm_val}GSM`;
+            specificSpecification = `${qualityLabel} ${paperGsm_val}GSM, ${masterSheetSizeWidth_val?.toFixed(2)}in x ${masterSheetSizeHeight_val?.toFixed(2)}in`;
+        }
       } else if (data.category === 'INKS') {
         itemType = 'Ink';
         itemGroup = 'Inks';
@@ -347,6 +395,7 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
         itemGroup: itemGroup,
         specification: specificSpecification,
         paperGsm: paperGsm_val,
+        paperThicknessMm: paperThicknessMm_val,
         paperQuality: paperQuality_val,
         masterSheetSizeWidth: masterSheetSizeWidth_val,
         masterSheetSizeHeight: masterSheetSizeHeight_val,
@@ -390,7 +439,8 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
 
 
     console.log(`[InventoryManagement] ${existingItem ? 'Added to' : 'Created'} item: ${itemForMessage!.name}. Transaction Quantity: ${data.quantity}`);
-    revalidatePath('/inventory');
+    revalidatePath('/inventory'); // Revalidate specific category paths too if needed
+    revalidatePath(`/inventory/${data.category.toLowerCase()}`);
     return { success: true, message: `Stock updated for: ${itemForMessage!.name}. Quantity added: ${data.quantity}`, item: itemForMessage };
   } catch (error) {
     console.error('[InventoryManagement Error] Error adding/updating inventory item:', error);
@@ -424,3 +474,5 @@ export async function getInventoryAdjustmentsForItem(inventoryItemId: string): P
   console.log(`[InventoryManagement] Found ${adjustments.length} adjustments for item ID ${inventoryItemId}`);
   return adjustments;
 }
+
+    

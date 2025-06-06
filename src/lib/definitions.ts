@@ -18,7 +18,8 @@ export type InventorySuggestion = {
   sourceInventoryItemId?: string; // ID of the inventory item used for this suggestion
   masterSheetSizeWidth: number;
   masterSheetSizeHeight: number;
-  paperGsm: number; // Actual GSM of the suggested sheet
+  paperGsm?: number; // Actual GSM of the suggested sheet
+  paperThicknessMm?: number; // Actual thickness in mm of the suggested sheet
   paperQuality: string; // Actual quality of the suggested sheet
   wastagePercentage: number;
   sheetsPerMasterSheet: number;
@@ -27,19 +28,19 @@ export type InventorySuggestion = {
 };
 
 export const PAPER_QUALITY_OPTIONS = [
-  { value: 'SBS', label: 'SBS' },
-  { value: 'GREYBACK', label: 'Greyback' },
-  { value: 'WHITEBACK', label: 'Whiteback' },
-  { value: 'ART_PAPER_GLOSS', label: 'Art Paper Gloss' },
-  { value: 'ART_PAPER_MATT', label: 'Art Paper Matt' },
-  { value: 'BUTTER_PAPER', label: 'Butter Paper' },
-  { value: 'GOLDEN_SHEET', label: 'Golden Sheet' },
-  { value: 'JAPANESE_PAPER', label: 'Japanese Paper' },
-  { value: 'IMPORTED_PAPER', label: 'Imported Paper' },
-  { value: 'KRAFT_PAPER', label: 'Kraft Paper' },
-  { value: 'GG_KAPPA', label: 'GG Kappa' },
-  { value: 'WG_KAPPA', label: 'WG Kappa' },
-  { value: 'MDF', label: 'MDF' }, // Added MDF
+  { value: 'SBS', label: 'SBS', unit: 'gsm' },
+  { value: 'GREYBACK', label: 'Greyback', unit: 'gsm' },
+  { value: 'WHITEBACK', label: 'Whiteback', unit: 'gsm' },
+  { value: 'ART_PAPER_GLOSS', label: 'Art Paper Gloss', unit: 'gsm' },
+  { value: 'ART_PAPER_MATT', label: 'Art Paper Matt', unit: 'gsm' },
+  { value: 'BUTTER_PAPER', label: 'Butter Paper', unit: 'gsm' },
+  { value: 'GOLDEN_SHEET', label: 'Golden Sheet', unit: 'gsm' },
+  { value: 'JAPANESE_PAPER', label: 'Japanese Paper', unit: 'gsm' },
+  { value: 'IMPORTED_PAPER', label: 'Imported Paper', unit: 'gsm' },
+  { value: 'KRAFT_PAPER', label: 'Kraft Paper', unit: 'gsm' },
+  { value: 'GG_KAPPA', label: 'GG Kappa', unit: 'mm' },
+  { value: 'WG_KAPPA', label: 'WG Kappa', unit: 'mm' },
+  { value: 'MDF', label: 'MDF', unit: 'mm' },
 ] as const;
 
 type PaperQualityValue = typeof PAPER_QUALITY_OPTIONS[number]['value'];
@@ -49,6 +50,13 @@ export function getPaperQualityLabel(value: PaperQualityType): string {
   const option = PAPER_QUALITY_OPTIONS.find(opt => opt.value === value);
   return option ? option.label : value;
 }
+
+export function getPaperQualityUnit(value: PaperQualityType): 'gsm' | 'mm' | null {
+  const option = PAPER_QUALITY_OPTIONS.find(opt => opt.value === value);
+  return option ? option.unit : null;
+}
+
+export const KAPPA_MDF_QUALITIES: PaperQualityType[] = ['GG_KAPPA', 'WG_KAPPA', 'MDF'];
 
 
 export type JobCardData = {
@@ -63,12 +71,14 @@ export type JobCardData = {
   masterSheetSizeHeight?: number;
   netQuantity: number;
   grossQuantity: number;
-  paperGsm: number;
+  paperGsm?: number;
+  targetPaperThicknessMm?: number;
   paperQuality: PaperQualityType;
   wastagePercentage?: number;
   cuttingLayoutDescription?: string;
 
   selectedMasterSheetGsm?: number;
+  selectedMasterSheetThicknessMm?: number;
   selectedMasterSheetQuality?: PaperQualityType;
   sourceInventoryItemId?: string;
   sheetsPerMasterSheet?: number;
@@ -125,7 +135,8 @@ export const JobCardSchema = z.object({
   netQuantity: z.coerce.number().positive("Net quantity must be positive"),
   grossQuantity: z.coerce.number().positive("Gross quantity (total master sheets if not optimizing) must be positive"),
 
-  paperGsm: z.coerce.number().positive("Paper GSM must be positive"),
+  paperGsm: z.coerce.number().optional(),
+  targetPaperThicknessMm: z.coerce.number().optional(),
   paperQuality: z.enum(paperQualityEnumValues).refine(val => val !== '', { message: "Paper quality is required" }),
 
   masterSheetSizeWidth: z.coerce.number().optional(),
@@ -133,6 +144,7 @@ export const JobCardSchema = z.object({
   wastagePercentage: z.coerce.number().optional(),
   cuttingLayoutDescription: z.string().optional(),
   selectedMasterSheetGsm: z.coerce.number().optional(),
+  selectedMasterSheetThicknessMm: z.coerce.number().optional(),
   selectedMasterSheetQuality: z.enum(paperQualityEnumValues).optional(),
   sourceInventoryItemId: z.string().optional(),
   sheetsPerMasterSheet: z.coerce.number().optional(),
@@ -151,6 +163,14 @@ export const JobCardSchema = z.object({
   boxMaking: z.enum(['MACHINE', 'MANUAL', 'COMBINED', '']).default('').optional(),
   remarks: z.string().optional(),
   dispatchDate: z.string().optional(),
+}).superRefine((data, ctx) => {
+  const unit = getPaperQualityUnit(data.paperQuality as PaperQualityType);
+  if (data.paperQuality && unit === 'gsm' && (data.paperGsm === undefined || data.paperGsm <= 0)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Paper GSM must be positive for this quality.", path: ["paperGsm"] });
+  }
+  if (data.paperQuality && unit === 'mm' && (data.targetPaperThicknessMm === undefined || data.targetPaperThicknessMm <= 0)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Target paper thickness (mm) must be positive for this quality.", path: ["targetPaperThicknessMm"] });
+  }
 });
 
 export type JobCardFormValues = z.infer<typeof JobCardSchema>;
@@ -262,6 +282,7 @@ export type InventoryItem = {
   itemGroup: ItemGroupType;
   specification: string; 
   paperGsm?: number;
+  paperThicknessMm?: number;
   paperQuality?: PaperQualityType;
   masterSheetSizeWidth?: number;
   masterSheetSizeHeight?: number;
@@ -305,6 +326,7 @@ export const InventoryItemFormSchema = z.object({
   paperMasterSheetSizeHeight: z.coerce.number().optional(),
   paperQuality: z.enum(paperQualityEnumValues).optional(),
   paperGsm: z.coerce.number().optional(),
+  paperThicknessMm: z.coerce.number().optional(),
 
   inkName: z.string().optional(),
   inkSpecification: z.string().optional(),
@@ -323,9 +345,16 @@ export const InventoryItemFormSchema = z.object({
   if (data.category === 'PAPER') {
     if (!data.paperQuality || data.paperQuality === '') {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Paper quality is required for paper items.", path: ["paperQuality"] });
-    }
-    if (data.paperGsm === undefined || data.paperGsm <= 0) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Valid Paper GSM (must be > 0) is required for paper items.", path: ["paperGsm"] });
+    } else {
+      const qualityInfo = PAPER_QUALITY_OPTIONS.find(opt => opt.value === data.paperQuality);
+      if (qualityInfo) {
+        if (qualityInfo.unit === 'gsm' && (data.paperGsm === undefined || data.paperGsm <= 0)) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Valid Paper GSM (must be > 0) is required for this paper quality.", path: ["paperGsm"] });
+        }
+        if (qualityInfo.unit === 'mm' && (data.paperThicknessMm === undefined || data.paperThicknessMm <= 0)) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Valid Paper Thickness (mm) (must be > 0) is required for this paper quality.", path: ["paperThicknessMm"] });
+        }
+      }
     }
     if (data.paperMasterSheetSizeWidth === undefined || data.paperMasterSheetSizeWidth <= 0) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Valid Paper Width (must be > 0) is required for paper items.", path: ["paperMasterSheetSizeWidth"] });
@@ -401,5 +430,7 @@ export const PAPER_SUB_CATEGORIES = [
 ] as const;
 
 export type PaperSubCategoryFilterValue = typeof PAPER_SUB_CATEGORIES[number]['filterValue'];
+
+    
 
     

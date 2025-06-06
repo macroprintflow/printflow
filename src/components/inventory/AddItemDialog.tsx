@@ -5,7 +5,7 @@ import React, { useState, type Dispatch, type SetStateAction, Fragment } from "r
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, type UseFormReturn, type Control } from "react-hook-form";
 import type { InventoryItemFormValues, InventoryCategory, PaperQualityType, UnitValue } from "@/lib/definitions";
-import { InventoryItemFormSchema, INVENTORY_CATEGORIES, PAPER_QUALITY_OPTIONS, VENDOR_OPTIONS, UNIT_OPTIONS, getPaperQualityLabel } from "@/lib/definitions";
+import { InventoryItemFormSchema, INVENTORY_CATEGORIES, PAPER_QUALITY_OPTIONS, VENDOR_OPTIONS, UNIT_OPTIONS, getPaperQualityLabel, getPaperQualityUnit, KAPPA_MDF_QUALITIES } from "@/lib/definitions";
 import { addInventoryItem } from "@/lib/actions/jobActions";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -25,44 +25,66 @@ interface AddItemDialogProps {
   onItemAdded?: () => void;
 }
 
-const PaperFields = ({ control }: { control: Control<InventoryItemFormValues> }) => (
-  <>
-    <FormField control={control} name="itemName" render={({ field }) => (<FormItem className="hidden"><FormControl><Input type="hidden" {...field} /></FormControl><FormMessage /></FormItem>)} />
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <FormField control={control} name="paperMasterSheetSizeWidth" render={({ field }) => (
+const PaperFields = ({ form }: { form: UseFormReturn<InventoryItemFormValues> }) => {
+  const watchedPaperQuality = form.watch("paperQuality");
+  const paperUnit = getPaperQualityUnit(watchedPaperQuality as PaperQualityType);
+
+  return (
+    <>
+      <FormField control={form.control} name="itemName" render={({ field }) => (<FormItem className="hidden"><FormControl><Input type="hidden" {...field} /></FormControl><FormMessage /></FormItem>)} />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <FormField control={form.control} name="paperMasterSheetSizeWidth" render={({ field }) => (
+          <FormItem>
+            <FormLabel>Paper Width (in)</FormLabel>
+            <FormControl><Input type="number" placeholder="e.g., 27.56" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="font-body"/></FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+        <FormField control={form.control} name="paperMasterSheetSizeHeight" render={({ field }) => (
+          <FormItem>
+            <FormLabel>Paper Height (in)</FormLabel>
+            <FormControl><Input type="number" placeholder="e.g., 39.37" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="font-body"/></FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+      </div>
+      <FormField control={form.control} name="paperQuality" render={({ field }) => (
         <FormItem>
-          <FormLabel>Paper Width (in)</FormLabel>
-          <FormControl><Input type="number" placeholder="e.g., 27.56" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="font-body"/></FormControl>
+          <FormLabel>Paper Quality</FormLabel>
+          <Select onValueChange={(value) => {
+            field.onChange(value);
+            // Reset GSM/Thickness when quality changes to avoid carrying over irrelevant values
+            form.setValue("paperGsm", undefined);
+            form.setValue("paperThicknessMm", undefined);
+          }} value={field.value || ""}>
+            <FormControl><SelectTrigger className="font-body"><SelectValue placeholder="Select paper quality" /></SelectTrigger></FormControl>
+            <SelectContent>{PAPER_QUALITY_OPTIONS.map(opt => (<SelectItem key={opt.value} value={opt.value} className="font-body">{opt.label}</SelectItem>))}</SelectContent>
+          </Select>
           <FormMessage />
         </FormItem>
       )} />
-      <FormField control={control} name="paperMasterSheetSizeHeight" render={({ field }) => (
-        <FormItem>
-          <FormLabel>Paper Height (in)</FormLabel>
-          <FormControl><Input type="number" placeholder="e.g., 39.37" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="font-body"/></FormControl>
-          <FormMessage />
-        </FormItem>
-      )} />
-    </div>
-    <FormField control={control} name="paperQuality" render={({ field }) => (
-      <FormItem>
-        <FormLabel>Paper Quality</FormLabel>
-        <Select onValueChange={field.onChange} value={field.value || ""}>
-          <FormControl><SelectTrigger className="font-body"><SelectValue placeholder="Select paper quality" /></SelectTrigger></FormControl>
-          <SelectContent>{PAPER_QUALITY_OPTIONS.map(opt => (<SelectItem key={opt.value} value={opt.value} className="font-body">{opt.label}</SelectItem>))}</SelectContent>
-        </Select>
-        <FormMessage />
-      </FormItem>
-    )} />
-    <FormField control={control} name="paperGsm" render={({ field }) => (
-      <FormItem>
-        <FormLabel>Paper GSM</FormLabel>
-        <FormControl><Input type="number" placeholder="e.g., 300" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="font-body"/></FormControl>
-        <FormMessage />
-      </FormItem>
-    )} />
-  </>
-);
+
+      {paperUnit === 'gsm' && (
+        <FormField control={form.control} name="paperGsm" render={({ field }) => (
+          <FormItem>
+            <FormLabel>Paper GSM</FormLabel>
+            <FormControl><Input type="number" placeholder="e.g., 300" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="font-body"/></FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+      )}
+      {paperUnit === 'mm' && (
+         <FormField control={form.control} name="paperThicknessMm" render={({ field }) => (
+          <FormItem>
+            <FormLabel>Paper Thickness (mm)</FormLabel>
+            <FormControl><Input type="number" step="0.1" placeholder="e.g., 1.2" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="font-body"/></FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+      )}
+    </>
+  );
+};
 
 const InkFields = ({ control }: { control: Control<InventoryItemFormValues> }) => (
   <>
@@ -110,7 +132,7 @@ const CommonFields = ({ form }: { form: UseFormReturn<InventoryItemFormValues> }
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <FormField
           control={form.control}
-          name="quantity" // Changed from availableStock
+          name="quantity"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Quantity to Add</FormLabel> 
@@ -214,11 +236,12 @@ export function AddItemDialog({ isOpen, setIsOpen, onItemAdded }: AddItemDialogP
     paperMasterSheetSizeHeight: undefined,
     paperQuality: "",
     paperGsm: undefined,
+    paperThicknessMm: undefined,
     inkName: "",
     inkSpecification: "",
-    itemName: "", // This will be auto-filled for paper/ink, user-filled for others
+    itemName: "", 
     itemSpecification: "",
-    quantity: 0, // Changed from availableStock
+    quantity: 0, 
     unit: "sheets" as UnitValue,
     purchaseBillNo: "",
     vendorName: undefined,
@@ -233,18 +256,15 @@ export function AddItemDialog({ isOpen, setIsOpen, onItemAdded }: AddItemDialogP
   });
 
   const handleCategorySelect = (category: InventoryCategory) => {
-    form.reset(formDefaultValues); // Reset with new defaults
+    form.reset(formDefaultValues); 
     setSelectedCategory(category);
     form.setValue("category", category);
 
-    // Pre-fill itemName based on category, but it's mainly for "OTHER" type items.
-    // For Paper/Ink, the final name is constructed on the server.
-    // The `itemName` field in the form is crucial for the "OTHER" category.
     if (category === 'PAPER') {
-      form.setValue("itemName", "Paper Stock Entry"); // Placeholder, server will generate final name
+      form.setValue("itemName", "Paper Stock Entry"); 
       form.setValue("unit", "sheets" as UnitValue);
     } else if (category === 'INKS') {
-      form.setValue("itemName", "Ink Entry"); // Placeholder
+      form.setValue("itemName", "Ink Entry"); 
       form.setValue("unit", "kg" as UnitValue);
     } else if (category === 'PLASTIC_TRAY') {
       form.setValue("itemName", "Plastic Tray");
@@ -255,8 +275,8 @@ export function AddItemDialog({ isOpen, setIsOpen, onItemAdded }: AddItemDialogP
     } else if (category === 'MAGNET') {
       form.setValue("itemName", "Magnet");
       form.setValue("unit", "pieces" as UnitValue);
-    } else { // OTHER
-      form.setValue("itemName", ""); // User needs to fill this for "OTHER"
+    } else { 
+      form.setValue("itemName", ""); 
       form.setValue("unit", "units" as UnitValue);
     }
     setStep(2);
@@ -272,19 +292,7 @@ export function AddItemDialog({ isOpen, setIsOpen, onItemAdded }: AddItemDialogP
   async function onSubmit(values: InventoryItemFormValues) {
     if (!selectedCategory) return;
 
-    // Ensure quantity is positive if it's a new stock addition.
-    // The schema already has min(0), but an explicit check for >0 when adding stock is good.
-    if (values.quantity <= 0 && selectedCategory !== 'PAPER' && selectedCategory !== 'INKS') {
-        // Allow defining Paper/Ink item types with 0 initial quantity if needed by business logic,
-        // but generally, adding stock implies quantity > 0.
-        // This specific check can be refined based on whether defining an item type with 0 stock is a valid use case.
-        // For now, if it's not paper/ink and quantity is 0, it might be an error unless it's just a definition.
-        // The server-side will handle creating a 0-stock adjustment if needed for new item definitions.
-    }
-
-
     setIsSubmitting(true);
-    // `addInventoryItem` now expects `quantity` for the transaction.
     const result = await addInventoryItem({...values, category: selectedCategory});
     setIsSubmitting(false);
 
@@ -346,7 +354,7 @@ export function AddItemDialog({ isOpen, setIsOpen, onItemAdded }: AddItemDialogP
             <DialogDescription className="font-body">Enter the details for the stock addition or new {categoryLabel.toLowerCase()} type.</DialogDescription>
           </DialogHeader>
 
-          {selectedCategory === 'PAPER' && <PaperFields control={form.control} />}
+          {selectedCategory === 'PAPER' && <PaperFields form={form} />}
           {selectedCategory === 'INKS' && <InkFields control={form.control} />}
           {(selectedCategory && selectedCategory !== 'PAPER' && selectedCategory !== 'INKS') && (
             <OtherCategoryFields control={form.control} categoryLabel={categoryLabel} />
@@ -375,3 +383,5 @@ export function AddItemDialog({ isOpen, setIsOpen, onItemAdded }: AddItemDialogP
   );
 }
 
+
+    

@@ -12,7 +12,7 @@ import { AddItemDialog } from "@/components/inventory/AddItemDialog";
 import { InventoryAdjustmentsDialog } from "@/components/inventory/InventoryAdjustmentsDialog";
 import { getInventoryItems } from "@/lib/actions/jobActions";
 import type { InventoryItem, PaperQualityType, PaperSubCategoryFilterValue } from "@/lib/definitions";
-import { PAPER_QUALITY_OPTIONS, PAPER_SUB_CATEGORIES } from "@/lib/definitions";
+import { PAPER_QUALITY_OPTIONS, PAPER_SUB_CATEGORIES, KAPPA_MDF_QUALITIES } from "@/lib/definitions";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 
@@ -116,6 +116,7 @@ export default function CategorizedInventoryPage() {
         item.name.toLowerCase().includes(lowerCaseQuery) ||
         item.type.toLowerCase().includes(lowerCaseQuery) ||
         (item.paperGsm && item.paperGsm.toString().includes(lowerCaseQuery)) ||
+        (item.paperThicknessMm && item.paperThicknessMm.toString().includes(lowerCaseQuery)) ||
         (item.id && item.id.toLowerCase().includes(lowerCaseQuery))
       );
     }
@@ -204,7 +205,7 @@ export default function CategorizedInventoryPage() {
             <TableHead className="font-headline">Item Name (Size)</TableHead>
             <TableHead className="font-headline">Type</TableHead>
             <TableHead className="font-headline">Item Group</TableHead>
-            <TableHead className="font-headline">Paper GSM</TableHead>
+            <TableHead className="font-headline">GSM/Thickness</TableHead>
             <TableHead className="font-headline text-right">Available Stock</TableHead>
             <TableHead className="font-headline text-right">Unit</TableHead>
             <TableHead className="font-headline text-right">Reorder Point</TableHead>
@@ -234,7 +235,9 @@ export default function CategorizedInventoryPage() {
                   {item.itemGroup}
                 </Badge>
               </TableCell>
-              <TableCell className="font-body">{item.paperGsm || '-'}</TableCell>
+              <TableCell className="font-body">
+                {KAPPA_MDF_QUALITIES.includes(item.paperQuality as PaperQualityType) && item.paperThicknessMm ? `${item.paperThicknessMm} mm` : item.paperGsm ? `${item.paperGsm} GSM` : '-'}
+              </TableCell>
               <TableCell className="font-body text-right">{item.availableStock?.toLocaleString() ?? 0}</TableCell>
               <TableCell className="font-body text-right">{item.unit}</TableCell>
               <TableCell className="font-body text-right">{item.reorderPoint ? item.reorderPoint.toLocaleString() : '-'}</TableCell>
@@ -311,3 +314,5 @@ export default function CategorizedInventoryPage() {
     </div>
   );
 }
+
+    
