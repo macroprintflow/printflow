@@ -120,10 +120,10 @@ const CommonFields = ({ form }: { form: UseFormReturn<InventoryItemFormValues> }
                   type="number"
                   placeholder="e.g., 1000"
                   {...field}
-                  value={field.value ?? 0} 
+                  value={field.value ?? 0}
                   onChange={e => {
                     const value = e.target.value;
-                    field.onChange(value === '' ? 0 : parseFloat(value)); 
+                    field.onChange(value === '' ? 0 : parseFloat(value));
                   }}
                   className="font-body"
                 />
@@ -134,7 +134,7 @@ const CommonFields = ({ form }: { form: UseFormReturn<InventoryItemFormValues> }
         <FormField control={form.control} name="unit" render={({ field }) => (
           <FormItem>
             <FormLabel>Unit</FormLabel>
-            <Select onValueChange={field.onChange} value={field.value || "pieces"}>
+            <Select onValueChange={field.onChange} value={field.value || "sheets"}>
               <FormControl><SelectTrigger className="font-body"><SelectValue placeholder="Select unit" /></SelectTrigger></FormControl>
               <SelectContent>{UNIT_OPTIONS.map(opt => (<SelectItem key={opt.value} value={opt.value} className="font-body">{opt.label}</SelectItem>))}</SelectContent>
             </Select>
@@ -142,7 +142,7 @@ const CommonFields = ({ form }: { form: UseFormReturn<InventoryItemFormValues> }
           </FormItem>
         )} />
       </div>
-      
+
       <FormField control={form.control} name="reorderPoint" render={({ field }) => (
         <FormItem>
           <FormLabel>Reorder Point (Optional)</FormLabel>
@@ -220,7 +220,7 @@ export function AddItemDialog({ isOpen, setIsOpen, onItemAdded }: AddItemDialogP
     itemName: "",
     itemSpecification: "",
     availableStock: 0,
-    unit: "pieces" as UnitValue, // Changed default unit
+    unit: "sheets" as UnitValue, // Default unit
     purchaseBillNo: "",
     vendorName: undefined,
     otherVendorName: "",
@@ -234,16 +234,16 @@ export function AddItemDialog({ isOpen, setIsOpen, onItemAdded }: AddItemDialogP
   });
 
   const handleCategorySelect = (category: InventoryCategory) => {
-    form.reset(formDefaultValues); // Reset form when category changes
+    form.reset(formDefaultValues);
     setSelectedCategory(category);
     form.setValue("category", category);
-    
+
     if (category === 'PAPER') {
-      form.setValue("itemName", "Paper Stock"); // Default name
-      form.setValue("unit", "inches" as UnitValue); // Set unit to inches for paper
+      form.setValue("itemName", "Paper Stock"); // Default name, will be refined later
+      form.setValue("unit", "sheets" as UnitValue); // Default unit for paper
     } else if (category === 'INKS') {
-      form.setValue("itemName", "Ink"); // Default name
-      form.setValue("unit", "kg" as UnitValue); // Set unit to kg for inks
+      form.setValue("itemName", "Ink");
+      form.setValue("unit", "kg" as UnitValue);
     } else if (category === 'PLASTIC_TRAY') {
       form.setValue("itemName", "Plastic Tray");
       form.setValue("unit", "pieces" as UnitValue);
@@ -254,7 +254,7 @@ export function AddItemDialog({ isOpen, setIsOpen, onItemAdded }: AddItemDialogP
       form.setValue("itemName", "Magnet");
       form.setValue("unit", "pieces" as UnitValue);
     } else { // OTHER
-      form.setValue("itemName", ""); 
+      form.setValue("itemName", "");
       form.setValue("unit", "units" as UnitValue);
     }
 
@@ -270,7 +270,7 @@ export function AddItemDialog({ isOpen, setIsOpen, onItemAdded }: AddItemDialogP
 
   async function onSubmit(values: InventoryItemFormValues) {
     if (!selectedCategory) return;
-    
+
     setIsSubmitting(true);
     const result = await addInventoryItem({...values, category: selectedCategory});
     setIsSubmitting(false);
@@ -293,9 +293,9 @@ export function AddItemDialog({ isOpen, setIsOpen, onItemAdded }: AddItemDialogP
       });
     }
   }
-  
+
   const handleDialogClose = (open: boolean) => {
-    if (!open) { 
+    if (!open) {
        resetDialogState();
     }
     setIsOpen(open);
@@ -338,9 +338,9 @@ export function AddItemDialog({ isOpen, setIsOpen, onItemAdded }: AddItemDialogP
           {(selectedCategory && selectedCategory !== 'PAPER' && selectedCategory !== 'INKS') && (
             <OtherCategoryFields control={form.control} categoryLabel={categoryLabel} />
           )}
-          
+
           <CommonFields form={form} />
-          
+
           <DialogFooter className="pt-4">
             <Button type="button" variant="outline" onClick={() => setStep(1)} disabled={isSubmitting} className="font-body">Back</Button>
             <Button type="submit" disabled={isSubmitting} className="font-body">
@@ -361,4 +361,3 @@ export function AddItemDialog({ isOpen, setIsOpen, onItemAdded }: AddItemDialogP
     </Dialog>
   );
 }
-

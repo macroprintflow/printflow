@@ -52,7 +52,7 @@ export function getPaperQualityLabel(value: PaperQualityType): string {
 
 export type JobCardData = {
   id?: string;
-  jobCardNumber?: string; 
+  jobCardNumber?: string;
   date: string;
   jobName: string;
   customerName: string;
@@ -61,15 +61,17 @@ export type JobCardData = {
   masterSheetSizeWidth?: number;
   masterSheetSizeHeight?: number;
   netQuantity: number;
-  grossQuantity: number;
+  grossQuantity: number; // This might represent total master sheets used if not using optimizer
   paperGsm: number; // Target/Job GSM
   paperQuality: PaperQualityType; // Target/Job Quality
   wastagePercentage?: number;
   cuttingLayoutDescription?: string;
-  // Fields to store the actual selected master sheet details from suggestion
+
   selectedMasterSheetGsm?: number;
   selectedMasterSheetQuality?: PaperQualityType;
   sourceInventoryItemId?: string;
+  sheetsPerMasterSheet?: number; // From selected suggestion
+  totalMasterSheetsNeeded?: number; // From selected suggestion, used for deduction
 
   kindOfJob: 'METPET' | 'NORMAL' | 'NO_PRINTING' | '';
   printingFront: 'SM74' | 'SORSZ' | 'DOMINANT' | 'NO_PRINTING' | '';
@@ -120,20 +122,20 @@ export const JobCardSchema = z.object({
   jobSizeHeight: z.coerce.number().positive("Job height (in) must be positive"),
 
   netQuantity: z.coerce.number().positive("Net quantity must be positive"),
-  grossQuantity: z.coerce.number().positive("Gross quantity must be positive"),
+  grossQuantity: z.coerce.number().positive("Gross quantity (total master sheets if not optimizing) must be positive"),
 
-  paperGsm: z.coerce.number().positive("Paper GSM must be positive"), // Target GSM
+  paperGsm: z.coerce.number().positive("Paper GSM must be positive"),
   paperQuality: z.enum(paperQualityEnumValues).refine(val => val !== '', { message: "Paper quality is required" }),
 
-
-  masterSheetSizeWidth: z.coerce.number().optional(), // From suggestion
-  masterSheetSizeHeight: z.coerce.number().optional(), // From suggestion
-  wastagePercentage: z.coerce.number().optional(), // From suggestion
-  cuttingLayoutDescription: z.string().optional(), // From suggestion
-  selectedMasterSheetGsm: z.coerce.number().optional(), // Actual GSM from suggestion
-  selectedMasterSheetQuality: z.enum(paperQualityEnumValues).optional(), // Actual quality from suggestion
-  sourceInventoryItemId: z.string().optional(), // ID of inventory item from suggestion
-
+  masterSheetSizeWidth: z.coerce.number().optional(),
+  masterSheetSizeHeight: z.coerce.number().optional(),
+  wastagePercentage: z.coerce.number().optional(),
+  cuttingLayoutDescription: z.string().optional(),
+  selectedMasterSheetGsm: z.coerce.number().optional(),
+  selectedMasterSheetQuality: z.enum(paperQualityEnumValues).optional(),
+  sourceInventoryItemId: z.string().optional(),
+  sheetsPerMasterSheet: z.coerce.number().optional(), // From selected suggestion
+  totalMasterSheetsNeeded: z.coerce.number().optional(), // From selected suggestion
 
   kindOfJob: z.enum(['METPET', 'NORMAL', 'NO_PRINTING', '']).default('').optional(),
   printingFront: z.enum(['SM74', 'SORSZ', 'DOMINANT', 'NO_PRINTING', '']).default('').optional(),
@@ -221,11 +223,9 @@ export const BOX_MAKING_OPTIONS = [
   { value: 'COMBINED', label: 'Combined' },
 ] as const;
 
-// ITEM_GROUP_TYPES will now include all paper qualities for more granular filtering on inventory page
-// Plus new general categories
 export const ITEM_GROUP_TYPES = [
   "All",
-  ...PAPER_QUALITY_OPTIONS.map(opt => opt.label), // Use labels for display
+  ...PAPER_QUALITY_OPTIONS.map(opt => opt.label),
   "Inks",
   "Plastic Trays",
   "Glass Jars",
@@ -235,39 +235,39 @@ export const ITEM_GROUP_TYPES = [
 
 export type ItemGroupType = (typeof ITEM_GROUP_TYPES)[number];
 
-export type InventoryItemType = 
-  | 'Master Sheet' 
-  | 'Paper Stock' 
-  | 'Ink' 
+export type InventoryItemType =
+  | 'Master Sheet'
+  | 'Paper Stock' // This might be redundant if Master Sheet implies it's paper stock
+  | 'Ink'
   | 'Plastic Tray'
   | 'Glass Jar'
   | 'Magnet'
   | 'Other';
 
 export const UNIT_OPTIONS = [
-  { value: 'inches', label: 'Inches' },
+  { value: 'sheets', label: 'Sheets' }, // Changed 'inches' to 'sheets' for paper
   { value: 'kg', label: 'Kg' },
   { value: 'liters', label: 'Liters' },
   { value: 'pieces', label: 'Pieces' },
   { value: 'rolls', label: 'Rolls' },
   { value: 'units', label: 'Units' },
 ] as const;
-type UnitValue = typeof UNIT_OPTIONS[number]['value'];
+export type UnitValue = typeof UNIT_OPTIONS[number]['value'];
 
 export type InventoryItem = {
   id: string;
   name: string;
   type: InventoryItemType;
-  itemGroup: ItemGroupType; 
-  specification: string; 
-  paperGsm?: number; 
+  itemGroup: ItemGroupType;
+  specification: string;
+  paperGsm?: number;
   paperQuality?: PaperQualityType;
-  masterSheetSizeWidth?: number; 
-  masterSheetSizeHeight?: number; 
+  masterSheetSizeWidth?: number;
+  masterSheetSizeHeight?: number;
   availableStock: number;
   unit: UnitValue;
   reorderPoint?: number;
-  supplier?: string; // Keeping this for now, vendorName is more specific for new entries
+  supplier?: string;
   purchaseBillNo?: string;
   vendorName?: string;
   dateOfEntry?: string; // ISO string date
@@ -282,11 +282,10 @@ export const VENDOR_OPTIONS = [
   { value: 'SUMAT_PARSHAD', label: 'Sumat Parshad' },
   { value: 'OTHER', label: 'Other (Specify)'},
 ] as const;
-type VendorValue = typeof VENDOR_OPTIONS[number]['value'];
 
 
 export const INVENTORY_CATEGORIES = [
-  { value: 'PAPER', label: 'Paper' },
+  { value: 'PAPER', label: 'Paper' }, // This will create 'Master Sheet' type items
   { value: 'INKS', label: 'Inks' },
   { value: 'PLASTIC_TRAY', label: 'Plastic Tray' },
   { value: 'GLASS_JAR', label: 'Glass Jars' },
@@ -296,30 +295,27 @@ export const INVENTORY_CATEGORIES = [
 export type InventoryCategory = typeof INVENTORY_CATEGORIES[number]['value'];
 
 
-const unitEnumValues = UNIT_OPTIONS.map(opt => opt.value) as [string, ...string[]]; // Zod needs at least one value for enum
+const unitEnumValues = UNIT_OPTIONS.map(opt => opt.value) as [string, ...string[]];
 
 export const InventoryItemFormSchema = z.object({
   category: z.enum(INVENTORY_CATEGORIES.map(c => c.value) as [string, ...string[]]),
-  
-  // Paper specific
+
   paperMasterSheetSizeWidth: z.coerce.number().optional(),
   paperMasterSheetSizeHeight: z.coerce.number().optional(),
   paperQuality: z.enum(paperQualityEnumValues).optional(),
   paperGsm: z.coerce.number().optional(),
-  
-  // Ink specific
-  inkName: z.string().optional(),
-  inkSpecification: z.string().optional(), // e.g. color
 
-  // Common fields for other categories & general use
-  itemName: z.string().min(1, "Item name is required"), // Generic name, can be prefilled for paper/ink
-  itemSpecification: z.string().optional(), // Generic spec, can be prefilled for paper/ink
+  inkName: z.string().optional(),
+  inkSpecification: z.string().optional(),
+
+  itemName: z.string().min(1, "Item name is required"),
+  itemSpecification: z.string().optional(),
 
   availableStock: z.coerce.number().min(0, "Stock quantity must be non-negative"),
   unit: z.enum(unitEnumValues),
   purchaseBillNo: z.string().optional(),
   vendorName: z.enum(VENDOR_OPTIONS.map(v => v.value) as [string, ...string[]]).optional(),
-  otherVendorName: z.string().optional(), // For manual entry if "Other" is selected
+  otherVendorName: z.string().optional(),
   dateOfEntry: z.string().refine(val => !isNaN(Date.parse(val)), { message: "Invalid date"}),
   reorderPoint: z.coerce.number().optional(),
 }).superRefine((data, ctx) => {
@@ -336,6 +332,11 @@ export const InventoryItemFormSchema = z.object({
     if (data.paperMasterSheetSizeHeight === undefined || data.paperMasterSheetSizeHeight <= 0) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Valid Paper Height (must be > 0) is required for paper items.", path: ["paperMasterSheetSizeHeight"] });
     }
+     if (data.unit !== 'sheets' && data.unit !== 'pieces') { // Assuming paper is tracked in sheets or pieces
+      // This check might be too strict if other units are valid for paper.
+      // For now, let's guide towards sheets/pieces for master sheets.
+      // ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Unit for paper should typically be 'Sheets' or 'Pieces'.", path: ["unit"] });
+    }
   }
   if (data.category === 'INKS') {
     if (!data.inkName || data.inkName.trim() === '') {
@@ -349,9 +350,38 @@ export const InventoryItemFormSchema = z.object({
 
 export type InventoryItemFormValues = z.infer<typeof InventoryItemFormSchema>;
 
-export type OptimizeInventoryOutput = { // This is for the AI flow
+export type OptimizeInventoryOutput = {
   suggestions: InventorySuggestion[];
   optimalSuggestion?: InventorySuggestion;
+  // debugLog?: string; // Removed as per previous request
 };
 
-    
+// New definitions for Inventory Adjustments
+export const INVENTORY_ADJUSTMENT_REASONS = [
+  { value: 'INITIAL_STOCK', label: 'Initial Stock Entry' },
+  { value: 'JOB_USAGE', label: 'Job Card Usage' },
+  { value: 'PURCHASE_RECEIVED', label: 'Purchase Received' },
+  { value: 'MANUAL_CORRECTION_ADD', label: 'Manual Correction (Add)' },
+  { value: 'MANUAL_CORRECTION_SUB', label: 'Manual Correction (Subtract)' },
+  { value: 'STOCK_TAKE_GAIN', label: 'Stock Take (Gain)' },
+  { value: 'STOCK_TAKE_LOSS', label: 'Stock Take (Loss)' },
+  { value: 'RETURN_TO_SUPPLIER', label: 'Return to Supplier' },
+  { value: 'DAMAGED_GOODS', label: 'Damaged Goods' },
+] as const;
+
+export type InventoryAdjustmentReasonValue = typeof INVENTORY_ADJUSTMENT_REASONS[number]['value'];
+
+export function getInventoryAdjustmentReasonLabel(value: InventoryAdjustmentReasonValue): string {
+  return INVENTORY_ADJUSTMENT_REASONS.find(r => r.value === value)?.label || value;
+}
+
+export type InventoryAdjustment = {
+  id: string; // Unique ID for the adjustment itself
+  inventoryItemId: string; // Foreign key to InventoryItem.id
+  date: string; // ISO date string
+  quantityChange: number; // Positive for addition, negative for subtraction
+  reason: InventoryAdjustmentReasonValue;
+  reference?: string; // e.g., JobCardNumber, PurchaseBillNo, user note
+  userId?: string; // Optional: ID of user making adjustment
+  notes?: string; // Optional: further details
+};
