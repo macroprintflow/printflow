@@ -73,7 +73,6 @@ if (!global.__inventoryItemsStore__) {
 if (typeof global.__inventoryCounter__ === 'undefined') {
     global.__inventoryCounter__ = initialInventoryItems.length + 1;
 }
-// No module-scoped inventoryItemsStore variable anymore. Direct global access.
 
 function generateJobCardNumber(): string {
   const now = new Date();
@@ -97,7 +96,7 @@ export async function createJobCard(data: JobCardFormValues): Promise<{ success:
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-    jobCards.push(newJobCard); // global.__jobCards__ is referenced by jobCards
+    jobCards.push(newJobCard); 
     global.__jobCounter__ = currentJobCounter + 1; 
 
     console.log('Created job card:', newJobCard);
@@ -111,7 +110,7 @@ export async function createJobCard(data: JobCardFormValues): Promise<{ success:
 }
 
 export async function getInventoryOptimizationSuggestions(
-  jobInput: { // User's target specifications
+  jobInput: { 
     paperGsm: number;
     paperQuality: PaperQualityType;
     jobSizeWidth: number;
@@ -120,15 +119,19 @@ export async function getInventoryOptimizationSuggestions(
   }
 ): Promise<OptimizeInventoryOutput | { error: string }> {
   try {
-    // Directly use getInventoryItems which now reads from global store
     const allInventory = await getInventoryItems(); 
+    console.log('[InventoryOptimization] Full inventory fetched:', JSON.stringify(allInventory, null, 2));
     
     const { paperGsm: targetGsm, paperQuality: targetQuality } = jobInput;
 
     const availableMasterSheets: AvailableSheet[] = allInventory
       .filter(item => {
         if (!(item.type === 'Master Sheet' || item.type === 'Paper Stock')) return false;
-        if (!item.masterSheetSizeWidth || !item.masterSheetSizeHeight || !item.paperGsm || !item.paperQuality) return false;
+        // Crucial check: Ensure all necessary fields for a master sheet are present
+        if (!item.masterSheetSizeWidth || !item.masterSheetSizeHeight || !item.paperGsm || !item.paperQuality) {
+            console.log(`[InventoryOptimization] Filtering out item ${item.id} due to missing critical master sheet fields.`);
+            return false;
+        }
         if (item.paperQuality !== targetQuality) return false;
 
         const gsmDiff = Math.abs(item.paperGsm - targetGsm);
@@ -148,8 +151,11 @@ export async function getInventoryOptimizationSuggestions(
         paperGsm: item.paperGsm!,
         paperQuality: item.paperQuality!,
       }));
+    
+    console.log('[InventoryOptimization] Filtered Available Master Sheets for AI:', JSON.stringify(availableMasterSheets, null, 2));
 
     if (availableMasterSheets.length === 0) {
+      console.log('[InventoryOptimization] No suitable master sheets found after filtering.');
       return { suggestions: [], optimalSuggestion: undefined };
     }
     
@@ -174,7 +180,7 @@ export async function getInventoryOptimizationSuggestions(
 
 
 export async function getJobTemplates(): Promise<JobTemplateData[]> {
-  return [...jobTemplatesStore]; // global.__jobTemplatesStore__ is referenced by jobTemplatesStore
+  return [...global.__jobTemplatesStore__!]; 
 }
 
 export async function createJobTemplate(data: JobTemplateFormValues): Promise<{ success: boolean; message: string; template?: JobTemplateData }> {
@@ -184,7 +190,7 @@ export async function createJobTemplate(data: JobTemplateFormValues): Promise<{ 
       ...data,
       id: `template${currentTemplateCounter}`,
     };
-    jobTemplatesStore.push(newTemplate); // global.__jobTemplatesStore__ is referenced by jobTemplatesStore
+    global.__jobTemplatesStore__!.push(newTemplate); 
     global.__templateCounter__ = currentTemplateCounter + 1;
 
     console.log('Created job template:', newTemplate);
@@ -199,8 +205,7 @@ export async function createJobTemplate(data: JobTemplateFormValues): Promise<{ 
 }
 
 export async function getInventoryItems(): Promise<InventoryItem[]> {
-  // Ensure it always returns a copy of the current global state
-  if (!global.__inventoryItemsStore__) { // Defensive check, should be initialized already
+  if (!global.__inventoryItemsStore__) { 
       global.__inventoryItemsStore__ = [];
   }
   return [...global.__inventoryItemsStore__];
@@ -214,13 +219,26 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
     let specificName = data.itemName;
     let specificSpecification = data.itemSpecification || '';
 
+    // Explicitly assign master sheet properties if category is PAPER
+    let masterSheetSizeWidth: number | undefined = undefined;
+    let masterSheetSizeHeight: number | undefined = undefined;
+    let paperGsm: number | undefined = undefined;
+    let paperQuality: PaperQualityType | undefined = undefined;
+
+
     if (data.category === 'PAPER') {
-      itemType = data.paperMasterSheetSizeWidth && data.paperMasterSheetSizeHeight ? 'Master Sheet' : 'Paper Stock';
+      itemType = (data.paperMasterSheetSizeWidth && data.paperMasterSheetSizeHeight) ? 'Master Sheet' : 'Paper Stock';
       itemGroup = data.paperQuality ? getPaperQualityLabel(data.paperQuality as PaperQualityType) as ItemGroupType : 'Other Stock';
-      specificName = `${getPaperQualityLabel(data.paperQuality as PaperQualityType)} ${data.paperGsm}GSM ${data.paperMasterSheetSizeWidth ? `${data.paperMasterSheetSizeWidth}x${data.paperMasterSheetSizeHeight}in` : ''}`.trim();
-      specificSpecification = `${data.paperGsm}GSM ${getPaperQualityLabel(data.paperQuality as PaperQualityType)}`;
-      if (data.paperMasterSheetSizeWidth && data.paperMasterSheetSizeHeight) {
-        specificSpecification += `, ${data.paperMasterSheetSizeWidth}in x ${data.paperMasterSheetSizeHeight}in`;
+      
+      masterSheetSizeWidth = data.paperMasterSheetSizeWidth;
+      masterSheetSizeHeight = data.paperMasterSheetSizeHeight;
+      paperGsm = data.paperGsm;
+      paperQuality = data.paperQuality as PaperQualityType;
+
+      specificName = `${getPaperQualityLabel(paperQuality as PaperQualityType)} ${paperGsm}GSM ${masterSheetSizeWidth ? `${masterSheetSizeWidth}x${masterSheetSizeHeight}in` : ''}`.trim();
+      specificSpecification = `${paperGsm}GSM ${getPaperQualityLabel(paperQuality as PaperQualityType)}`;
+      if (masterSheetSizeWidth && masterSheetSizeHeight) {
+        specificSpecification += `, ${masterSheetSizeWidth}in x ${masterSheetSizeHeight}in`;
       }
     } else if (data.category === 'INKS') {
       itemType = 'Ink';
@@ -245,10 +263,10 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
       type: itemType,
       itemGroup: itemGroup,
       specification: specificSpecification,
-      paperGsm: data.category === 'PAPER' ? data.paperGsm : undefined,
-      paperQuality: data.category === 'PAPER' ? data.paperQuality as PaperQualityType : undefined,
-      masterSheetSizeWidth: data.category === 'PAPER' ? data.paperMasterSheetSizeWidth : undefined,
-      masterSheetSizeHeight: data.category === 'PAPER' ? data.paperMasterSheetSizeHeight : undefined,
+      paperGsm: paperGsm, // Use explicitly assigned variable
+      paperQuality: paperQuality, // Use explicitly assigned variable
+      masterSheetSizeWidth: masterSheetSizeWidth, // Use explicitly assigned variable
+      masterSheetSizeHeight: masterSheetSizeHeight, // Use explicitly assigned variable
       availableStock: data.availableStock,
       unit: data.unit as UnitValue,
       reorderPoint: data.reorderPoint,
@@ -257,14 +275,13 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
       dateOfEntry: data.dateOfEntry,
     };
 
-    // Ensure additions are made to the true global store
-    if (!global.__inventoryItemsStore__) { // Defensive check
+    if (!global.__inventoryItemsStore__) { 
         global.__inventoryItemsStore__ = [];
     }
     global.__inventoryItemsStore__.push(newItem);
     global.__inventoryCounter__ = currentInventoryCounter + 1;
 
-    console.log('Added inventory item:', newItem);
+    console.log('Added inventory item:', JSON.stringify(newItem, null, 2));
     revalidatePath('/inventory');
     return { success: true, message: 'Inventory item added successfully!', item: newItem };
   } catch (error) {
@@ -272,4 +289,3 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
     return { success: false, message: 'Failed to add inventory item.' };
   }
 }
-
