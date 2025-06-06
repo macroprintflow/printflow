@@ -60,7 +60,9 @@ const prompt = ai.definePrompt({
   name: 'optimizeInventoryPrompt',
   input: {schema: OptimizeInventoryInputSchema},
   output: {schema: OptimizeInventoryOutputSchema},
-  prompt: `You are an expert in printing and packaging, specializing in optimizing material usage to minimize waste.
+  prompt: `IMPORTANT: Your response MUST ONLY consider the master sheets explicitly provided in the \`{{{availableMasterSheets}}}\` input array. Do not include any sheets not found in this input. If this input array is empty or contains no suitable sheets based on the job requirements, the \`suggestions\` array in your output must be empty.
+
+  You are an expert in printing and packaging, specializing in optimizing material usage to minimize waste.
 
   Job Specifications:
   - Target Paper GSM: {{{targetPaperGsm}}}
@@ -91,7 +93,7 @@ const prompt = ai.definePrompt({
 
      The \`sheetsPerMasterSheet\` for the CurrentMasterSheet is the MAXIMUM of Total_Ups_Portrait and Total_Ups_Landscape. This value MUST be an integer.
 
-     IMPORTANT: If \`sheetsPerMasterSheet\` calculates to 0 for the CurrentMasterSheet (e.g., because the job dimensions {{{jobSizeWidth}}}x{{{jobSizeHeight}}} are larger than the CurrentMasterSheet dimensions), then this CurrentMasterSheet is unsuitable for this job. In this case, DO NOT include this CurrentMasterSheet in the \`suggestions\` output array. Skip to the next available master sheet and continue processing others.
+     IMPORTANT: If \`sheetsPerMasterSheet\` calculates to 0 for the CurrentMasterSheet (e.g., because the job dimensions {{{jobSizeWidth}}}x{{{jobSizeHeight}}} are larger than the CurrentMasterSheet dimensions, or the CurrentMasterSheet dimensions themselves are 0 or invalid), then this CurrentMasterSheet is unsuitable for this job. In this case, DO NOT include this CurrentMasterSheet in the \`suggestions\` output array. Skip to the next available master sheet and continue processing others.
 
      If \`sheetsPerMasterSheet\` is greater than 0, the \`cuttingLayoutDescription\` for the CurrentMasterSheet must describe the orientation (portrait or landscape) and the arrangement (e.g., 'Pieces_Across x Pieces_Down') that yielded this maximum. For example: '2 across x 2 down (job portrait)' or '1 across x 3 down (job landscape)'.
 
@@ -136,19 +138,23 @@ const optimizeInventoryFlow = ai.defineFlow(
     outputSchema: OptimizeInventoryOutputSchema,
   },
   async input => {
+    // If AI is called with no sheets, it might hallucinate.
+    // This check ensures we short-circuit if the JS-side filtering results in no valid sheets.
     if (!input.availableMasterSheets || input.availableMasterSheets.length === 0) {
+      console.log('[InventoryOptimization AI Flow] Received empty or no availableMasterSheets. Returning empty suggestions.');
       return { suggestions: [], optimalSuggestion: undefined };
     }
     const {output} = await prompt(input);
     
+    // Post-processing to ensure data types and rounding
     if (output?.suggestions) {
       output.suggestions.forEach(s => {
         s.masterSheetSizeWidth = parseFloat(Number(s.masterSheetSizeWidth || 0).toFixed(2));
         s.masterSheetSizeHeight = parseFloat(Number(s.masterSheetSizeHeight || 0).toFixed(2));
         s.paperGsm = Number(s.paperGsm || 0);
         s.wastagePercentage = parseFloat(Number(s.wastagePercentage || 0).toFixed(2));
-        s.sheetsPerMasterSheet = Math.floor(Number(s.sheetsPerMasterSheet || 0));
-        s.totalMasterSheetsNeeded = Math.ceil(Number(s.totalMasterSheetsNeeded || 0));
+        s.sheetsPerMasterSheet = Math.floor(Number(s.sheetsPerMasterSheet || 0)); // Ensure integer
+        s.totalMasterSheetsNeeded = Math.ceil(Number(s.totalMasterSheetsNeeded || 0)); // Ensure integer
       });
     }
     if (output?.optimalSuggestion) {
@@ -157,8 +163,8 @@ const optimizeInventoryFlow = ai.defineFlow(
        opt.masterSheetSizeHeight = parseFloat(Number(opt.masterSheetSizeHeight || 0).toFixed(2));
        opt.paperGsm = Number(opt.paperGsm || 0);
        opt.wastagePercentage = parseFloat(Number(opt.wastagePercentage || 0).toFixed(2));
-       opt.sheetsPerMasterSheet = Math.floor(Number(opt.sheetsPerMasterSheet || 0));
-       opt.totalMasterSheetsNeeded = Math.ceil(Number(opt.totalMasterSheetsNeeded || 0));
+       opt.sheetsPerMasterSheet = Math.floor(Number(opt.sheetsPerMasterSheet || 0)); // Ensure integer
+       opt.totalMasterSheetsNeeded = Math.ceil(Number(opt.totalMasterSheetsNeeded || 0)); // Ensure integer
     }
     return output!;
   }
