@@ -15,6 +15,9 @@ declare global {
   var __inventoryCounter__: number | undefined;
 }
 
+// This is the source for initial inventory items. It's set to empty.
+const initialInventoryItems: InventoryItem[] = [];
+
 if (!global.__jobCards__) {
   global.__jobCards__ = [];
 }
@@ -35,14 +38,18 @@ if (typeof global.__templateCounter__ === 'undefined') {
   global.__templateCounter__ = initialJobTemplates.length + 1;
 }
 
-// Start with an empty inventory
-const initialInventoryItems: InventoryItem[] = [];
-
-if (!global.__inventoryItemsStore__) {
-  global.__inventoryItemsStore__ = [...initialInventoryItems]; // Initialize with an empty array
+// Critical: Ensure inventory store starts empty if initialInventoryItems is empty.
+// This handles cases where hot-reloading might not fully clear global state.
+if (!global.__inventoryItemsStore__ || (initialInventoryItems.length === 0 && global.__inventoryItemsStore__.length > 0) ) {
+  console.log('[InventoryManagement] Initializing/Resetting global inventory store to be empty based on initialInventoryItems.');
+  global.__inventoryItemsStore__ = [...initialInventoryItems];
+} else if (!global.__inventoryItemsStore__) {
+  // Standard initialization if initialInventoryItems might have items in the future
+  global.__inventoryItemsStore__ = [...initialInventoryItems];
 }
+
 if (typeof global.__inventoryCounter__ === 'undefined') {
-    global.__inventoryCounter__ = 1; // Start counter at 1 for new items
+    global.__inventoryCounter__ = 1;
 }
 
 function generateJobCardNumber(): string {
@@ -109,7 +116,7 @@ export async function getInventoryOptimizationSuggestions(
         console.log(`[InventoryOptimization Debug] Filtering out item ${item.id} ('${item.name}') due to missing/invalid critical master sheet fields. W: ${item.masterSheetSizeWidth}, H: ${item.masterSheetSizeHeight}, GSM: ${item.paperGsm}, Q: ${item.paperQuality}`);
         continue; 
       }
-      // No more JS-based filtering for quality or GSM. All valid sheets go to AI.
+      // No JS-based filtering for quality or GSM is currently active. All valid sheets go to AI.
       console.log(`[InventoryOptimization Debug] Item ${item.id} ('${item.name}') PASSED basic property checks and WILL BE SENT TO AI. W: ${item.masterSheetSizeWidth}, H: ${item.masterSheetSizeHeight}, GSM: ${item.paperGsm}, Q: ${item.paperQuality}`);
       availableMasterSheets.push({
         id: item.id,
@@ -178,9 +185,10 @@ export async function createJobTemplate(data: JobTemplateFormValues): Promise<{ 
 
 export async function getInventoryItems(): Promise<InventoryItem[]> {
   if (!global.__inventoryItemsStore__) {
-      global.__inventoryItemsStore__ = []; // Ensure it's initialized if somehow not
+      console.log('[InventoryManagement] __inventoryItemsStore__ was undefined, initializing to empty array.');
+      global.__inventoryItemsStore__ = []; 
   }
-  return [...global.__inventoryItemsStore__!]; // Return a copy
+  return [...global.__inventoryItemsStore__!]; 
 }
 
 export async function addInventoryItem(data: InventoryItemFormValues): Promise<{ success: boolean; message: string; item?: InventoryItem }> {
@@ -199,7 +207,6 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
 
 
     if (data.category === 'PAPER') {
-      // These are now guaranteed by schema validation if category is PAPER
       masterSheetSizeWidth = data.paperMasterSheetSizeWidth!;
       masterSheetSizeHeight = data.paperMasterSheetSizeHeight!;
       paperGsm = data.paperGsm!;
@@ -254,6 +261,7 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
     };
 
     if (!global.__inventoryItemsStore__) {
+        console.log('[InventoryManagement] __inventoryItemsStore__ was undefined before push, initializing.');
         global.__inventoryItemsStore__ = [];
     }
     global.__inventoryItemsStore__.push(newItem);
@@ -262,8 +270,11 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
     console.log('[InventoryManagement] Added inventory item:', JSON.stringify(newItem, null, 2));
     revalidatePath('/inventory');
     return { success: true, message: 'Inventory item added successfully!', item: newItem };
-  } catch (error) {
+  } catch (error)
+   {
     console.error('Error adding inventory item:', error);
     return { success: false, message: 'Failed to add inventory item.' };
   }
 }
+
+    
