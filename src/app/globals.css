@@ -131,8 +131,8 @@
     transition: var(--ios-transition);
     @apply bg-background text-foreground; /* Re-apply tailwind theme vars for body to ensure consistency */
     
-    /* New background image styles */
-    background-image: url('/images/dark-wave-background.png');
+    /* Custom background image - REPLACE WITH YOUR ACTUAL IMAGE PATH IN /public */
+    background-image: url('/images/custom-user-background.jpg');
     background-size: cover;
     background-position: center center;
     background-repeat: no-repeat;
