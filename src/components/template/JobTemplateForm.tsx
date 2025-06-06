@@ -4,7 +4,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import type { JobTemplateFormValues } from "@/lib/definitions";
-import { JobTemplateSchema, KINDS_OF_JOB_OPTIONS, PRINTING_MACHINE_OPTIONS, COATING_OPTIONS, DIE_OPTIONS, HOT_FOIL_OPTIONS, YES_NO_OPTIONS, BOX_MAKING_OPTIONS } from "@/lib/definitions";
+import { JobTemplateSchema, KINDS_OF_JOB_OPTIONS, PRINTING_MACHINE_OPTIONS, COATING_OPTIONS, DIE_OPTIONS, HOT_FOIL_OPTIONS, YES_NO_OPTIONS, BOX_MAKING_OPTIONS, PAPER_QUALITY_OPTIONS } from "@/lib/definitions";
 import { createJobTemplate } from "@/lib/actions/jobActions";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -24,6 +24,7 @@ export function JobTemplateForm() {
     resolver: zodResolver(JobTemplateSchema),
     defaultValues: {
       name: "",
+      paperQuality: "",
       kindOfJob: "",
       printingFront: "",
       printingBack: "",
@@ -57,6 +58,7 @@ export function JobTemplateForm() {
   }
 
   const processFields = [
+    { name: "paperQuality", label: "Paper Quality", options: PAPER_QUALITY_OPTIONS },
     { name: "kindOfJob", label: "Kind of Job", options: KINDS_OF_JOB_OPTIONS },
     { name: "printingFront", label: "Printing Front", options: PRINTING_MACHINE_OPTIONS },
     { name: "printingBack", label: "Printing Back", options: PRINTING_MACHINE_OPTIONS },
@@ -91,18 +93,18 @@ export function JobTemplateForm() {
             <FormField
               key={item.name}
               control={form.control}
-              name={item.name}
+              name={item.name as keyof JobTemplateFormValues}
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>{item.label}</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value || ""} value={field.value || ""}>
+                  <Select onValueChange={field.onChange} value={field.value || ""}>
                     <FormControl>
                       <SelectTrigger className="font-body">
                         <SelectValue placeholder={`Select ${item.label.toLowerCase()}`} />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {item.options.filter(option => option.value !== '').map(option => (
+                      {item.options.map(option => (
                         <SelectItem key={option.value} value={option.value} className="font-body">
                           {option.label}
                         </SelectItem>
@@ -129,3 +131,4 @@ export function JobTemplateForm() {
     </Form>
   );
 }
+

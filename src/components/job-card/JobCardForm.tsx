@@ -4,7 +4,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import type { JobCardFormValues, InventorySuggestion, JobTemplateData } from "@/lib/definitions";
-import { JobCardSchema, KINDS_OF_JOB_OPTIONS, PRINTING_MACHINE_OPTIONS, COATING_OPTIONS, DIE_OPTIONS, DIE_MACHINE_OPTIONS, HOT_FOIL_OPTIONS, YES_NO_OPTIONS, BOX_MAKING_OPTIONS } from "@/lib/definitions";
+import { JobCardSchema, KINDS_OF_JOB_OPTIONS, PRINTING_MACHINE_OPTIONS, COATING_OPTIONS, DIE_OPTIONS, DIE_MACHINE_OPTIONS, HOT_FOIL_OPTIONS, YES_NO_OPTIONS, BOX_MAKING_OPTIONS, PAPER_QUALITY_OPTIONS } from "@/lib/definitions";
 import { createJobCard, getJobTemplates } from "@/lib/actions/jobActions";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -81,7 +81,7 @@ export function JobCardForm() {
         netQuantity: currentValues.netQuantity,
         grossQuantity: currentValues.grossQuantity,
         paperGsm: currentValues.paperGsm,
-        paperQuality: currentValues.paperQuality,
+        paperQuality: template.paperQuality || "",
         masterSheetSizeWidth: currentValues.masterSheetSizeWidth,
         masterSheetSizeHeight: currentValues.masterSheetSizeHeight,
         wastagePercentage: currentValues.wastagePercentage,
@@ -100,7 +100,9 @@ export function JobCardForm() {
         dispatchDate: currentValues.dispatchDate, 
       });
     } else {
-      // If "None" or an invalid template is selected
+      // If "None" or an invalid template is selected, clear relevant fields or reset to defaults
+      // For now, we only explicitly set template fields, others remain.
+      // A more robust solution might reset specific fields to their initial defaults if template is deselected.
     }
   };
 
@@ -133,7 +135,7 @@ export function JobCardForm() {
   
   const currentJobDetailsForModal = {
     paperGsm: form.watch("paperGsm"),
-    paperQuality: form.watch("paperQuality"),
+    paperQuality: form.watch("paperQuality") || undefined, // Ensure undefined if empty string for modal
     jobSizeWidth: form.watch("jobSizeWidth"),
     jobSizeHeight: form.watch("jobSizeHeight"),
     netQuantity: form.watch("netQuantity"),
@@ -220,13 +222,30 @@ export function JobCardForm() {
                 <FormMessage />
               </FormItem>
             )} />
-            <FormField control={form.control} name="paperQuality" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Paper Quality</FormLabel>
-                <FormControl><Input placeholder="e.g., Art Card Coated" {...field} className="font-body"/></FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
+            <FormField
+              control={form.control}
+              name="paperQuality"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Paper Quality</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || ""}>
+                    <FormControl>
+                      <SelectTrigger className="font-body">
+                        <SelectValue placeholder="Select paper quality" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {PAPER_QUALITY_OPTIONS.map(option => (
+                        <SelectItem key={option.value} value={option.value} className="font-body">
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <div className="md:col-span-2 lg:col-span-1 grid grid-cols-2 gap-6">
               <FormField control={form.control} name="netQuantity" render={({ field }) => (
                 <FormItem>
@@ -236,7 +255,7 @@ export function JobCardForm() {
                       type="number"
                       placeholder="e.g., 1000"
                       {...field}
-                      value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
+                       value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
                       onChange={e => {
                         const numValue = parseFloat(e.target.value);
                         field.onChange(isNaN(numValue) ? undefined : numValue);
@@ -358,7 +377,7 @@ export function JobCardForm() {
                         {...field}
                         value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
                         readOnly
-                        onChange={e => { // Still useful for programmatic changes via form.setValue
+                        onChange={e => { 
                           const numValue = parseFloat(e.target.value);
                           field.onChange(isNaN(numValue) ? undefined : numValue);
                         }}
@@ -398,7 +417,7 @@ export function JobCardForm() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {item.options.filter(option => option.value !== '').map(option => (
+                        {item.options.map(option => (
                           <SelectItem key={option.value} value={option.value} className="font-body">{option.label}</SelectItem>
                         ))}
                       </SelectContent>
