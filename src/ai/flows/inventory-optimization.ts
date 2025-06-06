@@ -139,20 +139,23 @@ const optimizeInventoryFlow = ai.defineFlow(
     
     if (output?.suggestions) {
       output.suggestions.forEach(s => {
-        s.wastagePercentage = parseFloat(Number(s.wastagePercentage).toFixed(2));
-        s.masterSheetSizeWidth = parseFloat(Number(s.masterSheetSizeWidth).toFixed(2));
-        s.masterSheetSizeHeight = parseFloat(Number(s.masterSheetSizeHeight).toFixed(2));
-        s.paperGsm = Number(s.paperGsm);
+        s.masterSheetSizeWidth = parseFloat(Number(s.masterSheetSizeWidth || 0).toFixed(2));
+        s.masterSheetSizeHeight = parseFloat(Number(s.masterSheetSizeHeight || 0).toFixed(2));
+        s.paperGsm = Number(s.paperGsm || 0);
+        s.wastagePercentage = parseFloat(Number(s.wastagePercentage || 0).toFixed(2));
+        s.sheetsPerMasterSheet = Math.floor(Number(s.sheetsPerMasterSheet || 0));
+        s.totalMasterSheetsNeeded = Math.ceil(Number(s.totalMasterSheetsNeeded || 0));
       });
     }
     if (output?.optimalSuggestion) {
-       output.optimalSuggestion.wastagePercentage = parseFloat(Number(output.optimalSuggestion.wastagePercentage).toFixed(2));
-       output.optimalSuggestion.masterSheetSizeWidth = parseFloat(Number(output.optimalSuggestion.masterSheetSizeWidth).toFixed(2));
-       output.optimalSuggestion.masterSheetSizeHeight = parseFloat(Number(output.optimalSuggestion.masterSheetSizeHeight).toFixed(2));
-       output.optimalSuggestion.paperGsm = Number(output.optimalSuggestion.paperGsm);
+       const opt = output.optimalSuggestion;
+       opt.masterSheetSizeWidth = parseFloat(Number(opt.masterSheetSizeWidth || 0).toFixed(2));
+       opt.masterSheetSizeHeight = parseFloat(Number(opt.masterSheetSizeHeight || 0).toFixed(2));
+       opt.paperGsm = Number(opt.paperGsm || 0);
+       opt.wastagePercentage = parseFloat(Number(opt.wastagePercentage || 0).toFixed(2));
+       opt.sheetsPerMasterSheet = Math.floor(Number(opt.sheetsPerMasterSheet || 0));
+       opt.totalMasterSheetsNeeded = Math.ceil(Number(opt.totalMasterSheetsNeeded || 0));
     }
     return output!;
   }
 );
-
-    
