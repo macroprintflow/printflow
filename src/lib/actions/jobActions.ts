@@ -1,9 +1,10 @@
 
 'use server';
 
-import type { JobCardFormValues, JobCardData, JobTemplateData, JobTemplateFormValues, InventoryItem, PaperQualityType, InventorySuggestion, InventoryItemFormValues, InventoryItemType, ItemGroupType, UnitValue } from '@/lib/definitions';
-import { PAPER_QUALITY_OPTIONS, getPaperQualityLabel } from '@/lib/definitions';
-import { optimizeInventory, type OptimizeInventoryInput, type OptimizeInventoryOutput, type AvailableSheet } from '@/ai/flows/inventory-optimization';
+import type { JobCardFormValues, JobCardData, JobTemplateData, JobTemplateFormValues, InventoryItem, PaperQualityType, InventorySuggestion, InventoryItemFormValues, InventoryItemType, ItemGroupType, UnitValue, OptimizeInventoryOutput } from '@/lib/definitions';
+import { PAPER_QUALITY_OPTIONS, getPaperQualityLabel, INVENTORY_ADJUSTMENT_REASONS } from '@/lib/definitions';
+// Removed AI flow import: import { optimizeInventory, type OptimizeInventoryInput, type AvailableSheet } from '@/ai/flows/inventory-optimization';
+import { calculateUps } from '@/lib/calculateUps';
 import { revalidatePath } from 'next/cache';
 
 declare global {
@@ -13,16 +14,16 @@ declare global {
   var __templateCounter__: number | undefined;
   var __inventoryItemsStore__: InventoryItem[] | undefined;
   var __inventoryCounter__: number | undefined;
+  var __inventoryAdjustmentsStore__: any[] | undefined; // Using 'any' for now, replace with InventoryAdjustment[]
+  var __adjustmentCounter__: number | undefined;
 }
 
 // Initialize global stores if they don't exist
 if (global.__jobCards__ === undefined) {
   global.__jobCards__ = [];
-  console.log('[JobActions] Initialized global.__jobCards__');
 }
 if (global.__jobCounter__ === undefined) {
   global.__jobCounter__ = 1;
-  console.log('[JobActions] Initialized global.__jobCounter__');
 }
 
 const initialJobTemplates: JobTemplateData[] = [
@@ -32,25 +33,24 @@ const initialJobTemplates: JobTemplateData[] = [
 ];
 if (global.__jobTemplatesStore__ === undefined) {
   global.__jobTemplatesStore__ = [...initialJobTemplates];
-  console.log('[JobActions] Initialized global.__jobTemplatesStore__');
 }
 if (global.__templateCounter__ === undefined) {
   global.__templateCounter__ = initialJobTemplates.length + 1;
-  console.log('[JobActions] Initialized global.__templateCounter__');
 }
 
 if (global.__inventoryItemsStore__ === undefined) {
-  console.log('[InventoryManagement] Global inventory ITEMS store was UNDEFINED. Initializing to empty array.');
+  console.log('[InventoryManagement] Initializing global inventory store to be empty (first load).');
   global.__inventoryItemsStore__ = [];
-} else {
-  console.log('[InventoryManagement] Global inventory ITEMS store already exists. Count:', global.__inventoryItemsStore__.length);
+}
+if (global.__inventoryCounter__ === undefined) {
+    global.__inventoryCounter__ = (global.__inventoryItemsStore__?.length || 0) + 1;
 }
 
-if (global.__inventoryCounter__ === undefined) {
-  console.log('[InventoryManagement] Global inventory COUNTER was UNDEFINED. Initializing to 1.');
-  global.__inventoryCounter__ = 1;
-} else {
-   console.log('[InventoryManagement] Global inventory COUNTER already exists. Value:', global.__inventoryCounter__);
+if (global.__inventoryAdjustmentsStore__ === undefined) {
+  global.__inventoryAdjustmentsStore__ = [];
+}
+if (global.__adjustmentCounter__ === undefined) {
+  global.__adjustmentCounter__ = 1;
 }
 
 
@@ -63,12 +63,11 @@ function generateJobCardNumber(): string {
   return `JC-${year}${month}${day}-${randomNumber}`;
 }
 
-
 export async function createJobCard(data: JobCardFormValues): Promise<{ success: boolean; message: string; jobCard?: JobCardData }> {
   try {
     const currentJobCounter = global.__jobCounter__!;
     const newJobCard: JobCardData = {
-      ...data,
+      ...data, // Includes sheetsPerMasterSheet and totalMasterSheetsNeeded from form
       id: currentJobCounter.toString(),
       jobCardNumber: generateJobCardNumber(),
       date: new Date().toISOString().split('T')[0],
@@ -78,6 +77,29 @@ export async function createJobCard(data: JobCardFormValues): Promise<{ success:
     };
     global.__jobCards__!.push(newJobCard);
     global.__jobCounter__ = currentJobCounter + 1;
+
+    // Stock Deduction and Adjustment Log
+    if (data.sourceInventoryItemId && data.totalMasterSheetsNeeded && data.totalMasterSheetsNeeded > 0) {
+      const inventoryItemIndex = global.__inventoryItemsStore__!.findIndex(item => item.id === data.sourceInventoryItemId);
+      if (inventoryItemIndex !== -1) {
+        global.__inventoryItemsStore__![inventoryItemIndex].availableStock -= data.totalMasterSheetsNeeded;
+
+        const adjustment = {
+          id: `adj${global.__adjustmentCounter__!++}`,
+          inventoryItemId: data.sourceInventoryItemId,
+          date: new Date().toISOString(),
+          quantityChange: -data.totalMasterSheetsNeeded,
+          reason: INVENTORY_ADJUSTMENT_REASONS.find(r => r.value === 'JOB_USAGE')!.value,
+          reference: newJobCard.jobCardNumber,
+          notes: `Used for job: ${newJobCard.jobName}`,
+        };
+        global.__inventoryAdjustmentsStore__!.push(adjustment);
+        revalidatePath('/inventory'); // Revalidate inventory page due to stock change
+      } else {
+        console.warn(`[JobActions] Inventory item ID ${data.sourceInventoryItemId} not found for stock deduction.`);
+      }
+    }
+
 
     console.log('[JobActions] Created job card:', newJobCard.jobCardNumber);
     revalidatePath('/jobs');
@@ -98,89 +120,104 @@ export async function getInventoryOptimizationSuggestions(
     jobSizeHeight: number;
     netQuantity: number;
   }
-): Promise<OptimizeInventoryOutput | { error: string }> { // Removed debugLog from return type
-  console.log('[JobActions] === Get Inventory Optimization Suggestions START ===');
-  console.log('[JobActions] Job Input received:', JSON.stringify(jobInput, null, 2));
+): Promise<OptimizeInventoryOutput | { error: string }> {
+  console.log('[JobActions TS Calc] === Get Inventory Optimization Suggestions START ===');
+  console.log('[JobActions TS Calc] Job Input received:', JSON.stringify(jobInput, null, 2));
 
   try {
     if (!jobInput.paperQuality || jobInput.paperQuality === "") {
-        console.log('[JobActions] Target paper quality from jobInput is empty. Returning empty suggestions immediately.');
+        console.log('[JobActions TS Calc] Target paper quality from jobInput is empty. Returning empty suggestions immediately.');
+        return { suggestions: [], optimalSuggestion: undefined };
+    }
+     if (jobInput.jobSizeWidth <= 0 || jobInput.jobSizeHeight <= 0 || jobInput.netQuantity <=0) {
+        console.log('[JobActions TS Calc] Invalid job dimensions or net quantity. Returning empty suggestions.');
         return { suggestions: [], optimalSuggestion: undefined };
     }
     
     const allInventory = await getInventoryItems();
-    console.log(`[JobActions] Full inventory fetched (${allInventory.length} items). Preview (first 5):`, JSON.stringify(allInventory.slice(0, 5), null, 2));
+    console.log(`[JobActions TS Calc] Full inventory fetched (${allInventory.length} items).`);
 
-    const availableMasterSheets: AvailableSheet[] = [];
     const targetQualityLower = jobInput.paperQuality.toLowerCase();
 
-    console.log(`[JobActions] Filtering inventory. Target Quality (lowercase): '${targetQualityLower}'`);
+    const processedSuggestions: InventorySuggestion[] = allInventory
+      .filter(item => {
+        const hasRequiredSheetFields =
+          item.masterSheetSizeWidth && item.masterSheetSizeWidth > 0 &&
+          item.masterSheetSizeHeight && item.masterSheetSizeHeight > 0 &&
+          item.paperGsm && item.paperGsm > 0 &&
+          item.paperQuality && item.paperQuality !== '';
+        
+        if (!hasRequiredSheetFields) return false;
 
-    for (const item of allInventory) {
-      console.log(`[JobActions] Processing item ID: ${item.id}, Name: '${item.name}', W: ${item.masterSheetSizeWidth}, H: ${item.masterSheetSizeHeight}, GSM: ${item.paperGsm}, Quality: '${item.paperQuality}'`);
-
-      const hasRequiredSheetFields =
-        item.masterSheetSizeWidth && item.masterSheetSizeWidth > 0 &&
-        item.masterSheetSizeHeight && item.masterSheetSizeHeight > 0 &&
-        item.paperGsm && item.paperGsm > 0 &&
-        item.paperQuality && item.paperQuality !== '';
-      console.log(`[JobActions] Item ID: ${item.id} - Check 'hasRequiredSheetFields': ${hasRequiredSheetFields}`);
-
-      if (!hasRequiredSheetFields) {
-        console.log(`[JobActions] Item ID: ${item.id} - Filtered out: Missing critical master sheet fields.`);
-        continue;
-      }
-
-      const itemQualityLower = item.paperQuality!.toLowerCase(); 
-      const qualityMatch = itemQualityLower === targetQualityLower;
-      console.log(`[JobActions] Item ID: ${item.id} - Check 'qualityMatch' (ItemQ: '${itemQualityLower}', TargetQ: '${targetQualityLower}'): ${qualityMatch}`);
-      
-      if (qualityMatch) {
-        console.log(`[JobActions] Item ID: ${item.id} - Passed JS filters. Adding to AI candidate list.`);
-        availableMasterSheets.push({
-          id: item.id,
-          masterSheetSizeWidth: item.masterSheetSizeWidth!,
-          masterSheetSizeHeight: item.masterSheetSizeHeight!,
-          paperGsm: item.paperGsm!,
-          paperQuality: item.paperQuality!,
+        const itemQualityLower = item.paperQuality!.toLowerCase();
+        return itemQualityLower === targetQualityLower;
+      })
+      .map(sheet => {
+        const layoutInfo = calculateUps({
+          jobW: jobInput.jobSizeWidth,
+          jobH: jobInput.jobSizeHeight,
+          sheetW: sheet.masterSheetSizeWidth!,
+          sheetH: sheet.masterSheetSizeHeight!,
         });
-      } else {
-        console.log(`[JobActions] Item ID: ${item.id} - Filtered out: Quality mismatch.`);
-      }
-    }
-    
-    console.log(`[JobActions] JavaScript filtering complete. ${availableMasterSheets.length} sheets are candidates for AI.`);
-    if (availableMasterSheets.length > 0) {
-        console.log('[JobActions] Candidate sheets (first 5):', JSON.stringify(availableMasterSheets.slice(0,5), null, 2));
-    }
+
+        if (layoutInfo.ups === 0) {
+          console.log(`[JobActions TS Calc] Sheet ID ${sheet.id} (${sheet.name}) yields 0 ups. Skipping.`);
+          return null;
+        }
+
+        const sheetArea = sheet.masterSheetSizeWidth! * sheet.masterSheetSizeHeight!;
+        const jobArea = jobInput.jobSizeWidth * jobInput.jobSizeHeight;
+        const usedArea = layoutInfo.ups * jobArea;
+        
+        let wastagePercentage = 0;
+        if (sheetArea > 0) { // Avoid division by zero if sheetArea is somehow 0
+            wastagePercentage = 100 - (usedArea / sheetArea) * 100;
+        } else {
+            wastagePercentage = 100; // Or handle as an error/invalid sheet
+        }
 
 
-    if (availableMasterSheets.length === 0) {
-      console.log('[JobActions] No master sheets passed JavaScript filters. Bypassing AI and returning empty suggestions.');
-      console.log('[JobActions] === Get Inventory Optimization Suggestions END (No suitable sheets found by JS filter) ===');
-      return { suggestions: [], optimalSuggestion: undefined };
+        const totalMasterSheetsNeeded = Math.ceil(jobInput.netQuantity / layoutInfo.ups);
+
+        const suggestion: InventorySuggestion = {
+          sourceInventoryItemId: sheet.id,
+          masterSheetSizeWidth: sheet.masterSheetSizeWidth!,
+          masterSheetSizeHeight: sheet.masterSheetSizeHeight!,
+          paperGsm: sheet.paperGsm!,
+          paperQuality: sheet.paperQuality!,
+          sheetsPerMasterSheet: layoutInfo.ups,
+          totalMasterSheetsNeeded,
+          wastagePercentage: Number(wastagePercentage.toFixed(2)),
+          cuttingLayoutDescription: `${layoutInfo.cols} across x ${layoutInfo.rows} down (job ${layoutInfo.layout})`,
+        };
+        console.log(`[JobActions TS Calc] Processed sheet ID ${sheet.id}: Ups: ${layoutInfo.ups}, Wastage: ${suggestion.wastagePercentage}%, Layout: ${suggestion.cuttingLayoutDescription}`);
+        return suggestion;
+      })
+      .filter((s): s is InventorySuggestion => s !== null) // Type guard to filter out nulls and satisfy TypeScript
+      .sort((a, b) => {
+        if (a.wastagePercentage === b.wastagePercentage) {
+          return a.totalMasterSheetsNeeded - b.totalMasterSheetsNeeded;
+        }
+        return a.wastagePercentage - b.wastagePercentage;
+      });
+    
+    console.log(`[JobActions TS Calc] TypeScript processing complete. ${processedSuggestions.length} valid suggestions found.`);
+
+    const optimalSuggestion = processedSuggestions.length > 0 ? processedSuggestions[0] : undefined;
+
+    if (optimalSuggestion) {
+      console.log('[JobActions TS Calc] Optimal suggestion:', JSON.stringify(optimalSuggestion, null, 2));
+    } else {
+      console.log('[JobActions TS Calc] No optimal suggestion found.');
     }
     
-    const aiInput: OptimizeInventoryInput = {
-      targetPaperGsm: jobInput.paperGsm,
-      targetPaperQuality: jobInput.paperQuality, 
-      jobSizeWidth: jobInput.jobSizeWidth,
-      jobSizeHeight: jobInput.jobSizeHeight,
-      netQuantity: jobInput.netQuantity,
-      availableMasterSheets: availableMasterSheets,
-    };
-
-    console.log('[JobActions] Calling AI flow `optimizeInventory` with input (availableMasterSheets count):', aiInput.availableMasterSheets.length);
-    const result = await optimizeInventory(aiInput);
-    console.log('[JobActions] Raw AI Output from `optimizeInventory` flow:', JSON.stringify(result, null, 2));
-    console.log('[JobActions] === Get Inventory Optimization Suggestions END ===');
-    
-    return result; // result is OptimizeInventoryOutput, which no longer has debugLog
+    console.log('[JobActions TS Calc] === Get Inventory Optimization Suggestions END ===');
+    return { suggestions: processedSuggestions, optimalSuggestion };
 
   } catch (error) {
-    console.error('[JobActions Error] Error in getInventoryOptimizationSuggestions:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Failed to fetch suggestions.';
-    console.log('[JobActions] === Get Inventory Optimization Suggestions END (Error) ===');
+    console.error('[JobActions Error] Error in getInventoryOptimizationSuggestions (TS Calc):', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to fetch suggestions using TS calculation.';
+    console.log('[JobActions TS Calc] === Get Inventory Optimization Suggestions END (Error) ===');
     return { error: `Failed to fetch inventory optimization suggestions: ${errorMessage}` };
   }
 }
@@ -213,18 +250,15 @@ export async function createJobTemplate(data: JobTemplateFormValues): Promise<{ 
 }
 
 export async function getInventoryItems(): Promise<InventoryItem[]> {
-  // Ensured by module-level initialization
   if (global.__inventoryItemsStore__ === undefined) {
      console.warn("[InventoryManagement] getInventoryItems: __inventoryItemsStore__ was undefined! Re-initializing to empty for safety, but this is unexpected.");
      global.__inventoryItemsStore__ = [];
   }
-  console.log('[InventoryManagement] getInventoryItems: Returning store. Count:', global.__inventoryItemsStore__!.length);
   return [...global.__inventoryItemsStore__!]; 
 }
 
 export async function addInventoryItem(data: InventoryItemFormValues): Promise<{ success: boolean; message: string; item?: InventoryItem }> {
   try {
-    // Defensive initialization
     if (global.__inventoryItemsStore__ === undefined) {
       console.warn("CRITICAL: __inventoryItemsStore__ undefined in addInventoryItem at start. Initializing.");
       global.__inventoryItemsStore__ = [];
@@ -233,6 +267,9 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
       console.warn("CRITICAL: __inventoryCounter__ undefined in addInventoryItem at start. Initializing.");
       global.__inventoryCounter__ = (global.__inventoryItemsStore__?.length || 0) + 1;
     }
+     if (global.__inventoryAdjustmentsStore__ === undefined) global.__inventoryAdjustmentsStore__ = [];
+     if (global.__adjustmentCounter__ === undefined) global.__adjustmentCounter__ = 1;
+
 
     const currentInventoryCounter = global.__inventoryCounter__!;
 
@@ -321,6 +358,19 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
     global.__inventoryItemsStore__!.push(newItem);
     global.__inventoryCounter__ = currentInventoryCounter + 1;
 
+    // Create "Initial Stock" adjustment
+    const initialAdjustment = {
+        id: `adj${global.__adjustmentCounter__!++}`,
+        inventoryItemId: newItem.id,
+        date: new Date().toISOString(),
+        quantityChange: newItem.availableStock,
+        reason: INVENTORY_ADJUSTMENT_REASONS.find(r => r.value === 'INITIAL_STOCK')!.value,
+        reference: data.purchaseBillNo || 'Initial Entry',
+        notes: 'Initial stock added via Add Item form.',
+    };
+    global.__inventoryAdjustmentsStore__!.push(initialAdjustment);
+
+
     console.log('[InventoryManagement] Added inventory item. Current store size:', global.__inventoryItemsStore__!.length, 'New item ID:', newItem.id);
     revalidatePath('/inventory');
     return { success: true, message: 'Inventory item added successfully!', item: newItem };
@@ -331,4 +381,9 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
   }
 }
 
-    
+export async function getInventoryAdjustmentsForItem(inventoryItemId: string): Promise<any[]> {
+  if (!global.__inventoryAdjustmentsStore__) {
+    return [];
+  }
+  return global.__inventoryAdjustmentsStore__.filter(adj => adj.inventoryItemId === inventoryItemId);
+}
