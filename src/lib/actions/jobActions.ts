@@ -77,7 +77,7 @@ export async function createJobCard(data: JobCardFormValues): Promise<{ success:
   try {
     const currentJobCounter = global.__jobCounter__!;
     const newJobCard: JobCardData = {
-      ...data,
+      ...data, // Spread all form values, including new layout fields
       id: currentJobCounter.toString(),
       jobCardNumber: generateJobCardNumber(),
       date: new Date().toISOString().split('T')[0],

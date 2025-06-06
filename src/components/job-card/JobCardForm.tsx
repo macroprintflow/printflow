@@ -44,6 +44,8 @@ export function JobCardForm() {
       masterSheetSizeWidth: undefined,
       masterSheetSizeHeight: undefined,
       wastagePercentage: undefined,
+      cuttingLayoutDescription: "",
+      cuttingLayoutAsciiArt: "",
       kindOfJob: "",
       printingFront: "",
       printingBack: "",
@@ -74,17 +76,22 @@ export function JobCardForm() {
     if (template) {
       const currentValues = form.getValues();
       form.reset({
+        // Keep basic job info
         jobName: currentValues.jobName,
         customerName: currentValues.customerName,
+        // Keep paper & quantity info
         jobSizeWidth: currentValues.jobSizeWidth,
         jobSizeHeight: currentValues.jobSizeHeight,
         netQuantity: currentValues.netQuantity,
         grossQuantity: currentValues.grossQuantity,
         paperGsm: currentValues.paperGsm,
-        paperQuality: template.paperQuality || "",
         masterSheetSizeWidth: currentValues.masterSheetSizeWidth,
         masterSheetSizeHeight: currentValues.masterSheetSizeHeight,
         wastagePercentage: currentValues.wastagePercentage,
+        cuttingLayoutDescription: currentValues.cuttingLayoutDescription,
+        cuttingLayoutAsciiArt: currentValues.cuttingLayoutAsciiArt,
+        // Apply template values for processes and paper quality
+        paperQuality: template.paperQuality || "",
         kindOfJob: template.kindOfJob || "",
         printingFront: template.printingFront || "",
         printingBack: template.printingBack || "",
@@ -94,15 +101,15 @@ export function JobCardForm() {
         emboss: template.emboss || "",
         pasting: template.pasting || "",
         boxMaking: template.boxMaking || "",
-        specialInks: currentValues.specialInks, 
-        assignedDieMachine: currentValues.assignedDieMachine, 
-        remarks: currentValues.remarks, 
-        dispatchDate: currentValues.dispatchDate, 
+        // Keep other fields
+        specialInks: currentValues.specialInks,
+        assignedDieMachine: currentValues.assignedDieMachine,
+        remarks: currentValues.remarks,
+        dispatchDate: currentValues.dispatchDate,
       });
     } else {
-      // If "None" or an invalid template is selected, clear relevant fields or reset to defaults
-      // For now, we only explicitly set template fields, others remain.
-      // A more robust solution might reset specific fields to their initial defaults if template is deselected.
+      // If "None" or an invalid template is selected, potentially clear template-related fields
+      // For now, only explicit template fields are set.
     }
   };
 
@@ -110,6 +117,8 @@ export function JobCardForm() {
     form.setValue("masterSheetSizeWidth", suggestion.masterSheetSizeWidth);
     form.setValue("masterSheetSizeHeight", suggestion.masterSheetSizeHeight);
     form.setValue("wastagePercentage", suggestion.wastagePercentage);
+    form.setValue("cuttingLayoutDescription", suggestion.cuttingLayoutDescription || "");
+    form.setValue("cuttingLayoutAsciiArt", suggestion.cuttingLayoutAsciiArt || "");
   };
 
   async function onSubmit(values: JobCardFormValues) {
@@ -121,9 +130,9 @@ export function JobCardForm() {
         title: "Success!",
         description: result.message,
       });
-      form.reset(); 
-      setSelectedTemplate(''); 
-      router.push(`/jobs`); 
+      form.reset();
+      setSelectedTemplate('');
+      router.push(`/jobs`);
     } else {
       toast({
         title: "Error",
@@ -132,10 +141,10 @@ export function JobCardForm() {
       });
     }
   }
-  
+
   const currentJobDetailsForModal = {
     paperGsm: form.watch("paperGsm"),
-    paperQuality: form.watch("paperQuality") || undefined, // Ensure undefined if empty string for modal
+    paperQuality: form.watch("paperQuality") || undefined,
     jobSizeWidth: form.watch("jobSizeWidth"),
     jobSizeHeight: form.watch("jobSizeHeight"),
     netQuantity: form.watch("netQuantity"),
@@ -153,6 +162,9 @@ export function JobCardForm() {
     { name: "pasting", label: "Pasting", options: YES_NO_OPTIONS },
     { name: "boxMaking", label: "Box Making", options: BOX_MAKING_OPTIONS },
   ] as const;
+
+  const cuttingLayoutDescription = form.watch("cuttingLayoutDescription");
+  const cuttingLayoutAsciiArt = form.watch("cuttingLayoutAsciiArt");
 
   return (
     <Form {...form}>
@@ -377,7 +389,7 @@ export function JobCardForm() {
                         {...field}
                         value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
                         readOnly
-                        onChange={e => { 
+                        onChange={e => {
                           const numValue = parseFloat(e.target.value);
                           field.onChange(isNaN(numValue) ? undefined : numValue);
                         }}
@@ -387,10 +399,25 @@ export function JobCardForm() {
                     <FormMessage />
                 </FormItem>
             )} />
+
+            {cuttingLayoutDescription && (
+              <div className="col-span-1 md:col-span-2 lg:col-span-3 mt-4 p-4 border rounded-md bg-muted/50">
+                <h4 className="font-medium mb-2 font-headline text-sm">Selected Cutting Layout:</h4>
+                <p className="text-sm font-body">{cuttingLayoutDescription}</p>
+                {cuttingLayoutAsciiArt && (
+                  <>
+                    <p className="text-sm font-body mt-2 mb-1">Visual Sketch:</p>
+                    <pre className="text-xs font-code bg-background p-2 rounded overflow-x-auto">
+                      {cuttingLayoutAsciiArt}
+                    </pre>
+                  </>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
-        
-        <InventoryOptimizationModal 
+
+        <InventoryOptimizationModal
             jobDetails={currentJobDetailsForModal}
             onSuggestionSelect={handleSuggestionSelect}
             isOpen={isModalOpen}
@@ -470,7 +497,7 @@ export function JobCardForm() {
             )} />
           </CardContent>
         </Card>
-        
+
         <Card>
             <CardHeader>
                 <CardTitle className="font-headline">Interlinked Job Cards</CardTitle>
@@ -496,4 +523,3 @@ export function JobCardForm() {
     </Form>
   );
 }
-
