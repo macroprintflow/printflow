@@ -19,7 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { CalendarIcon, PlusCircle, Trash2, Loader2, ShoppingCart, ArrowLeft } from "lucide-react";
+import { CalendarIcon, PlusCircle, Trash2, Loader2, ShoppingCart, ArrowLeft, Warehouse } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
@@ -198,15 +198,29 @@ const CurrentItemCommonFields = ({ form, onFormChange }: { form: UseFormReturn<P
           </FormItem>
         )} />
       </div>
-      <FormField control={form.control} name="reorderPoint" render={({ field }) => (
-        <FormItem>
-          <FormLabel>Reorder Point (Optional)</FormLabel>
-          <FormControl>
-            <Input type="number" placeholder="e.g., 100" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="font-body h-11"/>
-          </FormControl>
-          <FormMessage />
-        </FormItem>
-      )} />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <FormField control={form.control} name="locationCode" render={({ field }) => (
+          <FormItem>
+            <FormLabel>Location Code (Optional)</FormLabel>
+            <FormControl>
+              <div className="relative">
+                <Warehouse className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input placeholder="e.g., Kuvam Up - A1" {...field} value={field.value ?? ''} className="font-body h-11 pl-10"/>
+              </div>
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+        <FormField control={form.control} name="reorderPoint" render={({ field }) => (
+          <FormItem>
+            <FormLabel>Reorder Point (Optional)</FormLabel>
+            <FormControl>
+              <Input type="number" placeholder="e.g., 100" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="font-body h-11"/>
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+      </div>
     </>
   );
 };
@@ -264,7 +278,7 @@ export default function NewPurchasePage() {
     defaultValues: {
       category: undefined,
       quantity: undefined, 
-      unit: "sheets" as UnitValue, 
+      unit: "pieces" as UnitValue, // Defaulted to pieces, will be overridden by category logic
       paperMasterSheetSizeWidth: undefined,
       paperMasterSheetSizeHeight: undefined,
       paperQuality: "",
@@ -275,6 +289,7 @@ export default function NewPurchasePage() {
       itemName: "", 
       itemSpecification: "",
       reorderPoint: undefined,
+      locationCode: "",
     },
   });
 
@@ -320,6 +335,7 @@ export default function NewPurchasePage() {
         quantity: currentItemValues.quantity || 0,
         unit: currentItemValues.unit || 'units',
         reorderPoint: currentItemValues.reorderPoint,
+        locationCode: currentItemValues.locationCode,
       };
       setItemsInPurchaseList(prev => [...prev, newItemForList]);
       setNextDisplayId(prev => prev + 1);
@@ -339,20 +355,11 @@ export default function NewPurchasePage() {
           autoItemName = "Ink Item";
           break;
         case 'PLASTIC_TRAY':
-          defaultUnit = 'pieces';
-          autoItemName = "Plastic Tray";
-          break;
         case 'GLASS_JAR':
-          defaultUnit = 'pieces';
-          autoItemName = "Glass Jar";
-          break;
         case 'MAGNET':
-          defaultUnit = 'pieces';
-          autoItemName = "Magnet";
-          break;
         case 'OTHER':
            defaultUnit = 'pieces';
-           autoItemName = ""; 
+           autoItemName = newCategory === 'PLASTIC_TRAY' ? "Plastic Tray" : newCategory === 'GLASS_JAR' ? "Glass Jar" : newCategory === 'MAGNET' ? "Magnet" : ""; 
            break;
         default:
           defaultUnit = 'units';
@@ -372,6 +379,7 @@ export default function NewPurchasePage() {
         itemName: autoItemName, 
         itemSpecification: "",
         reorderPoint: undefined, 
+        locationCode: "",
       });
       setCurrentItemCategory(newCategory || null);
       setDerivedCurrentItemName(""); 
@@ -392,7 +400,7 @@ export default function NewPurchasePage() {
     
     const currentCategory = currentItemForm.getValues().category;
     let autoItemName = "";
-    let defaultUnit: UnitValue = 'sheets';
+    let defaultUnit: UnitValue = 'pieces';
 
     if (currentCategory) {
       switch (currentCategory) {
@@ -423,6 +431,7 @@ export default function NewPurchasePage() {
         itemName: autoItemName, 
         itemSpecification: "",
         reorderPoint: undefined,
+        locationCode: "",
     });
     setCurrentItemCategory(null);
     setDerivedCurrentItemName("");
@@ -593,20 +602,11 @@ export default function NewPurchasePage() {
                               autoItemName = "Ink Item";
                               break;
                             case 'PLASTIC_TRAY':
-                              defaultUnit = 'pieces';
-                              autoItemName = "Plastic Tray";
-                              break;
                             case 'GLASS_JAR':
-                              defaultUnit = 'pieces';
-                              autoItemName = "Glass Jar";
-                              break;
                             case 'MAGNET':
-                              defaultUnit = 'pieces';
-                              autoItemName = "Magnet";
-                              break;
                             case 'OTHER':
                                defaultUnit = 'pieces';
-                               autoItemName = ""; 
+                               autoItemName = newCategoryValue === 'PLASTIC_TRAY' ? "Plastic Tray" : newCategoryValue === 'GLASS_JAR' ? "Glass Jar" : newCategoryValue === 'MAGNET' ? "Magnet" : ""; 
                                break;
                             default:
                               defaultUnit = 'units';
@@ -627,6 +627,7 @@ export default function NewPurchasePage() {
                             quantity: undefined, 
                             unit: defaultUnit, 
                             reorderPoint: undefined,
+                            locationCode: "",
                           });
                           handleCurrentItemFormChange(); 
                         }} value={field.value || ""}>
@@ -671,6 +672,7 @@ export default function NewPurchasePage() {
                         <TableHead className="font-body">Item Name</TableHead>
                         <TableHead className="font-body text-right">Qty</TableHead>
                         <TableHead className="font-body">Unit</TableHead>
+                        <TableHead className="font-body">Location</TableHead>
                         <TableHead className="font-body text-center">Action</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -680,6 +682,7 @@ export default function NewPurchasePage() {
                           <TableCell className="font-body">{item.displayName}</TableCell>
                           <TableCell className="font-body text-right">{item.quantity.toLocaleString()}</TableCell>
                           <TableCell className="font-body">{item.unit}</TableCell>
+                          <TableCell className="font-body">{item.locationCode || '-'}</TableCell>
                           <TableCell className="font-body text-center">
                             <Button variant="ghost" size="icon" onClick={() => handleRemoveItemFromList(item.displayId)} title="Remove Item">
                               <Trash2 className="h-4 w-4 text-destructive" />

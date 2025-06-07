@@ -368,6 +368,9 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
       if (data.reorderPoint && (!existingItem.reorderPoint || data.reorderPoint > existingItem.reorderPoint)) {
         existingItem.reorderPoint = data.reorderPoint;
       }
+      if (data.locationCode) { // Update location code if provided
+        existingItem.locationCode = data.locationCode;
+      }
       itemForMessage = existingItem;
     } else {
       console.log(`[InventoryManagement] No existing item found for key: ${itemTypeKey}. Creating new master item.`);
@@ -433,6 +436,7 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
         purchaseBillNo: data.purchaseBillNo,
         vendorName: data.vendorName === 'OTHER' ? data.otherVendorName : data.vendorName,
         dateOfEntry: data.dateOfEntry,
+        locationCode: data.locationCode, // Save location code
       };
       global.__inventoryItemsStore__!.push(newItemMaster);
       itemForMessage = newItemMaster;
@@ -467,7 +471,7 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
     }
 
 
-    console.log(`[InventoryManagement] ${existingItem ? 'Added to' : 'Created'} item: ${itemForMessage!.name}. Transaction Quantity: ${data.quantity}`);
+    console.log(`[InventoryManagement] ${existingItem ? 'Added to' : 'Created'} item: ${itemForMessage!.name}. Transaction Quantity: ${data.quantity}. Location: ${itemForMessage.locationCode}`);
     revalidatePath('/inventory'); 
     revalidatePath(`/inventory/${data.category.toLowerCase()}`);
     return { success: true, message: `Stock updated for: ${itemForMessage!.name}. Quantity added: ${data.quantity}`, item: itemForMessage };

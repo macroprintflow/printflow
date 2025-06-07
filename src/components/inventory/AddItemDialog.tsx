@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { CalendarIcon, PlusCircle, ArrowRight, Loader2 } from "lucide-react";
+import { CalendarIcon, PlusCircle, ArrowRight, Loader2, Warehouse } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
@@ -141,10 +141,10 @@ const CommonFields = ({ form }: { form: UseFormReturn<InventoryItemFormValues> }
                   type="number"
                   placeholder="e.g., 1000"
                   {...field}
-                  value={field.value ?? 0}
+                  value={field.value ?? ''} 
                   onChange={e => {
                     const value = e.target.value;
-                    field.onChange(value === '' ? 0 : parseFloat(value));
+                    field.onChange(value === '' ? undefined : parseFloat(value));
                   }}
                   className="font-body"
                 />
@@ -155,7 +155,7 @@ const CommonFields = ({ form }: { form: UseFormReturn<InventoryItemFormValues> }
         <FormField control={form.control} name="unit" render={({ field }) => (
           <FormItem>
             <FormLabel>Unit</FormLabel>
-            <Select onValueChange={field.onChange} value={field.value || "sheets"}>
+            <Select onValueChange={field.onChange} value={field.value || "pieces"}>
               <FormControl><SelectTrigger className="font-body"><SelectValue placeholder="Select unit" /></SelectTrigger></FormControl>
               <SelectContent>{UNIT_OPTIONS.map(opt => (<SelectItem key={opt.value} value={opt.value} className="font-body">{opt.label}</SelectItem>))}</SelectContent>
             </Select>
@@ -163,6 +163,19 @@ const CommonFields = ({ form }: { form: UseFormReturn<InventoryItemFormValues> }
           </FormItem>
         )} />
       </div>
+
+      <FormField control={form.control} name="locationCode" render={({ field }) => (
+        <FormItem>
+          <FormLabel>Location Code (Optional)</FormLabel>
+          <FormControl>
+            <div className="relative">
+              <Warehouse className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="e.g., Kuvam Up - A1, Plant 1 - C5" {...field} value={field.value ?? ''} className="font-body h-11 pl-10"/>
+            </div>
+          </FormControl>
+          <FormMessage />
+        </FormItem>
+      )} />
 
       <FormField control={form.control} name="reorderPoint" render={({ field }) => (
         <FormItem>
@@ -241,13 +254,14 @@ export function AddItemDialog({ isOpen, setIsOpen, onItemAdded }: AddItemDialogP
     inkSpecification: "",
     itemName: "", 
     itemSpecification: "",
-    quantity: 0, 
-    unit: "sheets" as UnitValue, // Default unit, will be overridden by category
+    quantity: undefined, 
+    unit: "pieces" as UnitValue, 
     purchaseBillNo: "",
     vendorName: undefined,
     otherVendorName: "",
     dateOfEntry: new Date().toISOString(),
     reorderPoint: undefined,
+    locationCode: "",
   };
 
   const form: UseFormReturn<InventoryItemFormValues> = useForm<InventoryItemFormValues>({
@@ -266,11 +280,11 @@ export function AddItemDialog({ isOpen, setIsOpen, onItemAdded }: AddItemDialogP
     switch (category) {
       case 'PAPER':
         defaultUnit = 'sheets';
-        autoItemName = "Paper Stock Entry";
+        autoItemName = "Paper Stock Item"; // Placeholder
         break;
       case 'INKS':
         defaultUnit = 'kg';
-        autoItemName = "Ink Entry";
+        autoItemName = "Ink Item"; // Placeholder
         break;
       case 'PLASTIC_TRAY':
         defaultUnit = 'pieces';
@@ -285,15 +299,15 @@ export function AddItemDialog({ isOpen, setIsOpen, onItemAdded }: AddItemDialogP
         autoItemName = "Magnet";
         break;
       case 'OTHER':
-        defaultUnit = 'pieces'; // Default for "Other Material/Stock"
-        autoItemName = ""; // User to define for 'Other'
+        defaultUnit = 'pieces';
+        autoItemName = ""; 
         break;
       default:
-        defaultUnit = 'units'; // Should not happen
+        defaultUnit = 'units'; 
         autoItemName = "";
     }
     form.setValue("unit", defaultUnit);
-    form.setValue("itemName", autoItemName);
+    form.setValue("itemName", autoItemName); 
     
     setStep(2);
   };

@@ -326,6 +326,7 @@ export type InventoryItem = {
   vendorName?: string; 
   dateOfEntry?: string; 
   availableStock?: number; 
+  locationCode?: string; // Added location code
 };
 
 
@@ -374,6 +375,7 @@ export const InventoryItemFormSchema = z.object({
   otherVendorName: z.string().optional(),
   dateOfEntry: z.string().refine(val => !isNaN(Date.parse(val)), { message: "Invalid date"}),
   reorderPoint: z.coerce.number().optional(),
+  locationCode: z.string().optional(), // Added location code
 }).superRefine((data, ctx) => {
   if (data.category === 'PAPER') {
     if (!data.paperQuality || data.paperQuality === '') {

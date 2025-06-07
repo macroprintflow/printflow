@@ -3,7 +3,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Archive, PlusCircle, Search, History, ArrowLeft, Printer, Paintbrush, Box, Package, MagnetIcon, FileText, Newspaper, ShoppingCart } from "lucide-react";
+import { Archive, PlusCircle, Search, History, ArrowLeft, Printer, Paintbrush, Box, Package, MagnetIcon, FileText, Newspaper, ShoppingCart, Warehouse } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -125,7 +125,8 @@ export default function CategorizedInventoryPage() {
         item.type.toLowerCase().includes(lowerCaseQuery) ||
         (item.paperGsm && item.paperGsm.toString().includes(lowerCaseQuery)) ||
         (item.paperThicknessMm && item.paperThicknessMm.toString().includes(lowerCaseQuery)) ||
-        (item.id && item.id.toLowerCase().includes(lowerCaseQuery))
+        (item.id && item.id.toLowerCase().includes(lowerCaseQuery)) ||
+        (item.locationCode && item.locationCode.toLowerCase().includes(lowerCaseQuery))
       );
     }
     return itemsToFilter;
@@ -214,6 +215,7 @@ export default function CategorizedInventoryPage() {
             <TableHead className="font-headline">Type</TableHead>
             <TableHead className="font-headline">Item Group</TableHead>
             <TableHead className="font-headline">GSM/Thickness</TableHead>
+            <TableHead className="font-headline">Location</TableHead>
             <TableHead className="font-headline text-right">Available Stock</TableHead>
             <TableHead className="font-headline text-right">Unit</TableHead>
             <TableHead className="font-headline text-right">Reorder Point</TableHead>
@@ -245,6 +247,12 @@ export default function CategorizedInventoryPage() {
               </TableCell>
               <TableCell className="font-body">
                 {KAPPA_MDF_QUALITIES.includes(item.paperQuality as PaperQualityType) && item.paperThicknessMm ? `${item.paperThicknessMm} mm` : item.paperGsm ? `${item.paperGsm} GSM` : '-'}
+              </TableCell>
+              <TableCell className="font-body">
+                <div className="flex items-center">
+                 {item.locationCode && <Warehouse className="mr-1.5 h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />}
+                 {item.locationCode || '-'}
+                </div>
               </TableCell>
               <TableCell className="font-body text-right">{item.availableStock?.toLocaleString() ?? 0}</TableCell>
               <TableCell className="font-body text-right">{item.unit}</TableCell>
