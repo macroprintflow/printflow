@@ -329,7 +329,7 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
 
     setIsSubmittingPurchase(true);
     let allItemsSaved = true;
-    let errorMessages = [];
+    let errorMessages: string[] = [];
 
     for (const item of itemsInPurchaseList) {
       const itemDataForAction: InventoryItemFormValues = {
@@ -358,12 +358,12 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
       toast({
         title: "Error Saving Purchase",
         description: (
-          <div>
-            <p>Some items could not be saved:</p>
-            <ul className="list-disc list-inside mt-2">
-              {errorMessages.map((msg, i) => <li key={i}>{msg}</li>)}
-            </ul>
-          </div>
+          React.createElement('div', null,
+            React.createElement('p', null, 'Some items could not be saved:'),
+            React.createElement('ul', { className: 'list-disc list-inside mt-2' },
+              errorMessages.map((msg, i) => React.createElement('li', { key: i }, msg))
+            )
+          )
         ),
         variant: "destructive",
         duration: 10000,
