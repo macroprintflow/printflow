@@ -55,7 +55,7 @@ const allNavItems: NavItem[] = [
   { href: '/customer/my-jobs', label: 'My Jobs', icon: ShoppingBag, allowedRoles: ['Customer'] },
 ];
 
-const ADMIN_EMAIL = "kuvamsharma@printflow.app".toLowerCase(); 
+const ADMIN_EMAIL = "kuvam@macroprinters.com".toLowerCase(); 
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -72,7 +72,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     if (!loading && !user) {
       router.push('/login'); 
-    } else if (user && user.email) { // Ensure user.email is not null
+    } else if (user && user.email) { 
       let actualRole: UserRole;
       if (user.email.toLowerCase() === ADMIN_EMAIL) {
         actualRole = "Admin";
