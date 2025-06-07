@@ -20,6 +20,7 @@ import { useState, type Dispatch, type SetStateAction } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
+import { cn } from "@/lib/utils";
 
 interface InventoryOptimizationModalProps {
   jobDetails: {
@@ -135,9 +136,9 @@ export function InventoryOptimizationModal({
         </div>
 
         {optimalSuggestion && (
-          <div className="my-4 p-4 border border-green-500 bg-green-50 rounded-md">
-            <h3 className="text-lg font-semibold text-green-700 font-headline">Optimal Suggestion</h3>
-            <p className="text-sm text-green-600">
+          <div className="my-4 p-4 border border-green-500 bg-green-50 dark:bg-green-900/30 rounded-md">
+            <h3 className="text-lg font-semibold text-green-700 dark:text-green-300 font-headline">Optimal Suggestion</h3>
+            <p className="text-sm text-green-600 dark:text-green-200">
               Sheet: {optimalSuggestion.masterSheetSizeWidth.toFixed(2)}in x {optimalSuggestion.masterSheetSizeHeight.toFixed(2)}in 
               ({renderSheetSpec(optimalSuggestion)}, Quality: {getPaperQualityLabel(optimalSuggestion.paperQuality as PaperQualityType)}) <br />
               Wastage: {optimalSuggestion.wastagePercentage.toFixed(2)}% | 
@@ -155,7 +156,7 @@ export function InventoryOptimizationModal({
           <ScrollArea className="h-[300px] mt-4">
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="hover:bg-transparent dark:hover:bg-transparent">
                   <TableHead className="font-headline text-card-foreground">Master Sheet (Inventory)</TableHead>
                   <TableHead className="font-headline text-card-foreground">GSM/Thickness</TableHead>
                   <TableHead className="font-headline text-card-foreground">Quality</TableHead>
@@ -168,7 +169,15 @@ export function InventoryOptimizationModal({
               </TableHeader>
               <TableBody>
                 {suggestions.map((s, index) => (
-                  <TableRow key={s.sourceInventoryItemId || index} className={s.sourceInventoryItemId === optimalSuggestion?.sourceInventoryItemId ? "bg-green-50" : ""}>
+                  <TableRow 
+                    key={s.sourceInventoryItemId || index} 
+                    className={cn(
+                      "transition-colors", // Keep basic transition for other properties if any
+                      s.sourceInventoryItemId === optimalSuggestion?.sourceInventoryItemId 
+                        ? "bg-green-100 dark:bg-green-900/30 hover:bg-green-100 dark:hover:bg-green-900/30" 
+                        : "bg-secondary/50 dark:bg-secondary/40 hover:bg-secondary/50 dark:hover:bg-secondary/40"
+                    )}
+                  >
                     <TableCell className="text-card-foreground">{s.masterSheetSizeWidth.toFixed(2)} x {s.masterSheetSizeHeight.toFixed(2)}</TableCell>
                     <TableCell className="text-card-foreground">{renderSheetSpec(s)}</TableCell>
                     <TableCell className="text-card-foreground">
