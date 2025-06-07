@@ -136,9 +136,9 @@ export function InventoryOptimizationModal({
         </div>
 
         {optimalSuggestion && (
-          <div className="my-4 p-4 border border-green-500 bg-green-100 dark:bg-green-800/60 rounded-md">
-            <h3 className="text-lg font-semibold text-green-700 dark:text-green-200 font-headline">Optimal Suggestion</h3>
-            <p className="text-sm text-green-600 dark:text-green-100">
+          <div className="my-4 p-4 border border-green-500 bg-green-100 text-green-900 dark:bg-green-800/60 dark:text-green-100 rounded-md">
+            <h3 className="text-lg font-semibold font-headline">Optimal Suggestion</h3>
+            <p className="text-sm">
               Sheet: {optimalSuggestion.masterSheetSizeWidth.toFixed(2)}in x {optimalSuggestion.masterSheetSizeHeight.toFixed(2)}in
               ({renderSheetSpec(optimalSuggestion)}, Quality: {getPaperQualityLabel(optimalSuggestion.paperQuality as PaperQualityType)}) <br />
               Wastage: {optimalSuggestion.wastagePercentage.toFixed(2)}% |
@@ -146,7 +146,7 @@ export function InventoryOptimizationModal({
               Total Masters: {optimalSuggestion.totalMasterSheetsNeeded} <br />
               Layout: {optimalSuggestion.cuttingLayoutDescription || 'N/A'}
             </p>
-            <Button size="sm" className="mt-2 bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600" onClick={() => handleSelect(optimalSuggestion)}>
+            <Button size="sm" className="mt-2 bg-green-600 hover:bg-green-700 text-white dark:bg-green-500 dark:hover:bg-green-600" onClick={() => handleSelect(optimalSuggestion)}>
               Use Optimal Suggestion
             </Button>
           </div>
@@ -157,14 +157,14 @@ export function InventoryOptimizationModal({
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent dark:hover:bg-transparent">
-                  <TableHead className="font-headline text-card-foreground">Master Sheet (Inventory)</TableHead>
-                  <TableHead className="font-headline text-card-foreground">GSM/Thickness</TableHead>
-                  <TableHead className="font-headline text-card-foreground">Quality</TableHead>
-                  <TableHead className="font-headline text-card-foreground">Layout</TableHead>
-                  <TableHead className="font-headline text-card-foreground text-right">Wastage %</TableHead>
-                  <TableHead className="font-headline text-card-foreground text-right">Sheets/Master</TableHead>
-                  <TableHead className="font-headline text-card-foreground text-right">Total Masters</TableHead>
-                  <TableHead className="font-headline text-card-foreground text-right">Action</TableHead>
+                  <TableHead className="font-headline text-gray-700 dark:text-gray-300">Master Sheet (Inventory)</TableHead>
+                  <TableHead className="font-headline text-gray-700 dark:text-gray-300">GSM/Thickness</TableHead>
+                  <TableHead className="font-headline text-gray-700 dark:text-gray-300">Quality</TableHead>
+                  <TableHead className="font-headline text-gray-700 dark:text-gray-300">Layout</TableHead>
+                  <TableHead className="font-headline text-gray-700 dark:text-gray-300 text-right">Wastage %</TableHead>
+                  <TableHead className="font-headline text-gray-700 dark:text-gray-300 text-right">Sheets/Master</TableHead>
+                  <TableHead className="font-headline text-gray-700 dark:text-gray-300 text-right">Total Masters</TableHead>
+                  <TableHead className="font-headline text-gray-700 dark:text-gray-300 text-right">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -172,28 +172,62 @@ export function InventoryOptimizationModal({
                   <TableRow
                     key={s.sourceInventoryItemId || index}
                     className={cn(
-                      // Base styles (light mode) & hover styles (identical to base to remove effect)
                       s.sourceInventoryItemId === optimalSuggestion?.sourceInventoryItemId
-                        ? "bg-green-100 hover:bg-green-100" // Optimal light
-                        : "bg-gray-50 hover:bg-gray-50",   // Normal light
-                      // Dark mode overrides & hover styles for dark mode (identical to base)
-                      s.sourceInventoryItemId === optimalSuggestion?.sourceInventoryItemId
-                        ? "dark:bg-green-800 dark:hover:bg-green-800" // Optimal dark
-                        : "dark:bg-gray-900 dark:hover:bg-gray-900"   // Normal dark
+                        ? "bg-green-100 text-gray-900 hover:bg-green-100 dark:bg-green-800 dark:text-green-100" // Optimal row
+                        : "bg-gray-50 text-gray-900 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-100"       // Normal row
                     )}
                   >
-                    <TableCell className="text-card-foreground">{s.masterSheetSizeWidth.toFixed(2)} x {s.masterSheetSizeHeight.toFixed(2)}</TableCell>
-                    <TableCell className="text-card-foreground">{renderSheetSpec(s)}</TableCell>
-                    <TableCell className="text-card-foreground">
-                        <Badge variant="outline">{getPaperQualityLabel(s.paperQuality as PaperQualityType)}</Badge>
+                    <TableCell className={cn(
+                        "text-sm",
+                        s.sourceInventoryItemId === optimalSuggestion?.sourceInventoryItemId
+                            ? "text-gray-900 dark:text-green-100"
+                            : "text-gray-900 dark:text-gray-100"
+                        )}>{s.masterSheetSizeWidth.toFixed(2)} x {s.masterSheetSizeHeight.toFixed(2)}</TableCell>
+                    <TableCell className={cn(
+                        "text-sm",
+                        s.sourceInventoryItemId === optimalSuggestion?.sourceInventoryItemId
+                            ? "text-gray-900 dark:text-green-100"
+                            : "text-gray-900 dark:text-gray-100"
+                        )}>{renderSheetSpec(s)}</TableCell>
+                    <TableCell className={cn(
+                        "text-sm",
+                        s.sourceInventoryItemId === optimalSuggestion?.sourceInventoryItemId
+                            ? "text-gray-900 dark:text-green-100"
+                            : "text-gray-900 dark:text-gray-100"
+                        )}>
+                        <Badge variant="outline" className={cn(
+                            s.sourceInventoryItemId === optimalSuggestion?.sourceInventoryItemId
+                                ? "border-green-700 text-green-800 dark:border-green-300 dark:text-green-200"
+                                : "border-gray-400 text-gray-700 dark:border-gray-600 dark:text-gray-300"
+                        )}>{getPaperQualityLabel(s.paperQuality as PaperQualityType)}</Badge>
                     </TableCell>
-                    <TableCell className="text-xs text-card-foreground">
+                    <TableCell className={cn(
+                        "text-xs",
+                        s.sourceInventoryItemId === optimalSuggestion?.sourceInventoryItemId
+                            ? "text-gray-800 dark:text-green-200"
+                            : "text-gray-800 dark:text-gray-200"
+                        )}>
                       {s.cuttingLayoutDescription || '-'}
                     </TableCell>
-                    <TableCell className="text-right text-card-foreground">{s.wastagePercentage.toFixed(2)}%</TableCell>
-                    <TableCell className="text-right text-card-foreground">{s.sheetsPerMasterSheet}</TableCell>
-                    <TableCell className="text-right text-card-foreground">{s.totalMasterSheetsNeeded}</TableCell>
-                    <TableCell className="text-right text-card-foreground">
+                    <TableCell className={cn(
+                        "text-right text-sm",
+                        s.sourceInventoryItemId === optimalSuggestion?.sourceInventoryItemId
+                            ? "text-gray-900 dark:text-green-100"
+                            : "text-gray-900 dark:text-gray-100"
+                        )}>{s.wastagePercentage.toFixed(2)}%</TableCell>
+                    <TableCell className={cn(
+                        "text-right text-sm",
+                        s.sourceInventoryItemId === optimalSuggestion?.sourceInventoryItemId
+                            ? "text-gray-900 dark:text-green-100"
+                            : "text-gray-900 dark:text-gray-100"
+                        )}>{s.sheetsPerMasterSheet}</TableCell>
+                    <TableCell className={cn(
+                        "text-right text-sm",
+                        s.sourceInventoryItemId === optimalSuggestion?.sourceInventoryItemId
+                            ? "text-gray-900 dark:text-green-100"
+                            : "text-gray-900 dark:text-gray-100"
+                        )}>{s.totalMasterSheetsNeeded}</TableCell>
+                    <TableCell className="text-right">
                       <Button variant="outline" size="sm" onClick={() => handleSelect(s)}>
                         Select
                       </Button>
