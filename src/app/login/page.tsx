@@ -34,7 +34,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   
-  const [selectedCountryDialCode, setSelectedCountryDialCode] = useState<string>(COUNTRY_CODES.find(c => c.code === 'IN')?.dialCode || '+91');
+  const [selectedCountryCode, setSelectedCountryCode] = useState<string>('IN'); // Stores country code e.g., "IN"
   const [phoneNumber, setPhoneNumber] = useState(''); // Stores only the local part of the number
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
@@ -132,7 +132,14 @@ export default function LoginPage() {
           return;
       }
       
-      const fullPhoneNumber = selectedCountryDialCode + phoneNumber;
+      const dialCode = COUNTRY_CODES.find(c => c.code === selectedCountryCode)?.dialCode || '';
+      if (!dialCode) {
+        toast({ title: "Country Code Error", description: "Selected country code is invalid.", variant: "destructive" });
+        setIsLoading(false);
+        return;
+      }
+      const fullPhoneNumber = dialCode + phoneNumber;
+
       if (!/^\+[1-9]\d{1,14}$/.test(fullPhoneNumber)) {
         toast({ title: "Invalid Phone Number", description: "Please enter a valid phone number after selecting country code.", variant: "destructive" });
         setIsLoading(false);
@@ -268,8 +275,8 @@ export default function LoginPage() {
                   <Label htmlFor="phoneNumberField">Phone Number</Label>
                   <div className="flex gap-2">
                     <Select
-                      value={selectedCountryDialCode}
-                      onValueChange={setSelectedCountryDialCode}
+                      value={selectedCountryCode} // Use selectedCountryCode for the Select value
+                      onValueChange={setSelectedCountryCode}
                       disabled={otpSent}
                     >
                       <SelectTrigger className="w-[150px] font-body">
@@ -277,7 +284,7 @@ export default function LoginPage() {
                       </SelectTrigger>
                       <SelectContent>
                         {COUNTRY_CODES.map((country) => (
-                          <SelectItem key={country.code} value={country.dialCode} className="font-body">
+                          <SelectItem key={country.code} value={country.code} className="font-body"> {/* Use country.code as value */}
                             {country.name} ({country.dialCode})
                           </SelectItem>
                         ))}
