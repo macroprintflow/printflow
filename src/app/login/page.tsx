@@ -66,46 +66,48 @@ export default function LoginPage() {
       if (window.recaptchaVerifier) {
         try {
             window.recaptchaVerifier.clear();
+            console.log("LoginPage: RecaptchaVerifier cleared on unmount.");
         } catch (error) {
-            console.error("Error clearing RecaptchaVerifier on login page unmount:", error);
+            console.error("LoginPage: Error clearing RecaptchaVerifier on unmount:", error);
         }
       }
     };
   }, []);
 
   const setupRecaptcha = () => {
+    console.log("LoginPage: setupRecaptcha called.");
     if (!auth) {
-        console.error("Firebase auth object is not available for reCAPTCHA setup on login page.");
+        console.error("LoginPage: Firebase auth object is not available for reCAPTCHA setup.");
         toast({ title: "Authentication Error", description: "Firebase auth service is not ready. Please refresh.", variant: "destructive" });
         return null;
     }
     if (!recaptchaContainerRef.current) {
-      console.error("reCAPTCHA container ref not found during setup on login page.");
+      console.error("LoginPage: reCAPTCHA container ref not found during setup.");
       toast({ title: "Error", description: "reCAPTCHA UI element not ready. Please refresh page or try again.", variant: "destructive" });
       return null;
     }
 
     try {
       if (window.recaptchaVerifier) {
-        console.log("Login Page: Clearing existing RecaptchaVerifier instance.");
+        console.log("LoginPage: Clearing existing RecaptchaVerifier instance before creating a new one.");
         window.recaptchaVerifier.clear(); 
       }
-      console.log("Login Page: Initializing new RecaptchaVerifier instance for element:", recaptchaContainerRef.current);
+      console.log("LoginPage: Attempting to create new RecaptchaVerifier instance for element:", recaptchaContainerRef.current);
       window.recaptchaVerifier = new RecaptchaVerifier(auth, recaptchaContainerRef.current, {
         size: 'invisible',
         'callback': (response: any) => {
-          console.log("reCAPTCHA solved (Login Page)");
+          console.log("LoginPage: reCAPTCHA solved (callback). Response:", response);
         },
         'expired-callback': () => {
-          console.log("Login Page: reCAPTCHA expired via callback.");
+          console.warn("LoginPage: reCAPTCHA expired (expired-callback).");
           toast({ title: "reCAPTCHA Expired", description: "Please try sending OTP again.", variant: "destructive" });
         }
       });
-      console.log("Login Page: RecaptchaVerifier initialized successfully.");
+      console.log("LoginPage: RecaptchaVerifier instance CREATED successfully.");
       return window.recaptchaVerifier;
     } catch (error: any) {
-        console.error("Login Page: Critical Error initializing RecaptchaVerifier:", error);
-        let userMessage = `Failed to initialize reCAPTCHA (Code: ${error.code || 'N/A'}). Please ensure your exact hosting domain is authorized in Google Cloud for the reCAPTCHA key and your Firebase project has billing enabled for Phone Auth. Common issues include network errors, misconfigured API keys, or unauthorized domains. Check the browser console for more details.`;
+        console.error("LoginPage: CRITICAL ERROR during new RecaptchaVerifier():", error);
+        let userMessage = `Failed to initialize reCAPTCHA (Code: ${error.code || 'N/A'}). Please ensure your exact hosting domain is authorized in Google Cloud for the reCAPTCHA key and your Firebase project has billing enabled for Phone Auth. Common issues include network errors, misconfigured API keys, or unauthorized domains. Check the browser console for more details. Original Error: ${error.message}`;
         if (error.code === 'auth/network-request-failed') {
             userMessage = "Network error during reCAPTCHA setup. Check internet connection and Firebase/Google Cloud domain whitelisting.";
         } else if (error.code === 'auth/internal-error' && error.message?.includes("reCAPTCHA")) {
@@ -140,10 +142,13 @@ export default function LoginPage() {
   const handlePhoneLogin = async (event: FormEvent) => {
     event.preventDefault();
     setIsLoading(true);
+    console.log(`LoginPage: handlePhoneLogin called. otpSent: ${otpSent}`);
 
     if (!otpSent) { 
+      console.log("LoginPage: OTP not sent yet, proceeding to send OTP.");
       const recaptchaVerifier = setupRecaptcha();
       if (!recaptchaVerifier) {
+          console.error("LoginPage: OTP Send - reCAPTCHA verifier setup failed or returned null. Aborting OTP send.");
           setIsLoading(false);
           return;
       }
@@ -162,15 +167,15 @@ export default function LoginPage() {
         return;
       }
 
-      console.log(`Login Page: Attempting to send OTP to ${fullPhoneNumber}`);
+      console.log(`LoginPage: Attempting signInWithPhoneNumber with ${fullPhoneNumber} and appVerifier:`, recaptchaVerifier);
       try {
         window.loginConfirmationResult = await signInWithPhoneNumber(auth, fullPhoneNumber, recaptchaVerifier);
         setOtpSent(true);
         toast({ title: 'OTP Sent', description: `An OTP has been sent to ${fullPhoneNumber}.` });
-        console.log("Login Page: OTP Sent, loginConfirmationResult stored.");
+        console.log("LoginPage: OTP Sent, loginConfirmationResult stored:", window.loginConfirmationResult);
       } catch (error: any) {
-        console.error("Login Page: Error sending OTP:", error);
-        let errorDesc = `Could not send OTP. Error: ${error.code || 'UNKNOWN_ERROR'}. ${error.message || "Please try again."}`;
+        console.error(`LoginPage: Error during signInWithPhoneNumber for ${fullPhoneNumber}:`, error);
+        let errorDesc = `Could not send OTP. Error Code: ${error.code || 'UNKNOWN_ERROR'}. Message: ${error.message || "Please try again."}`;
         if (error.code === 'auth/invalid-phone-number') {
             errorDesc = "The phone number provided is not valid.";
         } else if (error.code === 'auth/too-many-requests') {
@@ -184,13 +189,17 @@ export default function LoginPage() {
         } else if (error.code === 'auth/network-request-failed') {
             errorDesc = "Network error while trying to send OTP. Please check your internet connection.";
         }
-        toast({ title: 'Failed to Send OTP', description: errorDesc, variant: 'destructive', duration: 12000 });
-        if (window.recaptchaVerifier) window.recaptchaVerifier.clear();
+        toast({ title: 'Failed to Send OTP', description: errorDesc, variant: 'destructive', duration: 15000 });
+        if (window.recaptchaVerifier) {
+            try { window.recaptchaVerifier.clear(); console.log("LoginPage: RecaptchaVerifier cleared after signInWithPhoneNumber error."); } catch(e) { console.warn("LoginPage: Error clearing verifier post signInWithPhoneNumber error", e); }
+        }
       } finally {
         setIsLoading(false);
       }
     } else { 
+      console.log("LoginPage: OTP already sent, proceeding to verify OTP.");
       if (!window.loginConfirmationResult) {
+        console.error("LoginPage: OTP Verify - loginConfirmationResult is missing.");
         toast({ title: "Error", description: "Verification process issue. Please try sending OTP again.", variant: "destructive" });
         setIsLoading(false);
         return;
@@ -200,15 +209,15 @@ export default function LoginPage() {
         setIsLoading(false);
         return;
       }
-      console.log("Login Page: Attempting to verify OTP " + otp);
+      console.log(`LoginPage: Attempting to verify OTP: "${otp}"`);
       try {
         const result = await window.loginConfirmationResult.confirm(otp);
-        console.log("Login Page: User signed in.", result.user);
+        console.log("LoginPage: User signed in successfully with phone.", result.user);
         toast({ title: 'Phone Login Successful', description: 'Welcome back!' });
         router.push('/dashboard');
       } catch (error: any) {
-        console.error("Login Page: Invalid OTP or error during confirmation:", error);
-        let errorDesc = `Could not verify OTP. Error: ${error.code || 'UNKNOWN_ERROR'}. ${error.message || "Incorrect OTP or an error occurred."}`;
+        console.error("LoginPage: Invalid OTP or error during confirmation:", error);
+        let errorDesc = `Could not verify OTP. Error Code: ${error.code || 'UNKNOWN_ERROR'}. Message: ${error.message || "Incorrect OTP or an error occurred."}`;
         if (error.code === 'auth/invalid-verification-code') {
             errorDesc = "The OTP entered is incorrect. Please try again.";
         } else if (error.code === 'auth/code-expired') {
@@ -325,7 +334,7 @@ export default function LoginPage() {
                       onValueChange={setSelectedCountryCode}
                       disabled={otpSent || isLoading || isGoogleLoading}
                     >
-                      <SelectTrigger className="w-[120px] font-body">
+                      <SelectTrigger className="w-[140px] font-body">
                         <SelectValue>
                           {selectedCountryInfo ? `${selectedCountryInfo.code} (${selectedCountryInfo.dialCode})` : "Country"}
                         </SelectValue>
@@ -376,7 +385,7 @@ export default function LoginPage() {
                         setOtpSent(false); 
                         setOtp(''); 
                         if (window.recaptchaVerifier) { 
-                            try { window.recaptchaVerifier.clear(); } catch (e) { console.warn("Login Page: Error clearing verifier on change number/resend:", e); } 
+                            try { window.recaptchaVerifier.clear(); console.log("LoginPage: RecaptchaVerifier cleared on change number/resend request."); } catch (e) { console.warn("LoginPage: Error clearing verifier on change number/resend:", e); } 
                         } 
                     }} disabled={isLoading || isGoogleLoading} className="w-full text-sm font-body">
                         Change Phone Number or Resend OTP
@@ -404,7 +413,7 @@ export default function LoginPage() {
               Don't have an account? Sign Up
             </Link>
             <div className="text-xs text-center">
-              <p>For demo, use "Enter your email here" / password123</p>
+              <p>For demo, use "kuvamsharma@printflow.app" / password123</p>
             </div>
         </CardFooter>
       </Card>
