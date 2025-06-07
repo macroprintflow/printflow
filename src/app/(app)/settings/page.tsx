@@ -1,7 +1,7 @@
 
 "use client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Settings, Users, UserPlus, Edit3, Loader2, Trash2, KeyRound, Save } from "lucide-react"; 
+import { Settings, Users, UserPlus, Edit3, Loader2, Trash2, KeyRound, Save, AlertTriangle } from "lucide-react"; 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect, type FormEvent } from "react";
 import type { UserData, UserRole } from "@/lib/definitions"; 
 import { getAllUsersMock, updateUserRoleMock, createNewUserMock, deleteUserMock } from "@/lib/actions/userActions"; 
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export default function SettingsPage() {
   const { toast } = useToast();
@@ -66,7 +67,7 @@ export default function SettingsPage() {
     });
     setIsCreatingUser(false);
     if (result.success) {
-      toast({ title: "User Created", description: `User ${result.user?.displayName} created.` });
+      toast({ title: "User Action", description: result.message });
       fetchUsers();
       setIsCreateUserOpen(false);
       setNewUserName("");
@@ -90,7 +91,7 @@ export default function SettingsPage() {
     const result = await updateUserRoleMock(selectedUserForEdit.id, selectedNewRole);
     setIsUpdatingRole(false);
     if (result.success) {
-      toast({ title: "Role Updated", description: `Role for ${selectedUserForEdit.displayName} updated to ${selectedNewRole}.` });
+      toast({ title: "Role Updated", description: `Mock role for ${selectedUserForEdit.displayName} updated to ${selectedNewRole}. This is a visual update in this mock list.` });
       fetchUsers();
       setIsEditRoleOpen(false);
     } else {
@@ -109,7 +110,7 @@ export default function SettingsPage() {
     const result = await deleteUserMock(selectedUserForDelete.id);
     setIsDeletingUser(false);
     if (result.success) {
-      toast({ title: "User Deleted", description: `User ${selectedUserForDelete.displayName} has been deleted.` });
+      toast({ title: "User Action", description: result.message });
       fetchUsers();
       setIsDeleteUserOpen(false);
       setSelectedUserForDelete(null);
@@ -126,7 +127,7 @@ export default function SettingsPage() {
             <Settings className="mr-2 h-6 w-6 text-primary" /> Application Settings
           </CardTitle>
           <CardDescription className="font-body">
-            Configure your application preferences. User management below is a mock-up for demonstration.
+            Configure your application preferences.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -141,10 +142,10 @@ export default function SettingsPage() {
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle className="font-headline flex items-center">
-              <Users className="mr-2 h-6 w-6 text-primary" /> User Management (Mock)
+              <Users className="mr-2 h-6 w-6 text-primary" /> User Management (Prototype Simulation)
             </CardTitle>
             <CardDescription className="font-body">
-              View, create, and manage user roles. (Simulated - no real backend integration)
+              View, create (for login), and manage user roles for testing purposes.
             </CardDescription>
           </div>
           <Dialog open={isCreateUserOpen} onOpenChange={setIsCreateUserOpen}>
@@ -155,7 +156,11 @@ export default function SettingsPage() {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle className="font-headline">Create New Mock User</DialogTitle>
+                <DialogTitle className="font-headline">Create New User</DialogTitle>
+                 <DialogDescription className="font-body">
+                  This creates a real Firebase Auth user (so they can log in) and adds them to the mock list below.
+                  The role assigned here is for this mock list only.
+                </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleCreateUser} className="space-y-4 py-2">
                 <div>
@@ -171,7 +176,7 @@ export default function SettingsPage() {
                   <Input id="newUserPassword" type="password" value={newUserPassword} onChange={(e) => setNewUserPassword(e.target.value)} placeholder="Min. 6 characters" />
                 </div>
                 <div>
-                  <Label htmlFor="newUserRole">Role</Label>
+                  <Label htmlFor="newUserRole">Role (for Mock List)</Label>
                   <Select value={newUserRole} onValueChange={(value) => setNewUserRole(value as UserRole)}>
                     <SelectTrigger id="newUserRole">
                       <SelectValue placeholder="Select role" />
@@ -195,6 +200,19 @@ export default function SettingsPage() {
           </Dialog>
         </CardHeader>
         <CardContent>
+          <Alert variant="default" className="mb-6 bg-blue-50 border-blue-300 dark:bg-blue-900/30 dark:border-blue-700">
+            <AlertTriangle className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            <AlertTitle className="font-headline text-blue-700 dark:text-blue-300">Important Note on User Roles</AlertTitle>
+            <AlertDescription className="text-blue-600 dark:text-blue-400 font-body">
+              The user list and role assignments below are part of a **prototype simulation**.
+              <ul>
+                <li className="mt-1">- Changing a role here updates the user's entry in this mock list for visual testing.</li>
+                <li>- It **does not** set actual Firebase custom claims or change what a user sees when they log in themselves (unless they are the current Admin using the "Switch Role" dev tool).</li>
+                <li>- Real, persistent role management requires backend integration with Firebase Admin SDK.</li>
+              </ul>
+            </AlertDescription>
+          </Alert>
+
           {isLoadingUsers ? (
             <div className="flex justify-center items-center py-10">
               <Loader2 className="mr-2 h-8 w-8 animate-spin text-primary" />
@@ -206,7 +224,7 @@ export default function SettingsPage() {
                 <TableRow>
                   <TableHead className="font-headline">Display Name</TableHead>
                   <TableHead className="font-headline">Email</TableHead>
-                  <TableHead className="font-headline">Role</TableHead>
+                  <TableHead className="font-headline">Mock Role</TableHead>
                   <TableHead className="font-headline text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -218,9 +236,9 @@ export default function SettingsPage() {
                     <TableCell className="font-body"><span className="px-2 py-1 text-xs font-semibold rounded-full bg-secondary text-secondary-foreground">{user.role}</span></TableCell>
                     <TableCell className="text-right space-x-1">
                       <Button variant="outline" size="sm" onClick={() => openEditRoleDialog(user)} title="Edit Role">
-                        <Edit3 className="mr-1 h-4 w-4" /> Edit Role
+                        <Edit3 className="mr-1 h-4 w-4" /> Edit Mock Role
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => openDeleteUserDialog(user)} title="Delete User" className="text-destructive hover:text-destructive">
+                      <Button variant="ghost" size="icon" onClick={() => openDeleteUserDialog(user)} title="Delete User from Mock List" className="text-destructive hover:text-destructive">
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </TableCell>
@@ -238,10 +256,13 @@ export default function SettingsPage() {
       <Dialog open={isEditRoleOpen} onOpenChange={setIsEditRoleOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle className="font-headline">Edit Role for {selectedUserForEdit?.displayName}</DialogTitle>
+            <DialogTitle className="font-headline">Edit Mock Role for {selectedUserForEdit?.displayName}</DialogTitle>
+             <DialogDescription className="font-body">
+              This changes the role in the mock list for visual/testing purposes only.
+            </DialogDescription>
           </DialogHeader>
           <div className="py-4">
-            <Label htmlFor="editUserRole">New Role</Label>
+            <Label htmlFor="editUserRole">New Mock Role</Label>
             <Select value={selectedNewRole} onValueChange={(value) => setSelectedNewRole(value as UserRole)}>
               <SelectTrigger id="editUserRole">
                 <SelectValue placeholder="Select new role" />
@@ -257,7 +278,7 @@ export default function SettingsPage() {
             <DialogClose asChild><Button type="button" variant="outline" disabled={isUpdatingRole}>Cancel</Button></DialogClose>
             <Button onClick={handleUpdateRole} disabled={isUpdatingRole}>
               {isUpdatingRole ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-              Update Role
+              Update Mock Role
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -269,14 +290,14 @@ export default function SettingsPage() {
           <DialogHeader>
             <DialogTitle className="font-headline">Delete User: {selectedUserForDelete?.displayName}?</DialogTitle>
             <DialogDescription className="font-body">
-              Are you sure you want to delete the user "{selectedUserForDelete?.email}"? This action cannot be undone (for this mock setup).
+              Are you sure you want to remove "{selectedUserForDelete?.email}" from the mock list? This does not delete their Firebase Auth account.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <DialogClose asChild><Button variant="outline" disabled={isDeletingUser}>Cancel</Button></DialogClose>
             <Button variant="destructive" onClick={handleDeleteUser} disabled={isDeletingUser}>
               {isDeletingUser ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
-              Delete User
+              Remove from List
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -285,3 +306,5 @@ export default function SettingsPage() {
     </div>
   );
 }
+
+    
