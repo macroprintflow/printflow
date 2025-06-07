@@ -1,7 +1,7 @@
 
 "use client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Settings, Users, UserPlus, Edit3, Loader2, Trash2, KeyRound, Save } from "lucide-react"; // Added Save icon
+import { Settings, Users, UserPlus, Edit3, Loader2, Trash2, KeyRound, Save } from "lucide-react"; 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,8 +10,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect, type FormEvent } from "react";
-import type { UserData, UserRole } from "@/lib/definitions"; // UserRole will be imported from definitions
-import { getAllUsersMock, updateUserRoleMock, createNewUserMock, deleteUserMock } from "@/lib/actions/userActions"; // Mock actions
+import type { UserData, UserRole } from "@/lib/definitions"; 
+import { getAllUsersMock, updateUserRoleMock, createNewUserMock, deleteUserMock } from "@/lib/actions/userActions"; 
 
 export default function SettingsPage() {
   const { toast } = useToast();
@@ -61,7 +61,7 @@ export default function SettingsPage() {
     const result = await createNewUserMock({ 
       displayName: newUserName, 
       email: newUserEmail, 
-      password: newUserPassword, // Note: Storing plaintext password in mock is insecure. For demo only.
+      password: newUserPassword, 
       role: newUserRole 
     });
     setIsCreatingUser(false);
@@ -217,8 +217,8 @@ export default function SettingsPage() {
                     <TableCell className="font-body text-sm">{user.email}</TableCell>
                     <TableCell className="font-body"><span className="px-2 py-1 text-xs font-semibold rounded-full bg-secondary text-secondary-foreground">{user.role}</span></TableCell>
                     <TableCell className="text-right space-x-1">
-                      <Button variant="ghost" size="icon" onClick={() => openEditRoleDialog(user)} title="Edit Role">
-                        <Edit3 className="h-4 w-4" />
+                      <Button variant="outline" size="sm" onClick={() => openEditRoleDialog(user)} title="Edit Role">
+                        <Edit3 className="mr-1 h-4 w-4" /> Edit Role
                       </Button>
                       <Button variant="ghost" size="icon" onClick={() => openDeleteUserDialog(user)} title="Delete User" className="text-destructive hover:text-destructive">
                         <Trash2 className="h-4 w-4" />
