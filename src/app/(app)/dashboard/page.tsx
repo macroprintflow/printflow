@@ -1,3 +1,4 @@
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, TrendingUp, ListChecks, CheckCircle2 } from "lucide-react";
 
@@ -11,8 +12,8 @@ export default function DashboardPage() {
             <TrendingUp className="h-5 w-5 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold font-headline">125</div>
-            <p className="text-xs text-muted-foreground font-body">+5 from yesterday</p>
+            <div className="text-3xl font-bold font-headline">0</div>
+            <p className="text-xs text-muted-foreground font-body">N/A</p>
           </CardContent>
         </Card>
         <Card>
@@ -21,7 +22,7 @@ export default function DashboardPage() {
             <ListChecks className="h-5 w-5 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold font-headline">42</div>
+            <div className="text-3xl font-bold font-headline">0</div>
             <p className="text-xs text-muted-foreground font-body">Across all departments</p>
           </CardContent>
         </Card>
@@ -31,8 +32,8 @@ export default function DashboardPage() {
             <CheckCircle2 className="h-5 w-5 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold font-headline">30</div>
-            <p className="text-xs text-muted-foreground font-body">+10% from yesterday</p>
+            <div className="text-3xl font-bold font-headline">0</div>
+            <p className="text-xs text-muted-foreground font-body">N/A</p>
           </CardContent>
         </Card>
         <Card>
@@ -41,8 +42,8 @@ export default function DashboardPage() {
             <BarChart className="h-5 w-5 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold font-headline">12.5%</div>
-            <p className="text-xs text-muted-foreground font-body">Optimal material usage</p>
+            <div className="text-3xl font-bold font-headline">0.0%</div>
+            <p className="text-xs text-muted-foreground font-body">N/A</p>
           </CardContent>
         </Card>
       </div>
