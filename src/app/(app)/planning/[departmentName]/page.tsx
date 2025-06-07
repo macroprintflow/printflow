@@ -41,11 +41,8 @@ type Job = {
   netQuantity: number;
 };
 
-// Placeholder job data
-const sampleJobs: Job[] = [
-  { id: 'job1', jobCardNumber: 'JC-240701-001', jobName: 'Luxury Box A', customerName: 'Prestige Co.', status: 'Pending Planning', dispatchDate: '2024-07-15', netQuantity: 500 },
-  { id: 'job2', jobCardNumber: 'JC-240701-002', jobName: 'Retail Sleeve B', customerName: 'ShopSmart', status: 'Pending Planning', dispatchDate: '2024-07-20', netQuantity: 2000 },
-];
+// Placeholder job data removed
+const sampleJobs: Job[] = [];
 
 
 export default function DepartmentPlanningPage() {
@@ -57,7 +54,7 @@ export default function DepartmentPlanningPage() {
   // 1. Fetch jobs relevant to this department (e.g., jobs whose 'currentDepartment' is this department OR jobs that AI suggests for this department)
   // 2. Implement selection logic for jobs
   // 3. Implement the "Forward to Departmental Tasks" action (e.g., update job status, create tasks)
-  const jobsForDepartment: Job[] = sampleJobs; // Using sampleJobs as a placeholder
+  const jobsForDepartment: Job[] = sampleJobs; // Using sampleJobs (now empty) as a placeholder
 
   return (
     <div className="space-y-6">

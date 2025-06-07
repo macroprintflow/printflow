@@ -7,12 +7,8 @@ import Link from "next/link";
 import Image from "next/image";
 
 export default function NewJobPage() {
-  // Placeholder for approved designs - now including jobName and customerName
-  const approvedDesigns = [
-    { id: 'design1', name: 'Luxury Perfume Box - Variant A', thumbnail: 'https://placehold.co/200x150.png', jobName: "Luxury Perfume Box", customerName: "Chic Fragrances" },
-    { id: 'design2', name: 'Retail Display Stand - Model X', thumbnail: 'https://placehold.co/200x150.png', jobName: "Retail Display X", customerName: "Point of Sale Inc." },
-    { id: 'design3', name: 'Food Packaging Sleeve - Eco', thumbnail: 'https://placehold.co/200x150.png', jobName: "Eco Food Sleeve", customerName: "Green Goods Co." },
-  ];
+  // Placeholder for approved designs - now an empty array
+  const approvedDesigns: { id: string; name: string; thumbnail: string; jobName: string; customerName: string; }[] = [];
 
   return (
     <div className="space-y-8">
