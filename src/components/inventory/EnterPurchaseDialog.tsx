@@ -58,9 +58,7 @@ const CurrentItemPaperFields = ({ form, onFormChange }: { form: UseFormReturn<Pa
             form.setValue("paperThicknessMm", undefined);
           }} value={field.value || ""}>
             <FormControl>
-              <div>
-                <SelectTrigger className="font-body"><SelectValue placeholder="Select paper quality" /></SelectTrigger>
-              </div>
+              <SelectTrigger className="font-body"><SelectValue placeholder="Select paper quality" /></SelectTrigger>
             </FormControl>
             <SelectContent>{PAPER_QUALITY_OPTIONS.map(opt => (<SelectItem key={opt.value} value={opt.value} className="font-body">{opt.label}</SelectItem>))}</SelectContent>
           </Select>
@@ -160,9 +158,7 @@ const CurrentItemCommonFields = ({ form, onFormChange }: { form: UseFormReturn<P
             <FormLabel>Unit</FormLabel>
             <Select onValueChange={field.onChange} value={field.value || "sheets" as UnitValue}>
               <FormControl>
-                <div>
-                  <SelectTrigger className="font-body"><SelectValue placeholder="Select unit" /></SelectTrigger>
-                </div>
+                <SelectTrigger className="font-body"><SelectValue placeholder="Select unit" /></SelectTrigger>
               </FormControl>
               <SelectContent>{UNIT_OPTIONS.map(opt => (<SelectItem key={opt.value} value={opt.value} className="font-body">{opt.label}</SelectItem>))}</SelectContent>
             </Select>
@@ -272,6 +268,15 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
         category: undefined,
         quantity: 0,
         unit: "sheets" as UnitValue,
+        paperMasterSheetSizeWidth: undefined,
+        paperMasterSheetSizeHeight: undefined,
+        paperQuality: "",
+        paperGsm: undefined,
+        paperThicknessMm: undefined,
+        inkName: "",
+        inkSpecification: "",
+        itemName: "", 
+        itemSpecification: "",
       });
       setCurrentItemCategory(null);
       setDerivedCurrentItemName("");
@@ -288,7 +293,20 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
     setPurchaseVendor(undefined);
     setOtherPurchaseVendor("");
     setItemsInPurchaseList([]);
-    currentItemForm.reset({ category: undefined, quantity: 0, unit: "sheets" as UnitValue });
+    currentItemForm.reset({ 
+        category: undefined, 
+        quantity: 0, 
+        unit: "sheets" as UnitValue,
+        paperMasterSheetSizeWidth: undefined,
+        paperMasterSheetSizeHeight: undefined,
+        paperQuality: "",
+        paperGsm: undefined,
+        paperThicknessMm: undefined,
+        inkName: "",
+        inkSpecification: "",
+        itemName: "", 
+        itemSpecification: "",
+    });
     setCurrentItemCategory(null);
     setDerivedCurrentItemName("");
     setIsSubmittingPurchase(false);
@@ -434,9 +452,7 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
                           handleCurrentItemFormChange(); 
                         }} value={field.value || ""}>
                         <FormControl>
-                          <div>
-                            <SelectTrigger className="font-body"><SelectValue placeholder="Select item category" /></SelectTrigger>
-                          </div>
+                          <SelectTrigger className="font-body"><SelectValue placeholder="Select item category" /></SelectTrigger>
                         </FormControl>
                         <SelectContent>{INVENTORY_CATEGORIES.map(cat => (<SelectItem key={cat.value} value={cat.value} className="font-body">{cat.label}</SelectItem>))}</SelectContent>
                       </Select>
@@ -509,3 +525,6 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
     </Dialog>
   );
 }
+
+
+    
