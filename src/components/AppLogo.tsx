@@ -5,7 +5,7 @@ const AppLogo = () => {
   return (
     <div className="flex items-center gap-2">
       <Image
-        src="/high.png" // Path to the new logo in public folder
+        src="/logo high.png" // Path to the new logo in public folder
         alt="Macro PrintFlow Logo"
         width={100} 
         height={28} 
