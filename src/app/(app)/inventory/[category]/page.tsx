@@ -9,13 +9,13 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { AddItemDialog } from "@/components/inventory/AddItemDialog";
-import { EnterPurchaseDialog } from "@/components/inventory/EnterPurchaseDialog";
+// EnterPurchaseDialog is removed
 import { InventoryAdjustmentsDialog } from "@/components/inventory/InventoryAdjustmentsDialog";
 import { getInventoryItems } from "@/lib/actions/jobActions";
 import type { InventoryItem, PaperQualityType, PaperSubCategoryFilterValue } from "@/lib/definitions";
 import { PAPER_QUALITY_OPTIONS, PAPER_SUB_CATEGORIES, KAPPA_MDF_QUALITIES } from "@/lib/definitions";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation"; // Added useRouter
+import { useParams, useRouter } from "next/navigation";
 
 const getCategoryDisplayName = (slug: string | string[] | undefined): string => {
   if (typeof slug !== 'string') return "Inventory";
@@ -53,14 +53,14 @@ const paperCategoryIcons: Record<PaperSubCategoryFilterValue, React.ElementType>
 
 export default function CategorizedInventoryPage() {
   const params = useParams();
-  const router = useRouter(); // Added useRouter
+  const router = useRouter(); 
   const categorySlug = params.category as string;
   const categoryDisplayName = getCategoryDisplayName(categorySlug);
 
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false);
-  const [isEnterPurchaseDialogOpen, setIsEnterPurchaseDialogOpen] = useState(false);
+  // isEnterPurchaseDialogOpen state removed
   const [searchQuery, setSearchQuery] = useState("");
   
   const [isAdjustmentsDialogOpen, setIsAdjustmentsDialogOpen] = useState(false);
@@ -80,8 +80,8 @@ export default function CategorizedInventoryPage() {
   }, [fetchInventory]);
 
   const handleInventoryUpdate = () => {
-    fetchInventory(); // Re-fetch inventory data
-    router.refresh(); // Optionally trigger a hard refresh if needed for other parts of the page
+    fetchInventory(); 
+    router.refresh(); 
   };
 
   const paperQualityValues = useMemo(() => PAPER_QUALITY_OPTIONS.map(opt => opt.label), []);
@@ -303,8 +303,10 @@ export default function CategorizedInventoryPage() {
              <Button className="w-full sm:w-auto font-body" variant="outline" onClick={() => setIsAddItemDialogOpen(true)}>
               <PlusCircle className="mr-2 h-4 w-4" /> Add Single Item
             </Button>
-            <Button className="w-full sm:w-auto font-body" onClick={() => setIsEnterPurchaseDialogOpen(true)}>
-              <ShoppingCart className="mr-2 h-4 w-4" /> Enter Purchase
+            <Button asChild className="w-full sm:w-auto font-body">
+              <Link href="/inventory/new-purchase">
+                <ShoppingCart className="mr-2 h-4 w-4" /> Enter Purchase
+              </Link>
             </Button>
           </div>
         </CardHeader>
@@ -317,11 +319,7 @@ export default function CategorizedInventoryPage() {
         setIsOpen={setIsAddItemDialogOpen} 
         onItemAdded={handleInventoryUpdate} 
       />
-      <EnterPurchaseDialog
-        isOpen={isEnterPurchaseDialogOpen}
-        setIsOpen={setIsEnterPurchaseDialogOpen}
-        onItemAdded={handleInventoryUpdate}
-      />
+      {/* EnterPurchaseDialog component removed */}
       <InventoryAdjustmentsDialog
         isOpen={isAdjustmentsDialogOpen}
         setIsOpen={setIsAdjustmentsDialogOpen}

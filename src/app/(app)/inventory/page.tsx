@@ -6,8 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Archive, Printer, Paintbrush, Box, Package, MagnetIcon, ShoppingCart, PlusCircle } from "lucide-react";
 import { useState } from "react";
-import { EnterPurchaseDialog } from "@/components/inventory/EnterPurchaseDialog";
-import { AddItemDialog } from '@/components/inventory/AddItemDialog'; // Keep for single item
+// EnterPurchaseDialog is removed
+import { AddItemDialog } from '@/components/inventory/AddItemDialog'; 
 
 const mainCategories = [
   { name: "Paper", slug: "paper", icon: Printer, description: "Master sheets and paper stock." },
@@ -19,10 +19,9 @@ const mainCategories = [
 ];
 
 export default function InventoryCategorySelectionPage() {
-  const [isEnterPurchaseDialogOpen, setIsEnterPurchaseDialogOpen] = useState(false);
-  const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false); // For single item
+  // isEnterPurchaseDialogOpen state is removed
+  const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false); 
 
-  // Dummy onItemAdded, replace with actual data refresh if needed
   const handleInventoryUpdate = () => {
     console.log("Inventory updated, refresh would happen here.");
     // e.g., router.refresh() or re-fetch data
@@ -44,8 +43,10 @@ export default function InventoryCategorySelectionPage() {
                 <Button onClick={() => setIsAddItemDialogOpen(true)} variant="outline" className="w-full sm:w-auto font-body">
                     <PlusCircle className="mr-2 h-4 w-4" /> Add Single Item
                 </Button>
-                <Button onClick={() => setIsEnterPurchaseDialogOpen(true)} className="w-full sm:w-auto font-body">
+                <Button asChild className="w-full sm:w-auto font-body">
+                  <Link href="/inventory/new-purchase">
                     <ShoppingCart className="mr-2 h-4 w-4" /> Enter Purchase Bill
+                  </Link>
                 </Button>
             </div>
         </CardHeader>
@@ -68,11 +69,7 @@ export default function InventoryCategorySelectionPage() {
           ))}
         </CardContent>
       </Card>
-      <EnterPurchaseDialog 
-        isOpen={isEnterPurchaseDialogOpen} 
-        setIsOpen={setIsEnterPurchaseDialogOpen} 
-        onItemAdded={handleInventoryUpdate} 
-      />
+      {/* EnterPurchaseDialog component is removed */}
       <AddItemDialog
         isOpen={isAddItemDialogOpen}
         setIsOpen={setIsAddItemDialogOpen}
