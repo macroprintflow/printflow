@@ -4,13 +4,14 @@
 import { JobCardForm } from "@/components/job-card/JobCardForm";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { LayoutList, FilePlus2, FileCheck2, Sparkles } from "lucide-react";
+import { LayoutList, FilePlus2, FileCheck2, Sparkles, Eye } from "lucide-react"; // Added Eye
 import Link from "next/link";
 import Image from "next/image";
 import { getApprovedDesigns } from "@/lib/actions/jobActions";
 import type { DesignSubmission } from "@/lib/definitions";
-import { useState, useEffect, useRef } from "react"; // Added useState, useEffect, useRef
+import { useState, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { ViewAllJobsModal } from "@/components/job-card/ViewAllJobsModal"; // Import the new modal
 
 export default function NewJobPage() {
   const [approvedDesigns, setApprovedDesigns] = useState<DesignSubmission[]>([]);
@@ -19,6 +20,7 @@ export default function NewJobPage() {
   const [prefillCustomerName, setPrefillCustomerName] = useState<string | undefined>(undefined);
   const { toast } = useToast();
   const jobFormCardRef = useRef<HTMLDivElement>(null);
+  const [isViewAllJobsModalOpen, setIsViewAllJobsModalOpen] = useState(false); // State for the modal
 
   useEffect(() => {
     async function fetchDesigns() {
@@ -47,23 +49,32 @@ export default function NewJobPage() {
       title: "Prefilling Form",
       description: `Using details from design: ${design.pdfName}`,
     });
-    // Scroll to the form
     jobFormCardRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   return (
     <div className="space-y-8">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
         <h1 className="text-3xl font-headline font-semibold text-foreground">Start a New Job</h1>
-        <Button asChild variant="outline" size="sm">
-          <Link href="/templates">
-            <LayoutList className="mr-2 h-4 w-4" />
-            Manage Job Templates
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button asChild variant="outline" size="sm">
+            <Link href="/templates">
+              <LayoutList className="mr-2 h-4 w-4" />
+              Manage Job Templates
+            </Link>
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setIsViewAllJobsModalOpen(true)}>
+            <Eye className="mr-2 h-4 w-4" />
+            View All Created Jobs
+          </Button>
+        </div>
       </div>
 
-      {/* Section for Approved Designs */}
+      <ViewAllJobsModal 
+        isOpen={isViewAllJobsModalOpen} 
+        setIsOpen={setIsViewAllJobsModalOpen} 
+      />
+
       <Card className="shadow-lg border-green-500 border-2">
         <CardHeader>
           <CardTitle className="font-headline flex items-center text-xl">
@@ -85,8 +96,8 @@ export default function NewJobPage() {
                     <Image 
                         src={`https://placehold.co/600x400.png?text=${encodeURIComponent(design.pdfName)}`}
                         alt={design.pdfName} 
-                        fill // Changed from layout="fill"
-                        style={{objectFit:"cover"}} // Changed from objectFit="cover"
+                        fill
+                        style={{objectFit:"cover"}}
                         data-ai-hint="document preview"
                     />
                   </div>
@@ -118,7 +129,6 @@ export default function NewJobPage() {
         </CardContent>
       </Card>
 
-      {/* Section for creating a new job card from scratch or template */}
       <Card className="shadow-lg mt-8" ref={jobFormCardRef}>
         <CardHeader>
           <CardTitle className="font-headline flex items-center text-xl">
