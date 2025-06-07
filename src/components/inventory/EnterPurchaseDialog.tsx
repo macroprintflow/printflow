@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { CalendarIcon, PlusCircle, Trash2, ArrowRight, Loader2, ShoppingCart } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import { Label } from "@/components/ui/label"; // Import basic Label
 
 // Re-purposed field components from AddItemDialog (or similar structure)
 // These will be used for the "current item being added" part of the purchase dialog
@@ -364,45 +365,43 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
           <DialogDescription>Add multiple inventory items received under a single purchase bill.</DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="flex-grow pr-6 -mr-6"> {/* Added pr-6 and -mr-6 for scrollbar spacing */}
+        <ScrollArea className="flex-grow pr-6 -mr-6"> 
           <div className="space-y-6 py-4">
             {/* Purchase Level Details */}
             <div className="p-4 border rounded-lg bg-muted/30 space-y-4">
               <h3 className="font-semibold font-headline text-lg">Purchase Bill Details</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <FormItem>
-                  <FormLabel>Purchase Bill No.</FormLabel>
-                  <FormControl><Input placeholder="e.g., INV-2024-123" value={purchaseBillNo} onChange={(e) => setPurchaseBillNo(e.target.value)} className="font-body"/></FormControl>
-                </FormItem>
-                <FormItem className="flex flex-col">
-                  <FormLabel>Purchase Date</FormLabel>
+                <div className="space-y-2">
+                  <Label htmlFor="purchaseBillNoInput">Purchase Bill No.</Label>
+                  <Input id="purchaseBillNoInput" placeholder="e.g., INV-2024-123" value={purchaseBillNo} onChange={(e) => setPurchaseBillNo(e.target.value)} className="font-body"/>
+                </div>
+                <div className="flex flex-col space-y-2">
+                  <Label htmlFor="purchaseDateButton">Purchase Date</Label>
                   <Popover>
                     <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal font-body", !purchaseDate && "text-muted-foreground")}>
+                        <Button id="purchaseDateButton" variant={"outline"} className={cn("w-full pl-3 text-left font-normal font-body", !purchaseDate && "text-muted-foreground")}>
                           {purchaseDate ? format(purchaseDate, "PPP") : <span>Pick a date</span>}
                           <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                         </Button>
-                      </FormControl>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
                       <Calendar mode="single" selected={purchaseDate} onSelect={setPurchaseDate} initialFocus />
                     </PopoverContent>
                   </Popover>
-                </FormItem>
-                 <FormItem>
-                  <FormLabel>Vendor Name (Optional)</FormLabel>
+                </div>
+                 <div className="space-y-2">
+                  <Label htmlFor="purchaseVendorSelect">Vendor Name (Optional)</Label>
                   <Select onValueChange={setPurchaseVendor} value={purchaseVendor || ""}>
-                    <FormControl><SelectTrigger className="font-body"><SelectValue placeholder="Select vendor" /></SelectTrigger></FormControl>
+                    <SelectTrigger id="purchaseVendorSelect" className="font-body"><SelectValue placeholder="Select vendor" /></SelectTrigger>
                     <SelectContent>{VENDOR_OPTIONS.map(opt => (<SelectItem key={opt.value} value={opt.value} className="font-body">{opt.label}</SelectItem>))}</SelectContent>
                   </Select>
-                </FormItem>
+                </div>
               </div>
               {purchaseVendor === 'OTHER' && (
-                <FormItem>
-                  <FormLabel>Specify Vendor Name</FormLabel>
-                  <FormControl><Input placeholder="Enter vendor name" value={otherPurchaseVendor} onChange={(e) => setOtherPurchaseVendor(e.target.value)} className="font-body"/></FormControl>
-                </FormItem>
+                <div className="space-y-2">
+                  <Label htmlFor="otherPurchaseVendorInput">Specify Vendor Name</Label>
+                  <Input id="otherPurchaseVendorInput" placeholder="Enter vendor name" value={otherPurchaseVendor} onChange={(e) => setOtherPurchaseVendor(e.target.value)} className="font-body"/>
+                </div>
               )}
             </div>
 
