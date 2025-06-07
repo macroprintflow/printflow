@@ -54,7 +54,19 @@ export default function ForApprovalPage() {
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setSelectedFile(e.target.files[0]);
+      const file = e.target.files[0];
+      if (file.size === 0) {
+        toast({
+          title: "Empty File",
+          description: "The selected PDF file is empty and cannot be processed.",
+          variant: "destructive",
+        });
+        setSelectedFile(null);
+        // Reset the file input's value to allow re-selection of the same named file if needed
+        if (e.target) e.target.value = ""; 
+        return;
+      }
+      setSelectedFile(file);
     } else {
       setSelectedFile(null);
     }
@@ -74,6 +86,14 @@ export default function ForApprovalPage() {
       toast({
         title: "Invalid File Type",
         description: "Please select a PDF file.",
+        variant: "destructive",
+      });
+      return;
+    }
+     if (selectedFile.size === 0) {
+      toast({
+        title: "Empty File",
+        description: "The selected PDF file is empty. Please choose a valid PDF.",
         variant: "destructive",
       });
       return;
@@ -137,6 +157,19 @@ export default function ForApprovalPage() {
         description: result.message || "Could not update design status.",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleViewPdf = (pdfDataUri: string | undefined) => {
+    if (pdfDataUri && pdfDataUri.startsWith('data:application/pdf;base64,') && pdfDataUri.length > 'data:application/pdf;base64,'.length) {
+      window.open(pdfDataUri, '_blank');
+    } else {
+      toast({
+        title: "Cannot View PDF",
+        description: "The PDF data is empty or invalid for this design.",
+        variant: "destructive",
+      });
+      console.warn("Attempted to open invalid PDF Data URI: ", pdfDataUri);
     }
   };
 
@@ -227,11 +260,12 @@ export default function ForApprovalPage() {
                     </div>
                   </div>
                   <div className="flex gap-2 mt-2 sm:mt-0 flex-shrink-0 items-center">
+                    {/* Updated View PDF button condition and onClick handler */}
                     {design.pdfDataUri && (
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => window.open(design.pdfDataUri!, '_blank')}
+                        onClick={() => handleViewPdf(design.pdfDataUri)}
                         className="font-body"
                         title="View PDF"
                       >
