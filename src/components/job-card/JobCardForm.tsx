@@ -307,7 +307,7 @@ export function JobCardForm({ initialJobName, initialCustomerName }: JobCardForm
   };
 
   const handlePrintJobCard = (jobCard: JobCardData) => {
-    const logoUrl = 'https://placehold.co/150x70.png'; 
+    const logoUrl = '/images/logo.png'; // Updated logo path
   
     const formatWorkflowSteps = (steps: WorkflowStep[] | undefined) => {
       if (!steps || steps.length === 0) return '<li>No workflow defined</li>';
@@ -339,7 +339,7 @@ export function JobCardForm({ initialJobName, initialCustomerName }: JobCardForm
   
     const printWindow = window.open('', '_blank', 'height=800,width=800');
     if (printWindow) {
-      printWindow.document.write(`
+      printWindow.document.write(\`
         <html>
           <head>
             <title>Job Card - ${jobCard.jobCardNumber || 'New Job'}</title>
@@ -407,17 +407,17 @@ export function JobCardForm({ initialJobName, initialCustomerName }: JobCardForm
               <div class="process-details">
                 <div class="section-title">Process Specifications</div>
                 <table>
-                  ${jobCard.kindOfJob ? `<tr><th style="width:150px;">Kind of Job</th><td>${KINDS_OF_JOB_OPTIONS.find(o=>o.value === jobCard.kindOfJob)?.label || jobCard.kindOfJob}</td></tr>` : ''}
-                  ${jobCard.printingFront ? `<tr><th>Printing Front</th><td>${PRINTING_MACHINE_OPTIONS.find(o=>o.value === jobCard.printingFront)?.label || jobCard.printingFront}</td></tr>` : ''}
-                  ${jobCard.printingBack ? `<tr><th>Printing Back</th><td>${PRINTING_MACHINE_OPTIONS.find(o=>o.value === jobCard.printingBack)?.label || jobCard.printingBack}</td></tr>` : ''}
-                  ${jobCard.coating ? `<tr><th>Coating</th><td>${COATING_OPTIONS.find(o=>o.value === jobCard.coating)?.label || jobCard.coating}</td></tr>` : ''}
-                  ${jobCard.specialInks ? `<tr><th>Special Inks</th><td>${jobCard.specialInks}</td></tr>` : ''}
-                  ${jobCard.die ? `<tr><th>Die</th><td>${DIE_OPTIONS.find(o=>o.value === jobCard.die)?.label || jobCard.die}</td></tr>` : ''}
-                  ${jobCard.assignedDieMachine ? `<tr><th>Assigned Die Machine</th><td>${DIE_MACHINE_OPTIONS.find(o=>o.value === jobCard.assignedDieMachine)?.label || jobCard.assignedDieMachine}</td></tr>` : ''}
-                  ${jobCard.hotFoilStamping ? `<tr><th>Hot Foil Stamping</th><td>${HOT_FOIL_OPTIONS.find(o=>o.value === jobCard.hotFoilStamping)?.label || jobCard.hotFoilStamping}</td></tr>` : ''}
-                  ${jobCard.emboss ? `<tr><th>Emboss</th><td>${YES_NO_OPTIONS.find(o=>o.value === jobCard.emboss)?.label || jobCard.emboss}</td></tr>` : ''}
-                  ${jobCard.pasting ? `<tr><th>Pasting</th><td>${YES_NO_OPTIONS.find(o=>o.value === jobCard.pasting)?.label || jobCard.pasting}</td></tr>` : ''}
-                  ${jobCard.boxMaking ? `<tr><th>Box Making</th><td>${BOX_MAKING_OPTIONS.find(o=>o.value === jobCard.boxMaking)?.label || jobCard.boxMaking}</td></tr>` : ''}
+                  ${jobCard.kindOfJob ? \`<tr><th style="width:150px;">Kind of Job</th><td>${KINDS_OF_JOB_OPTIONS.find(o=>o.value === jobCard.kindOfJob)?.label || jobCard.kindOfJob}</td></tr>\` : ''}
+                  ${jobCard.printingFront ? \`<tr><th>Printing Front</th><td>${PRINTING_MACHINE_OPTIONS.find(o=>o.value === jobCard.printingFront)?.label || jobCard.printingFront}</td></tr>\` : ''}
+                  ${jobCard.printingBack ? \`<tr><th>Printing Back</th><td>${PRINTING_MACHINE_OPTIONS.find(o=>o.value === jobCard.printingBack)?.label || jobCard.printingBack}</td></tr>\` : ''}
+                  ${jobCard.coating ? \`<tr><th>Coating</th><td>${COATING_OPTIONS.find(o=>o.value === jobCard.coating)?.label || jobCard.coating}</td></tr>\` : ''}
+                  ${jobCard.specialInks ? \`<tr><th>Special Inks</th><td>${jobCard.specialInks}</td></tr>\` : ''}
+                  ${jobCard.die ? \`<tr><th>Die</th><td>${DIE_OPTIONS.find(o=>o.value === jobCard.die)?.label || jobCard.die}</td></tr>\` : ''}
+                  ${jobCard.assignedDieMachine ? \`<tr><th>Assigned Die Machine</th><td>${DIE_MACHINE_OPTIONS.find(o=>o.value === jobCard.assignedDieMachine)?.label || jobCard.assignedDieMachine}</td></tr>\` : ''}
+                  ${jobCard.hotFoilStamping ? \`<tr><th>Hot Foil Stamping</th><td>${HOT_FOIL_OPTIONS.find(o=>o.value === jobCard.hotFoilStamping)?.label || jobCard.hotFoilStamping}</td></tr>\` : ''}
+                  ${jobCard.emboss ? \`<tr><th>Emboss</th><td>${YES_NO_OPTIONS.find(o=>o.value === jobCard.emboss)?.label || jobCard.emboss}</td></tr>\` : ''}
+                  ${jobCard.pasting ? \`<tr><th>Pasting</th><td>${YES_NO_OPTIONS.find(o=>o.value === jobCard.pasting)?.label || jobCard.pasting}</td></tr>\` : ''}
+                  ${jobCard.boxMaking ? \`<tr><th>Box Making</th><td>${BOX_MAKING_OPTIONS.find(o=>o.value === jobCard.boxMaking)?.label || jobCard.boxMaking}</td></tr>\` : ''}
                 </table>
               </div>
   
@@ -429,7 +429,7 @@ export function JobCardForm({ initialJobName, initialCustomerName }: JobCardForm
             </div>
           </body>
         </html>
-      `);
+      \`);
       printWindow.document.close();
       printWindow.focus();
       setTimeout(() => {
@@ -501,7 +501,7 @@ export function JobCardForm({ initialJobName, initialCustomerName }: JobCardForm
       setJobInputValue("");
       setSelectedPastJobId("");
       setJobsForCustomer([]); // Clear jobs list for the previous customer
-      router.push(`/jobs`);
+      router.push(\`/jobs\`);
     } else {
       toast({
         title: "Error",
@@ -886,7 +886,7 @@ export function JobCardForm({ initialJobName, initialCustomerName }: JobCardForm
                           {selectedStep.order}
                         </span>
                        )}
-                       <step.icon className={`mr-1.5 h-4 w-4 ${selectedStep ? 'text-primary' : 'text-muted-foreground'}`} />
+                       <step.icon className={\`mr-1.5 h-4 w-4 ${selectedStep ? 'text-primary' : 'text-muted-foreground'}\`} />
                        {step.name}
                     </div>
                   </Button>
@@ -932,7 +932,7 @@ export function JobCardForm({ initialJobName, initialCustomerName }: JobCardForm
                   <FormItem>
                     <FormLabel>{item.label}</FormLabel>
                     <Select onValueChange={field.onChange} value={String(field.value || "")}>
-                      <FormControl><SelectTrigger className="font-body"><SelectValue placeholder={`Select ${item.label.toLowerCase()}`} /></SelectTrigger></FormControl>
+                      <FormControl><SelectTrigger className="font-body"><SelectValue placeholder={\`Select ${item.label.toLowerCase()}\`} /></SelectTrigger></FormControl>
                       <SelectContent>
                         {item.options.filter(opt => opt.value !== "").map(option => (
                           <SelectItem key={option.value} value={option.value} className="font-body">{option.label}</SelectItem>
