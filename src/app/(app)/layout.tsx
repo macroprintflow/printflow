@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/sidebar';
 import AppLogo from '@/components/AppLogo';
 import { Header } from '@/components/layout/Header';
-import { LayoutDashboard, Briefcase, FileUp, FilePlus2, CalendarCheck2, ClipboardList, UserCircle, Settings, Archive, LogOut } from 'lucide-react'; // Added LogOut
+import { LayoutDashboard, Briefcase, FileUp, FilePlus2, CalendarCheck2, ClipboardList, UserCircle, Settings, Archive, LogOut, type LucideIcon } from 'lucide-react'; // Added LogOut, LucideIcon
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -35,23 +35,32 @@ import { signOut } from 'firebase/auth'; // Import signOut
 import { auth } from '@/lib/firebase/clientApp'; // Import auth
 import { useToast } from '@/hooks/use-toast';
 
-const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/jobs', label: 'All Jobs', icon: Briefcase },
-  { href: '/for-approval', label: 'For Approval', icon: FileUp },
-  { href: '/jobs/new', label: 'New Job Card', icon: FilePlus2 },
-  { href: '/planning', label: 'Production Planning', icon: CalendarCheck2 },
-  { href: '/tasks', label: 'Departmental Tasks', icon: ClipboardList },
-  { href: '/inventory', label: 'Inventory', icon: Archive },
+type UserRole = "Admin" | "Departmental"; // Manager is treated as Admin for access
+
+interface NavItem {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  allowedRoles: UserRole[];
+}
+
+const allNavItems: NavItem[] = [
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, allowedRoles: ['Admin'] },
+  { href: '/jobs', label: 'All Jobs', icon: Briefcase, allowedRoles: ['Admin'] },
+  { href: '/for-approval', label: 'For Approval', icon: FileUp, allowedRoles: ['Admin'] },
+  { href: '/jobs/new', label: 'New Job Card', icon: FilePlus2, allowedRoles: ['Admin'] },
+  { href: '/planning', label: 'Production Planning', icon: CalendarCheck2, allowedRoles: ['Admin'] },
+  { href: '/tasks', label: 'Departmental Tasks', icon: ClipboardList, allowedRoles: ['Admin', 'Departmental'] },
+  { href: '/inventory', label: 'Inventory', icon: Archive, allowedRoles: ['Admin'] },
 ];
 
-// Define your admin email here for temporary role check
+// Define your admin email here
 const ADMIN_EMAIL = "kuvamsharma@printflow.app";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, loading } = useAuth(); // Get user from AuthContext
+  const { user, loading } = useAuth(); 
   const { toast } = useToast();
   const [isClient, setIsClient] = React.useState(false);
 
@@ -61,7 +70,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     if (!loading && !user) {
-      router.push('/login'); // Redirect to login if not authenticated
+      router.push('/login'); 
     }
   }, [user, loading, router]);
 
@@ -76,15 +85,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
   };
 
-  if (loading || (!user && pathname !== '/login')) {
-     // Show loading indicator or redirect immediately if appropriate
-     // For now, AuthProvider handles a global loading screen
+  if (loading || (!user && pathname !== '/login' && pathname !== '/signup')) {
     return null; 
   }
   
   const userDisplayName = user?.displayName || user?.email?.split('@')[0] || "User";
   const userEmail = user?.email || "No email";
-  const isUserAdmin = user?.email === ADMIN_EMAIL;
+  
+  const currentUserRole: UserRole = user?.email === ADMIN_EMAIL ? "Admin" : "Departmental";
+  const userRoleDisplay = currentUserRole === "Admin" ? "Admin" : "User"; // For display in dropdown
+
+  const visibleNavItems = allNavItems.filter(item => 
+    item.allowedRoles.includes(currentUserRole)
+  );
 
   return (
     <ClientOnlyWrapper>
@@ -100,7 +113,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </SidebarHeader>
           <SidebarContent>
             <SidebarMenu>
-              {navItems.map((item) => (
+              {visibleNavItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton
                     asChild
@@ -127,7 +140,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     </Avatar>
                     <div className="flex flex-col items-start group-data-[collapsible=icon]:hidden">
                       <span className="text-sm font-medium text-sidebar-foreground">{userDisplayName}</span>
-                      <span className="text-xs text-sidebar-foreground/70">{isUserAdmin ? "Admin" : "User"}</span>
+                      <span className="text-xs text-sidebar-foreground/70">{userRoleDisplay}</span>
                     </div>
                 </Button>
               </DropdownMenuTrigger>
@@ -147,12 +160,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     Profile
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/settings" className="w-full">
-                    <Settings className="mr-2 h-4 w-4" />
-                    Settings
-                  </Link>
-                </DropdownMenuItem>
+                {currentUserRole === 'Admin' && ( // Only show settings for Admin
+                  <DropdownMenuItem asChild>
+                    <Link href="/settings" className="w-full">
+                      <Settings className="mr-2 h-4 w-4" />
+                      Settings
+                    </Link>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout}>
                   <LogOut className="mr-2 h-4 w-4" />
