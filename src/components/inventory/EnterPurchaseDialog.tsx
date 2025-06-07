@@ -22,7 +22,7 @@ import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
 
-
+// Moved helper components to top-level
 const CurrentItemPaperFields = ({ form, onFormChange }: { form: UseFormReturn<Partial<InventoryItemFormValues>>, onFormChange: () => void }) => {
   const watchedPaperQuality = form.watch("paperQuality");
   const paperUnit = getPaperQualityUnit(watchedPaperQuality as PaperQualityType);
@@ -228,6 +228,7 @@ const deriveItemNameInternal = (values: Partial<InventoryItemFormValues>): strin
       return values.inkName || `Ink (define name)`;
   } else {
       const baseItemName = values.itemName || `${categoryLabel}`;
+      // Check if categoryLabel is already part of baseItemName to avoid duplication like "Plastic Tray (Plastic Trays)"
       if (baseItemName.toLowerCase().includes(categoryLabel.toLowerCase())) {
           return values.itemName || `${categoryLabel} (define name)`;
       }
@@ -250,7 +251,7 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
   const { toast } = useToast();
   
   const currentItemForm = useForm<Partial<InventoryItemFormValues>>({
-    resolver: zodResolver(InventoryItemFormSchema.innerType().partial()), 
+    resolver: zodResolver(InventoryItemFormSchema.innerType().partial()),
     defaultValues: {
       category: undefined,
       quantity: 0,
@@ -321,6 +322,7 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
         category: newCategory, 
         quantity: 0, 
         unit: defaultUnit as UnitValue,
+        // Keep relevant fields if category is the same, otherwise reset
         paperMasterSheetSizeWidth: newCategory === 'PAPER' ? currentItemValues.paperMasterSheetSizeWidth : undefined,
         paperMasterSheetSizeHeight: newCategory === 'PAPER' ? currentItemValues.paperMasterSheetSizeHeight : undefined,
         paperQuality: newCategory === 'PAPER' ? currentItemValues.paperQuality : "",
@@ -328,8 +330,8 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
         paperThicknessMm: newCategory === 'PAPER' ? currentItemValues.paperThicknessMm : undefined,
         inkName: newCategory === 'INKS' ? currentItemValues.inkName : "",
         inkSpecification: newCategory === 'INKS' ? currentItemValues.inkSpecification : "",
-        itemName: "", 
-        itemSpecification: "",
+        itemName: "", // Always clear itemName
+        itemSpecification: "", // Always clear itemSpecification
         reorderPoint: undefined, 
       });
       setCurrentItemCategory(newCategory || null);
