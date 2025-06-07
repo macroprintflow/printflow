@@ -4,9 +4,9 @@ import Image from 'next/image';
 const AppLogo = () => {
   return (
     <div className="flex flex-col items-center gap-2 text-center">
-      <div className="relative w-32 h-12"> {/* Adjusted: Container for the logo. You can change w-32 (8rem/128px) and h-12 (3rem/48px) */}
+      <div className="relative w-64 h-24"> {/* Adjusted: Container for the logo. Doubled from w-32 h-12 */}
         <Image
-          src="/images/logo.png" // Assuming this is the correct path
+          src="/images/logo.png"
           alt="Macro PrintFlow Logo"
           fill
           style={{ objectFit: 'contain' }} // Ensures aspect ratio is maintained within the container
