@@ -29,6 +29,15 @@ const getCategoryDisplayName = (slug: string | string[] | undefined): string => 
   }
 };
 
+// Helper function to format dimension numbers
+const formatDimension = (num?: number): string => {
+  if (num === undefined || num === null) return '';
+  if (Number.isInteger(num)) {
+    return num.toString();
+  }
+  return num.toFixed(1); // Keep one decimal if not an integer
+};
+
 export default function CategorizedInventoryPage() {
   const params = useParams();
   const router = useRouter();
@@ -153,11 +162,8 @@ export default function CategorizedInventoryPage() {
             type: 'spec' as const,
           }));
         }
-        // Fallback to dynamic if predefined not found for finish, or if it doesn't have predefinedSpecs
         const dynamicSpecs = getDynamicSpecsFromInventory();
         if (dynamicSpecs.length === 0 && selectedFinishDef) { 
-            // If dynamic returns nothing, but we have a valid finish selected, still allow adding.
-            // We return an empty array so the "No Specs" message appears, but this choice doesn't block rendering the table view later.
             return [];
         }
         return dynamicSpecs;
@@ -225,7 +231,7 @@ export default function CategorizedInventoryPage() {
       const lowerCaseQuery = searchQuery.toLowerCase();
       itemsToFilter = itemsToFilter.filter(item =>
         item.name.toLowerCase().includes(lowerCaseQuery) ||
-        (item.masterSheetSizeWidth && item.masterSheetSizeHeight && `${item.masterSheetSizeWidth.toFixed(1)} x ${item.masterSheetSizeHeight.toFixed(1)}in`.toLowerCase().includes(lowerCaseQuery)) ||
+        (item.masterSheetSizeWidth && item.masterSheetSizeHeight && `${formatDimension(item.masterSheetSizeWidth)} x ${formatDimension(item.masterSheetSizeHeight)} in`.toLowerCase().includes(lowerCaseQuery)) ||
         item.type.toLowerCase().includes(lowerCaseQuery) ||
         (item.paperGsm && item.paperGsm.toString().includes(lowerCaseQuery)) ||
         (item.paperThicknessMm && item.paperThicknessMm.toString().includes(lowerCaseQuery)) ||
@@ -447,7 +453,7 @@ export default function CategorizedInventoryPage() {
           {items.map((item) => {
             const itemNameDisplay =
               (item.type === 'Master Sheet' && item.masterSheetSizeWidth && item.masterSheetSizeHeight)
-                ? `${item.masterSheetSizeWidth.toFixed(1)} x ${item.masterSheetSizeHeight.toFixed(1)}in`
+                ? `${formatDimension(item.masterSheetSizeWidth)} x ${formatDimension(item.masterSheetSizeHeight)} in`
                 : item.name;
             const itemFontWeight =
               (item.type === 'Master Sheet' && item.masterSheetSizeWidth && item.masterSheetSizeHeight)
