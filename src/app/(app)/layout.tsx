@@ -59,7 +59,8 @@ const allNavItems: NavItem[] = [
 ];
 
 const ADMIN_EMAIL = "kuvam@macroprinters.com".toLowerCase();
-const MANAGER_EMAIL = "niharikasehgal0512@gmail.com".toLowerCase(); // Explicitly defined manager
+const MANAGER_EMAIL = "niharikasehgal0512@gmail.com".toLowerCase();
+const DEPARTMENTAL_EMAIL = "niharikasehgal@icloud.com".toLowerCase();
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -100,18 +101,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      let roleToSet: UserRole = "Customer"; // Default role for new signups and others
-
+      let roleToSet: UserRole;
       const userEmailLower = user.email?.toLowerCase();
 
       if (userEmailLower === ADMIN_EMAIL) {
         roleToSet = "Admin";
       } else if (userEmailLower === MANAGER_EMAIL) {
-        // This user is explicitly designated as a Manager
         roleToSet = "Manager";
+      } else if (userEmailLower === DEPARTMENTAL_EMAIL) {
+        roleToSet = "Departmental";
+      } else {
+        roleToSet = "Customer"; // Default role for all other users
       }
-      // Any other user (including new signups via the app or other console-created users not matching the above)
-      // will retain the default "Customer" role.
       
       console.log(`[Auth Role] Determined role: ${roleToSet} for ${user.email}`);
 
@@ -168,7 +169,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
 
   const userDisplayName = user?.displayName || user?.email?.split('@')[0] || "User";
-  const userEmailDisplay = user?.email || "No email"; // Renamed from userEmail to avoid conflict
+  const userEmailDisplay = user?.email || "No email"; 
 
   const userRoleDisplay = effectiveUserRole;
 
