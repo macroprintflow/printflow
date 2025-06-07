@@ -41,7 +41,7 @@ const CurrentItemPaperFields = ({ form, onFormChange }: { form: UseFormReturn<Pa
           <FormItem>
             <FormLabel>Paper Width (in)</FormLabel>
             <FormControl>
-              <Input type="number" placeholder="e.g., 27.56" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="font-body"/>
+              <Input type="number" placeholder="e.g., 27.56" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="font-body h-11"/>
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -50,7 +50,7 @@ const CurrentItemPaperFields = ({ form, onFormChange }: { form: UseFormReturn<Pa
           <FormItem>
             <FormLabel>Paper Height (in)</FormLabel>
             <FormControl>
-              <Input type="number" placeholder="e.g., 39.37" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="font-body"/>
+              <Input type="number" placeholder="e.g., 39.37" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="font-body h-11"/>
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -65,7 +65,7 @@ const CurrentItemPaperFields = ({ form, onFormChange }: { form: UseFormReturn<Pa
             form.setValue("paperThicknessMm", undefined);
           }} value={field.value || ""}>
             <FormControl>
-                <SelectTrigger className="font-body">
+                <SelectTrigger className="font-body h-11">
                   <SelectValue placeholder="Select paper quality" />
                 </SelectTrigger>
             </FormControl>
@@ -79,7 +79,7 @@ const CurrentItemPaperFields = ({ form, onFormChange }: { form: UseFormReturn<Pa
           <FormItem>
             <FormLabel>Paper GSM</FormLabel>
             <FormControl>
-              <Input type="number" placeholder="e.g., 300" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="font-body"/>
+              <Input type="number" placeholder="e.g., 300" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="font-body h-11"/>
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -90,7 +90,7 @@ const CurrentItemPaperFields = ({ form, onFormChange }: { form: UseFormReturn<Pa
           <FormItem>
             <FormLabel>Paper Thickness (mm)</FormLabel>
             <FormControl>
-              <Input type="number" step="0.1" placeholder="e.g., 1.2" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="font-body"/>
+              <Input type="number" step="0.1" placeholder="e.g., 1.2" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="font-body h-11"/>
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -112,7 +112,7 @@ const CurrentItemInkFields = ({ form, onFormChange }: { form: UseFormReturn<Part
          <FormItem>
              <FormLabel>Ink Name/Type</FormLabel>
              <FormControl>
-              <Input placeholder="e.g., Process Black, Pantone 185C" {...field} value={field.value ?? ''} className="font-body"/>
+              <Input placeholder="e.g., Process Black, Pantone 185C" {...field} value={field.value ?? ''} className="font-body h-11"/>
             </FormControl>
              <FormMessage />
          </FormItem>
@@ -121,7 +121,7 @@ const CurrentItemInkFields = ({ form, onFormChange }: { form: UseFormReturn<Part
          <FormItem>
              <FormLabel>Ink Specification/Color</FormLabel>
              <FormControl>
-              <Input placeholder="e.g., Oil-based, Red" {...field} value={field.value ?? ''}  className="font-body"/>
+              <Input placeholder="e.g., Oil-based, Red" {...field} value={field.value ?? ''}  className="font-body h-11"/>
             </FormControl>
              <FormMessage />
          </FormItem>
@@ -141,7 +141,7 @@ const CurrentItemOtherCategoryFields = ({ form, categoryLabel, onFormChange }: {
       <FormItem>
         <FormLabel>Item Name</FormLabel>
         <FormControl>
-          <Input placeholder={`e.g., ${categoryLabel} Model X`} {...field} value={field.value ?? ''} className="font-body"/>
+          <Input placeholder={`e.g., ${categoryLabel} Model X`} {...field} value={field.value ?? ''} className="font-body h-11"/>
         </FormControl>
         <FormMessage />
       </FormItem>
@@ -150,7 +150,7 @@ const CurrentItemOtherCategoryFields = ({ form, categoryLabel, onFormChange }: {
       <FormItem>
         <FormLabel>Specification</FormLabel>
         <FormControl>
-          <Input placeholder="e.g., Size, Material, Color" {...field} value={field.value ?? ''} className="font-body"/>
+          <Input placeholder="e.g., Size, Material, Color" {...field} value={field.value ?? ''} className="font-body h-11"/>
         </FormControl>
         <FormMessage />
       </FormItem>
@@ -177,7 +177,7 @@ const CurrentItemCommonFields = ({ form, onFormChange }: { form: UseFormReturn<P
                     {...field} 
                     value={field.value ?? ''} 
                     onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} 
-                    className="font-body"
+                    className="font-body h-11"
                 />
               </FormControl>
               <FormMessage />
@@ -188,7 +188,7 @@ const CurrentItemCommonFields = ({ form, onFormChange }: { form: UseFormReturn<P
             <FormLabel>Unit</FormLabel>
             <Select onValueChange={field.onChange} value={field.value || "sheets" as UnitValue}>
               <FormControl>
-                <SelectTrigger className="font-body">
+                <SelectTrigger className="font-body h-11">
                   <SelectValue placeholder="Select unit" />
                 </SelectTrigger>
               </FormControl>
@@ -202,7 +202,7 @@ const CurrentItemCommonFields = ({ form, onFormChange }: { form: UseFormReturn<P
         <FormItem>
           <FormLabel>Reorder Point (Optional)</FormLabel>
           <FormControl>
-            <Input type="number" placeholder="e.g., 100" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="font-body"/>
+            <Input type="number" placeholder="e.g., 100" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="font-body h-11"/>
           </FormControl>
           <FormMessage />
         </FormItem>
@@ -263,8 +263,8 @@ export default function NewPurchasePage() {
     resolver: zodResolver(InventoryItemFormSchema.innerType().partial()),
     defaultValues: {
       category: undefined,
-      quantity: undefined, // Default to empty
-      unit: "sheets" as UnitValue, // General default, overridden by category selection
+      quantity: undefined, 
+      unit: "sheets" as UnitValue, 
       paperMasterSheetSizeWidth: undefined,
       paperMasterSheetSizeHeight: undefined,
       paperQuality: "",
@@ -339,19 +339,28 @@ export default function NewPurchasePage() {
           autoItemName = "Ink Item";
           break;
         case 'PLASTIC_TRAY':
-        case 'GLASS_JAR':
-        case 'MAGNET':
-        case 'OTHER':
           defaultUnit = 'pieces';
-          autoItemName = newCategory === 'PLASTIC_TRAY' ? "Plastic Tray" : newCategory === 'GLASS_JAR' ? "Glass Jar" : newCategory === 'MAGNET' ? "Magnet" : "";
+          autoItemName = "Plastic Tray";
           break;
+        case 'GLASS_JAR':
+          defaultUnit = 'pieces';
+          autoItemName = "Glass Jar";
+          break;
+        case 'MAGNET':
+          defaultUnit = 'pieces';
+          autoItemName = "Magnet";
+          break;
+        case 'OTHER':
+           defaultUnit = 'pieces';
+           autoItemName = ""; 
+           break;
         default:
           defaultUnit = 'units';
       }
       
       currentItemForm.reset({
         category: newCategory, 
-        quantity: undefined, // Reset quantity to empty
+        quantity: undefined, 
         unit: defaultUnit as UnitValue,
         paperMasterSheetSizeWidth: newCategory === 'PAPER' ? currentItemValues.paperMasterSheetSizeWidth : undefined,
         paperMasterSheetSizeHeight: newCategory === 'PAPER' ? currentItemValues.paperMasterSheetSizeHeight : undefined,
@@ -389,7 +398,10 @@ export default function NewPurchasePage() {
       switch (currentCategory) {
         case 'PAPER': autoItemName = "Paper Stock Item"; defaultUnit = 'sheets'; break;
         case 'INKS': autoItemName = "Ink Item"; defaultUnit = 'kg'; break;
-        case 'PLASTIC_TRAY': case 'GLASS_JAR': case 'MAGNET': case 'OTHER':
+        case 'PLASTIC_TRAY': 
+        case 'GLASS_JAR': 
+        case 'MAGNET': 
+        case 'OTHER':
           defaultUnit = 'pieces';
           autoItemName = currentCategory === 'PLASTIC_TRAY' ? "Plastic Tray" : currentCategory === 'GLASS_JAR' ? "Glass Jar" : currentCategory === 'MAGNET' ? "Magnet" : "";
           break;
@@ -399,7 +411,7 @@ export default function NewPurchasePage() {
 
     currentItemForm.reset({ 
         category: undefined, 
-        quantity: undefined, // Reset quantity to empty
+        quantity: undefined, 
         unit: defaultUnit,
         paperMasterSheetSizeWidth: undefined,
         paperMasterSheetSizeHeight: undefined,
@@ -512,13 +524,13 @@ export default function NewPurchasePage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="purchaseBillNoInput">Purchase Bill No.</Label>
-                  <Input id="purchaseBillNoInput" placeholder="e.g., INV-2024-123" value={purchaseBillNo} onChange={(e) => setPurchaseBillNo(e.target.value)} className="font-body"/>
+                  <Input id="purchaseBillNoInput" placeholder="e.g., INV-2024-123" value={purchaseBillNo} onChange={(e) => setPurchaseBillNo(e.target.value)} className="font-body h-11"/>
                 </div>
                 <div className="flex flex-col space-y-2">
                   <Label htmlFor="purchaseDateButton">Purchase Date</Label>
                   <Popover>
                     <PopoverTrigger asChild>
-                        <Button id="purchaseDateButton" variant={"outline"} className={cn("w-full pl-3 text-left font-normal font-body", !purchaseDate && "text-muted-foreground")}>
+                        <Button id="purchaseDateButton" variant={"outline"} className={cn("w-full pl-3 text-left font-normal font-body h-11 py-2", !purchaseDate && "text-muted-foreground")}>
                           {purchaseDate ? format(purchaseDate, "PPP") : <span>Pick a date</span>}
                           <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                         </Button>
@@ -531,7 +543,9 @@ export default function NewPurchasePage() {
                  <div className="space-y-2">
                   <Label htmlFor="purchaseVendorSelect">Vendor Name (Optional)</Label>
                   <Select onValueChange={setPurchaseVendor} value={purchaseVendor || ""}>
-                    <SelectTrigger id="purchaseVendorSelect" className="font-body"><SelectValue placeholder="Select vendor" /></SelectTrigger>
+                    <SelectTrigger id="purchaseVendorSelect" className="font-body h-11">
+                        <SelectValue placeholder="Select vendor" />
+                    </SelectTrigger>
                     <SelectContent>{VENDOR_OPTIONS.map(opt => (<SelectItem key={opt.value} value={opt.value} className="font-body">{opt.label}</SelectItem>))}</SelectContent>
                   </Select>
                 </div>
@@ -547,7 +561,7 @@ export default function NewPurchasePage() {
                         setOtherPurchaseVendor(e.target.value);
                         if (e.target.value.trim()) setOtherVendorError(null);
                     }} 
-                    className={cn("font-body", otherVendorError && "border-destructive")}
+                    className={cn("font-body h-11", otherVendorError && "border-destructive")}
                   />
                    {otherVendorError && <p className="text-xs text-destructive mt-1">{otherVendorError}</p>}
                 </div>
@@ -592,7 +606,7 @@ export default function NewPurchasePage() {
                               break;
                             case 'OTHER':
                                defaultUnit = 'pieces';
-                               autoItemName = ""; // User to define
+                               autoItemName = ""; 
                                break;
                             default:
                               defaultUnit = 'units';
@@ -617,7 +631,7 @@ export default function NewPurchasePage() {
                           handleCurrentItemFormChange(); 
                         }} value={field.value || ""}>
                         <FormControl>
-                          <SelectTrigger className="font-body">
+                          <SelectTrigger className="font-body h-11">
                             <SelectValue placeholder="Select item category" />
                           </SelectTrigger>
                         </FormControl>
@@ -650,7 +664,7 @@ export default function NewPurchasePage() {
             {itemsInPurchaseList.length > 0 && (
               <div className="p-4 border rounded-lg bg-card shadow-sm space-y-2">
                 <h3 className="font-semibold font-headline text-lg">Items in this Purchase</h3>
-                <ScrollArea className="h-[250px] border rounded-md"> {/* Max height for this section */}
+                <ScrollArea className="h-[250px] border rounded-md"> 
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -690,3 +704,5 @@ export default function NewPurchasePage() {
     </div>
   );
 }
+
+    
