@@ -302,7 +302,7 @@ export default function SignupPage() {
                   <Input
                     id="email"
                     type="email"
-                    placeholder="you@example.com"
+                    placeholder="Enter your email here"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
@@ -416,3 +416,4 @@ export default function SignupPage() {
     </div>
   );
 }
+
