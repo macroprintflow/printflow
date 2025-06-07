@@ -319,6 +319,9 @@ export default function NewPurchasePage() {
       
       const newCategory = currentItemForm.getValues().category; 
       const defaultUnit = newCategory === 'PAPER' ? 'sheets' : newCategory === 'INKS' ? 'kg' : 'pieces';
+      let autoItemName = "";
+      if (newCategory === 'PAPER') autoItemName = "Paper Stock Item";
+      else if (newCategory === 'INKS') autoItemName = "Ink Item";
       
       currentItemForm.reset({
         category: newCategory, 
@@ -331,7 +334,7 @@ export default function NewPurchasePage() {
         paperThicknessMm: newCategory === 'PAPER' ? currentItemValues.paperThicknessMm : undefined,
         inkName: newCategory === 'INKS' ? currentItemValues.inkName : "",
         inkSpecification: newCategory === 'INKS' ? currentItemValues.inkSpecification : "",
-        itemName: "", 
+        itemName: autoItemName, 
         itemSpecification: "",
         reorderPoint: undefined, 
       });
@@ -351,6 +354,11 @@ export default function NewPurchasePage() {
     setOtherPurchaseVendor("");
     setOtherVendorError(null);
     setItemsInPurchaseList([]);
+    let autoItemName = "";
+    const currentCategory = currentItemForm.getValues().category;
+    if (currentCategory === 'PAPER') autoItemName = "Paper Stock Item";
+    else if (currentCategory === 'INKS') autoItemName = "Ink Item";
+
     currentItemForm.reset({ 
         category: undefined, 
         quantity: 0, 
@@ -362,7 +370,7 @@ export default function NewPurchasePage() {
         paperThicknessMm: undefined,
         inkName: "",
         inkSpecification: "",
-        itemName: "", 
+        itemName: autoItemName, 
         itemSpecification: "",
         reorderPoint: undefined,
     });
@@ -522,6 +530,10 @@ export default function NewPurchasePage() {
                           field.onChange(value); 
                           setCurrentItemCategory(value as InventoryCategory); 
                           const defaultUnit = value === 'PAPER' ? 'sheets' : value === 'INKS' ? 'kg' : 'pieces';
+                          let autoItemName = "";
+                          if (value === 'PAPER') autoItemName = "Paper Stock Item";
+                          else if (value === 'INKS') autoItemName = "Ink Item";
+                          
                           currentItemForm.reset({
                             category: value as InventoryCategory, 
                             paperMasterSheetSizeWidth: undefined,
@@ -531,7 +543,7 @@ export default function NewPurchasePage() {
                             paperThicknessMm: undefined,
                             inkName: "",
                             inkSpecification: "",
-                            itemName: "", 
+                            itemName: autoItemName, 
                             itemSpecification: "",
                             quantity: 0, 
                             unit: defaultUnit as UnitValue, 
@@ -613,3 +625,4 @@ export default function NewPurchasePage() {
     </div>
   );
 }
+
