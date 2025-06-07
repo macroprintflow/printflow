@@ -38,11 +38,11 @@ import {
 import { Button } from '@/components/ui/button';
 import ClientOnlyWrapper from '@/components/ClientOnlyWrapper';
 import { useAuth } from '@/contexts/AuthContext';
-import { signOut } from 'firebase/auth';
+import { signOut, getIdTokenResult } from 'firebase/auth';
 import { auth } from '@/lib/firebase/clientApp';
 import { useToast } from '@/hooks/use-toast';
 import type { UserRole } from '@/lib/definitions';
-import { getUserRoleFromFirestore, createUserDocumentInFirestore } from '@/lib/actions/userActions'; // Import Firestore actions
+import { getUserRoleFromFirestore, createUserDocumentInFirestore } from '@/lib/actions/userActions'; 
 
 interface NavItem {
   href: string;
@@ -82,8 +82,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     const determineRole = async () => {
       setIsLoadingRole(true);
-      if (!loading && !user) {
-        router.push('/login');
+      if (!user) { // If no user, and not loading, redirect to login.
+        if (!loading) router.push('/login');
         setIsLoadingRole(false);
         return;
       }
@@ -92,44 +92,60 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         let roleToSet: UserRole = "Customer"; // Default
         let roleSource = "Default (Customer)";
 
-        // 1. Attempt to read role from Firestore
-        const firestoreRole = await getUserRoleFromFirestore(user.uid);
-        if (firestoreRole) {
-          roleToSet = firestoreRole;
-          roleSource = "Firestore";
-        } else {
-          // If no Firestore role, check if it's the admin email
-          if (user.email.toLowerCase() === ADMIN_EMAIL) {
-            roleToSet = "Admin";
-            roleSource = "Admin Email (Fallback)";
+        try {
+          // 1. Attempt to read role from Firestore as the primary source
+          const firestoreRole = await getUserRoleFromFirestore(user.uid);
+          if (firestoreRole) {
+            roleToSet = firestoreRole;
+            roleSource = "Firestore";
+          } else {
+            // If no Firestore role, check if it's the admin email (fallback)
+            if (user.email.toLowerCase() === ADMIN_EMAIL) {
+              roleToSet = "Admin";
+              roleSource = "Admin Email (Fallback)";
+            }
+            // Ensure Firestore document exists for this user with the determined/default role
+            await createUserDocumentInFirestore(user, roleToSet);
+            console.log(`[Auth Role] Ensured Firestore document for ${user.email} with role ${roleToSet}`);
           }
-          // Ensure Firestore document exists for this user
-          await createUserDocumentInFirestore(user, roleToSet);
-          console.log(`[Auth Role] Ensured Firestore document for ${user.email} with role ${roleToSet}`);
+        } catch (error) {
+            console.error("[Auth Role] Error determining role from Firestore or creating document:", error);
+            // Fallback if Firestore operations fail (e.g. network issue)
+            if (user.email.toLowerCase() === ADMIN_EMAIL) {
+                roleToSet = "Admin";
+                roleSource = "Admin Email (Error Fallback)";
+            } else {
+                roleToSet = "Customer";
+                roleSource = "Default (Error Fallback)";
+            }
         }
         
-        // 3. Apply Dev Tool Override if it has been used
         if (!isRoleFromDevTool) {
-          console.log(`[Auth Role] Setting effective role to: ${roleToSet} (Source: ${roleSource})`);
-          setEffectiveUserRole(roleToSet);
+          // Only update if the role actually needs changing to prevent potential loops
+          if (effectiveUserRole !== roleToSet) {
+            console.log(`[Auth Role] Setting effective role to: ${roleToSet} (Source: ${roleSource})`);
+            setEffectiveUserRole(roleToSet);
+          } else {
+            // console.log(`[Auth Role] Effective role already ${effectiveUserRole}. No change needed from source ${roleSource}.`);
+          }
         } else {
-           console.log(`[Auth Role] Dev tool role active: ${effectiveUserRole}. Not changing based on Firestore/email.`);
+           // console.log(`[Auth Role] Dev tool role active: ${effectiveUserRole}. Not changing based on Firestore/email.`);
         }
       }
       setIsLoadingRole(false);
     };
 
-    if (!loading) { // Only run if Firebase Auth loading is complete
+    if (!loading) { 
         determineRole();
     }
-  }, [user, loading, router, isRoleFromDevTool, effectiveUserRole]);
+  }, [user, loading, router, isRoleFromDevTool, effectiveUserRole]); // Keep effectiveUserRole for now, as the check `effectiveUserRole !== roleToSet` handles it.
 
   const handleLogout = async () => {
     try {
       await signOut(auth);
       toast({ title: 'Logged Out', description: 'You have been successfully logged out.' });
       setIsRoleFromDevTool(false); 
-      setEffectiveUserRole("Customer"); // Reset effective role on logout
+      setEffectiveUserRole("Customer"); 
       router.push('/login');
     } catch (error) {
       console.error("Logout error:", error);
@@ -144,7 +160,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   };
 
   if (loading || isLoadingRole || (!user && pathname !== '/login' && pathname !== '/signup')) {
-    // You might want a more sophisticated loading screen here
     return null; 
   }
   
@@ -272,5 +287,3 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     </ClientOnlyWrapper>
   );
 }
-
-    
