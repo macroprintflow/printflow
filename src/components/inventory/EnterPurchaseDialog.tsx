@@ -22,6 +22,7 @@ import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
 
+// Top-level component definitions to avoid re-creation on parent render
 const CurrentItemPaperFields = ({ form, onFormChange }: { form: UseFormReturn<Partial<InventoryItemFormValues>>, onFormChange: () => void }) => {
   const watchedPaperQuality = form.watch("paperQuality");
   const paperUnit = getPaperQualityUnit(watchedPaperQuality as PaperQualityType);
@@ -267,7 +268,6 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
       currentItemForm.reset({
         category: undefined,
         quantity: 0,
-        unit: "sheets" as UnitValue,
         paperMasterSheetSizeWidth: undefined,
         paperMasterSheetSizeHeight: undefined,
         paperQuality: "",
@@ -328,10 +328,8 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
     }
 
     setIsSubmittingPurchase(true);
-    let allItemsSaved = true;
-    let errorMessages: string[] = [];
 
-    for (const item of itemsInPurchaseList) {
+    const itemPromises = itemsInPurchaseList.map(item => {
       const itemDataForAction: InventoryItemFormValues = {
         ...item,
         purchaseBillNo: purchaseBillNo,
@@ -340,13 +338,20 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
         otherVendorName: purchaseVendor === 'OTHER' ? otherPurchaseVendor : "",
         itemName: item.itemName || item.displayName, 
       };
-      
-      const result = await addInventoryItem(itemDataForAction);
+      return addInventoryItem(itemDataForAction);
+    });
+
+    const results = await Promise.all(itemPromises);
+    
+    const errorMessages: string[] = [];
+    results.forEach((result, index) => {
       if (!result.success) {
-        allItemsSaved = false;
-        errorMessages.push(`Failed for item "${item.displayName}": ${result.message}`);
+        errorMessages.push(`Failed for item "${itemsInPurchaseList[index].displayName}": ${result.message}`);
       }
-    }
+    });
+    
+    const allItemsSaved = errorMessages.length === 0;
+
     setIsSubmittingPurchase(false);
 
     if (allItemsSaved) {
@@ -525,7 +530,3 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
     </Dialog>
   );
 }
-
-    
-
-    
