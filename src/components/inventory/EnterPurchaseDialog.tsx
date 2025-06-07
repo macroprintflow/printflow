@@ -195,7 +195,7 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
   const { toast } = useToast();
   
   const currentItemForm = useForm<Partial<InventoryItemFormValues>>({
-    resolver: zodResolver(InventoryItemFormSchema.sourceSchema.partial()), // Use partial schema for current item
+    resolver: zodResolver(InventoryItemFormSchema.innerType().partial()), // Use partial schema for current item
     defaultValues: {
       category: undefined,
       quantity: 0,
