@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Search, ArrowUpDown, XCircle, Printer, FileText } from "lucide-react";
+import { Loader2, Search, ArrowUpDown, XCircle, Printer, FileText, Eye } from "lucide-react"; // Added Eye
 import type { JobCardData } from "@/lib/definitions";
 import { getJobCards } from "@/lib/actions/jobActions";
 import { handlePrintJobCard } from "@/lib/printUtils"; // Import print utility
@@ -121,17 +121,10 @@ export function ViewAllJobsModal({ isOpen, setIsOpen, onJobSelect }: ViewAllJobs
     setIsOpen(openState);
   };
 
-  const onViewJobPdf = (pdfDataUri: string | undefined) => {
-    if (pdfDataUri) {
-      window.open(pdfDataUri, '_blank');
-    } else {
-      toast({
-        title: "No PDF",
-        description: "No PDF is associated with this job.",
-        variant: "default",
-      });
-    }
+  const handleViewJobCard = (job: JobCardData) => {
+    handlePrintJobCard(job, toast, false); // Call with autoPrint set to false
   };
+
 
   return (
     <Dialog open={isOpen} onOpenChange={handleDialogClose}>
@@ -231,7 +224,7 @@ export function ViewAllJobsModal({ isOpen, setIsOpen, onJobSelect }: ViewAllJobs
                         <Button 
                           variant="outline" 
                           size="sm" 
-                          onClick={() => handlePrintJobCard(job, toast)}
+                          onClick={() => handlePrintJobCard(job, toast)} // autoPrint defaults to true
                           title="Print Job Card Again"
                         >
                             <Printer className="h-4 w-4" />
@@ -239,12 +232,10 @@ export function ViewAllJobsModal({ isOpen, setIsOpen, onJobSelect }: ViewAllJobs
                         <Button 
                           variant="outline" 
                           size="sm" 
-                          onClick={() => onViewJobPdf(job.pdfDataUri)}
-                          disabled={!job.pdfDataUri}
-                          className={cn(!job.pdfDataUri && "cursor-not-allowed")}
-                          title={job.pdfDataUri ? "View Associated PDF" : "No PDF Associated"}
+                          onClick={() => handleViewJobCard(job)}
+                          title="View Job Card Details"
                         >
-                            <FileText className="h-4 w-4" />
+                            <Eye className="h-4 w-4" /> {/* Changed icon to Eye */}
                         </Button>
                     </TableCell>
                   </TableRow>
@@ -263,4 +254,3 @@ export function ViewAllJobsModal({ isOpen, setIsOpen, onJobSelect }: ViewAllJobs
     </Dialog>
   );
 }
-

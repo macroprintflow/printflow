@@ -20,7 +20,7 @@ import type { useToast } from '@/hooks/use-toast'; // For type only
 
 type ToastFunction = ReturnType<typeof useToast>['toast'];
 
-export const handlePrintJobCard = async (jobCard: JobCardData, toast: ToastFunction) => {
+export const handlePrintJobCard = async (jobCard: JobCardData, toast: ToastFunction, autoPrint: boolean = true) => {
   const logoUrl = '/images/logo.png'; 
   let qrCodeDataUrl = '';
 
@@ -159,9 +159,11 @@ export const handlePrintJobCard = async (jobCard: JobCardData, toast: ToastFunct
     `);
     printWindow.document.close();
     printWindow.focus();
-    setTimeout(() => {
-        printWindow.print();
-    }, 500); 
+    if (autoPrint) {
+      setTimeout(() => {
+          printWindow.print();
+      }, 500); 
+    }
   } else {
     toast({
       title: "Print Error",
