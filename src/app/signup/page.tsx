@@ -98,7 +98,7 @@ export default function SignupPage() {
       window.recaptchaVerifier = new RecaptchaVerifier(auth, recaptchaContainerRef.current, {
         size: 'invisible',
         'callback': (response: any) => {
-          console.log("Signup Page: reCAPTCHA solved by verifier callback. Response:", response);
+          console.log("reCAPTCHA solved (Signup Page)");
         },
         'expired-callback': () => {
           console.log("Signup Page: reCAPTCHA expired via callback.");
@@ -183,20 +183,20 @@ export default function SignupPage() {
       }
       const fullPhoneNumber = country.dialCode + phoneNumber;
 
-      if (!/^\\+[1-9]\\d{1,14}$/.test(fullPhoneNumber)) {
+      if (!/^\+[1-9]\d{1,14}$/.test(fullPhoneNumber)) {
         toast({ title: "Invalid Phone Number", description: "Please enter a valid phone number after selecting country code.", variant: "destructive" });
         setIsLoading(false);
         return;
       }
 
-      console.log("Signup Page: Attempting to send OTP to " + fullPhoneNumber);
+      console.log(`Attempting to send OTP to ${fullPhoneNumber} (Signup Page)`);
       try {
         window.confirmationResult = await signInWithPhoneNumber(auth, fullPhoneNumber, recaptchaVerifier);
         setOtpSent(true);
         toast({ title: 'OTP Sent', description: `An OTP has been sent to ${fullPhoneNumber}.` });
-        console.log("Signup Page: OTP Sent, confirmationResult stored.");
+        console.log("OTP sent (Signup Page)");
       } catch (error: any) {
-        console.error("Signup Page: Error sending OTP:", error);
+        console.error("Error during signInWithPhoneNumber (Signup Page)", error);
         let errorDesc = "Could not send OTP. " + (error.message || "Please try again.");
         if (error.code === 'auth/invalid-phone-number') {
             errorDesc = "The phone number provided is not valid.";
@@ -237,7 +237,7 @@ export default function SignupPage() {
       console.log("Signup Page: Attempting to verify OTP " + otp);
       try {
         const userCredential = await window.confirmationResult.confirm(otp);
-        console.log("Signup Page: OTP Verify - Successfully verified.");
+        console.log("User signed in (Signup Page)", userCredential.user);
         if (userCredential.user && displayName.trim() !== '') {
           try {
             await updateProfile(userCredential.user as User, { displayName: displayName.trim() });
@@ -254,7 +254,7 @@ export default function SignupPage() {
         toast({ title: 'Phone Signup Successful', description: 'Your account has been created!' });
         router.push('/dashboard');
       } catch (error: any) {
-        console.error("Signup Page: Error verifying OTP:", error);
+        console.error("Invalid OTP (Signup Page)", error);
         let errorDesc = "Could not verify OTP. " + (error.message || "Incorrect OTP or an error occurred.");
         if (error.code === 'auth/invalid-verification-code') {
             errorDesc = "The OTP entered is incorrect. Please try again.";
@@ -413,7 +413,7 @@ export default function SignupPage() {
                       onValueChange={setSelectedCountryCode}
                       disabled={otpSent || isLoading || isGoogleLoading}
                     >
-                      <SelectTrigger className="w-[150px] font-body">
+                      <SelectTrigger className="w-[120px] font-body">
                          <SelectValue>
                           {selectedCountryInfo ? `${selectedCountryInfo.code} (${selectedCountryInfo.dialCode})` : "Country"}
                         </SelectValue>
