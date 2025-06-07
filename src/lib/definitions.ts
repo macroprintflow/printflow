@@ -2,7 +2,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   FileCheck2, Scissors, Printer, Wand2, Film, Crop, Sparkles, ClipboardPaste, Box, Package, FileSpreadsheet,
-  FileText, Newspaper, Archive as ArchiveIcon, Layers 
+  FileText, Newspaper, Archive as ArchiveIcon, Layers
 } from "lucide-react"; // Renamed Archive to ArchiveIcon to avoid conflict
 import { z } from 'zod';
 
@@ -466,7 +466,7 @@ export type InventoryAdjustmentItemFormValues = z.infer<typeof InventoryAdjustme
 
 export type PaperSubCategoryFilterValue =
   | "SBS" | "KAPPA_GROUP" | "GREYBACK" | "WHITEBACK" | "ART_PAPER_GROUP"
-  | "JAPANESE_PAPER" | "IMPORTED_PAPER" | "MDF_GROUP" | "BUTTER_PAPER" // Changed MDF to MDF_GROUP
+  | "JAPANESE_PAPER" | "IMPORTED_PAPER" | "MDF_GROUP" | "BUTTER_PAPER"
   | "OTHER_PAPER_GROUP" | "__ALL_PAPER__";
 
 export type ArtPaperFinishFilterValue = "ART_PAPER_MATT_FINISH" | "ART_PAPER_GLOSS_FINISH";
@@ -477,13 +477,13 @@ export type SubCategoryFinishFilterValue = ArtPaperFinishFilterValue | KappaFini
 export type PaperSubCategory = {
   name: string;
   filterValue: PaperSubCategoryFilterValue;
-  qualityValues: PaperQualityType[]; // For filtering inventory items
+  qualityValues: PaperQualityType[]; 
   predefinedSpecs?: number[];
   specUnit?: 'GSM' | 'mm';
   subFinishes?: Array<{
     name: string;
     finishFilterValue: SubCategoryFinishFilterValue;
-    actualQualityValue: PaperQualityType; // The actual paperQuality value for filtering
+    actualQualityValue: PaperQualityType; 
     predefinedSpecs: number[];
     specUnit: 'GSM' | 'mm';
     icon: LucideIcon;
@@ -500,7 +500,7 @@ export const PAPER_SUB_CATEGORIES: PaperSubCategory[] = [
   },
   {
     name: "Kappa Paper", filterValue: "KAPPA_GROUP", icon: Newspaper,
-    qualityValues: ["GG_KAPPA", "WG_KAPPA"], // Covers both types
+    qualityValues: ["GG_KAPPA", "WG_KAPPA"],
     subFinishes: [
       {
         name: "Grey-Grey (GG) Kappa", finishFilterValue: "KAPPA_GG_FINISH", actualQualityValue: "GG_KAPPA",
@@ -526,7 +526,7 @@ export const PAPER_SUB_CATEGORIES: PaperSubCategory[] = [
   },
   {
     name: "Art Paper", filterValue: "ART_PAPER_GROUP", icon: Newspaper,
-    qualityValues: ["ART_PAPER_GLOSS", "ART_PAPER_MATT"], // Covers both types
+    qualityValues: ["ART_PAPER_GLOSS", "ART_PAPER_MATT"],
     subFinishes: [
       {
         name: "Matt Finish", finishFilterValue: "ART_PAPER_MATT_FINISH", actualQualityValue: "ART_PAPER_MATT",
@@ -540,28 +540,42 @@ export const PAPER_SUB_CATEGORIES: PaperSubCategory[] = [
   },
   {
     name: "Japanese Paper", filterValue: "JAPANESE_PAPER", icon: FileText,
-    qualityValues: ["JAPANESE_PAPER"], // Dynamic specs based on inventory
+    qualityValues: ["JAPANESE_PAPER"],
   },
   {
     name: "Imported Paper", filterValue: "IMPORTED_PAPER", icon: FileText,
-    qualityValues: ["IMPORTED_PAPER"], // Dynamic specs based on inventory
+    qualityValues: ["IMPORTED_PAPER"],
   },
   {
-    name: "MDF", filterValue: "MDF_GROUP", icon: Box, // Changed to MDF_GROUP
+    name: "MDF", filterValue: "MDF_GROUP", icon: Box,
     qualityValues: ["MDF"],
     predefinedSpecs: [2.0, 2.3, 2.5, 3.0, 4.0, 5.0, 6.0],
     specUnit: 'mm',
   },
   {
     name: "Butter Paper", filterValue: "BUTTER_PAPER", icon: FileText,
-    qualityValues: ["BUTTER_PAPER"], // Dynamic specs based on inventory
+    qualityValues: ["BUTTER_PAPER"],
   },
   {
-    name: "Other Paper", filterValue: "OTHER_PAPER_GROUP", icon: ArchiveIcon, // Changed to ArchiveIcon
-    qualityValues: [], // Will look for any paper not in the above explicit groups, dynamic specs
+    name: "Other Paper", filterValue: "OTHER_PAPER_GROUP", icon: ArchiveIcon,
+    qualityValues: [],
   },
   {
     name: "View All Paper Types", filterValue: "__ALL_PAPER__", icon: Printer,
-    qualityValues: [], // Shows all paper types, no further spec filtering from here
+    qualityValues: [],
   },
 ];
+
+export interface DesignSubmission {
+  id: string;
+  pdfName: string;
+  jobName: string;
+  customerName: string;
+  uploader: string;
+  date: string;
+  status: "pending" | "approved" | "rejected";
+  pdfDataUri?: string; // For holding the base64 PDF data
+  backendSubmissionId?: string; // ID from the backend flow
+}
+
+    

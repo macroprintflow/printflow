@@ -6,58 +6,111 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { UploadCloud, FileText, CheckCircle, Send } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { UploadCloud, FileText, CheckCircle, Send, Loader2 } from "lucide-react";
+import { useState, type FormEvent, type ChangeEvent } from "react";
+import type { DesignSubmission } from "@/lib/definitions";
+import { submitDesignForApproval, type SubmitDesignInput, type SubmitDesignOutput } from "@/ai/flows/design-submission-flow";
 
-interface DesignSubmission {
-  id: string;
-  pdfName: string;
-  jobName: string;
-  customerName: string;
-  uploader: string; // Placeholder
-  date: string;
-  status: "pending" | "approved" | "rejected";
-}
+
+// Helper function to convert file to Data URI
+const fileToDataUri = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
+
 
 export default function ForApprovalPage() {
   const { toast } = useToast();
-  const [pdfName, setPdfName] = useState("");
   const [jobName, setJobName] = useState("");
   const [customerName, setCustomerName] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [designs, setDesigns] = useState<DesignSubmission[]>([
     { id: "pdf1", pdfName: "Marketing Brochure Q3.pdf", jobName: "Q3 Brochure", customerName: "Client Corp", uploader: "Designer Alice", date: "2024-07-28", status: "pending" },
     { id: "pdf2", pdfName: "New Product Packaging_v2.pdf", jobName: "Super Product Box", customerName: "Retail Giant", uploader: "Designer Bob", date: "2024-07-29", status: "approved" },
   ]);
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setSelectedFile(e.target.files[0]);
+    } else {
+      setSelectedFile(null);
+    }
+  };
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!pdfName || !jobName || !customerName) {
+    if (!selectedFile || !jobName || !customerName) {
       toast({
         title: "Missing Information",
-        description: "Please fill in PDF Name, Job Name, and Customer Name.",
+        description: "Please select a PDF file and fill in Job Name, and Customer Name.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (selectedFile.type !== "application/pdf") {
+      toast({
+        title: "Invalid File Type",
+        description: "Please select a PDF file.",
         variant: "destructive",
       });
       return;
     }
 
-    const newSubmission: DesignSubmission = {
-      id: `design-${Date.now()}`,
-      pdfName,
-      jobName,
-      customerName,
-      uploader: "Current Designer", // Placeholder
-      date: new Date().toISOString().split("T")[0],
-      status: "pending",
-    };
-    setDesigns(prev => [newSubmission, ...prev]);
-    toast({
-      title: "Design Submitted",
-      description: `${pdfName} has been submitted for approval.`,
-    });
-    setPdfName("");
-    setJobName("");
-    setCustomerName("");
+    setIsSubmitting(true);
+
+    try {
+      const pdfDataUri = await fileToDataUri(selectedFile);
+      
+      const submissionInput: SubmitDesignInput = {
+        pdfName: selectedFile.name,
+        jobName,
+        customerName,
+        pdfDataUri,
+      };
+
+      const backendResponse: SubmitDesignOutput = await submitDesignForApproval(submissionInput);
+
+      const newSubmission: DesignSubmission = {
+        id: backendResponse.submissionId || `local-${Date.now()}`,
+        backendSubmissionId: backendResponse.submissionId,
+        pdfName: selectedFile.name,
+        jobName,
+        customerName,
+        uploader: "Current User", // Placeholder, ideally from auth
+        date: new Date().toISOString().split("T")[0],
+        status: backendResponse.status as "pending" || "pending", // Assuming flow returns 'pending'
+        pdfDataUri: pdfDataUri, // Optionally store for local display if needed
+      };
+      setDesigns(prev => [newSubmission, ...prev]);
+      
+      toast({
+        title: "Design Submitted",
+        description: `${selectedFile.name} has been submitted for approval. ${backendResponse.message || ''}`,
+      });
+
+      // Reset form
+      setJobName("");
+      setCustomerName("");
+      setSelectedFile(null);
+      const fileInput = document.getElementById('pdfFile') as HTMLInputElement;
+      if (fileInput) fileInput.value = "";
+
+    } catch (error) {
+      console.error("Submission error:", error);
+      toast({
+        title: "Submission Failed",
+        description: error instanceof Error ? error.message : "Could not submit design.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleApproval = (id: string, approve: boolean) => {
@@ -68,7 +121,7 @@ export default function ForApprovalPage() {
     );
     toast({
       title: approve ? "Design Approved" : "Design Rejected",
-      description: `The design has been ${approve ? "approved" : "rejected"}.`,
+      description: `The design status has been updated to ${approve ? "approved" : "rejected"}.`,
     });
   };
 
@@ -81,21 +134,21 @@ export default function ForApprovalPage() {
             Submit Design for Approval
           </CardTitle>
           <CardDescription className="font-body">
-            Designers: Fill in the details and submit your PDF artwork for manager approval.
-            Approved designs will become available for job card creation.
+            Designers: Fill in the details, upload your PDF artwork, and submit for manager approval.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <Label htmlFor="pdfName" className="font-body">PDF File Name (e.g., final_brochure_v3.pdf)</Label>
+              <Label htmlFor="pdfFile" className="font-body">Upload PDF Artwork</Label>
               <Input 
-                id="pdfName" 
-                value={pdfName} 
-                onChange={(e) => setPdfName(e.target.value)} 
-                placeholder="Enter PDF file name" 
-                className="font-body"
+                id="pdfFile" 
+                type="file"
+                accept=".pdf"
+                onChange={handleFileChange}
+                className="font-body file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
               />
+               {selectedFile && <p className="text-xs text-muted-foreground mt-1">Selected: {selectedFile.name}</p>}
             </div>
             <div>
               <Label htmlFor="jobName" className="font-body">Job Name (e.g., Spring Catalog 2025)</Label>
@@ -117,8 +170,9 @@ export default function ForApprovalPage() {
                 className="font-body"
               />
             </div>
-            <Button type="submit" className="font-body">
-              <Send className="mr-2 h-4 w-4" /> Submit for Approval
+            <Button type="submit" className="font-body" disabled={isSubmitting}>
+              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+              {isSubmitting ? "Submitting..." : "Submit for Approval"}
             </Button>
           </form>
         </CardContent>
@@ -175,3 +229,5 @@ export default function ForApprovalPage() {
     </div>
   );
 }
+
+    
