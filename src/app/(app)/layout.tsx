@@ -35,8 +35,8 @@ import ClientOnlyWrapper from '@/components/ClientOnlyWrapper';
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/jobs', label: 'All Jobs', icon: Briefcase },
-  { href: '/jobs/new', label: 'New Job Card', icon: FilePlus2 },
   { href: '/for-approval', label: 'For Approval', icon: FileUp },
+  { href: '/jobs/new', label: 'New Job Card', icon: FilePlus2 },
   { href: '/planning', label: 'Production Planning', icon: CalendarCheck2 },
   { href: '/tasks', label: 'Departmental Tasks', icon: ClipboardList },
   { href: '/inventory', label: 'Inventory', icon: Archive },
