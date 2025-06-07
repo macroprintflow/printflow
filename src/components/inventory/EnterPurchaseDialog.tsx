@@ -22,8 +22,6 @@ import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
 
-// Moved child components to top-level
-
 const CurrentItemPaperFields = ({ form, onFormChange }: { form: UseFormReturn<Partial<InventoryItemFormValues>>, onFormChange: () => void }) => {
   const watchedPaperQuality = form.watch("paperQuality");
   const paperUnit = getPaperQualityUnit(watchedPaperQuality as PaperQualityType);
@@ -59,7 +57,11 @@ const CurrentItemPaperFields = ({ form, onFormChange }: { form: UseFormReturn<Pa
             form.setValue("paperGsm", undefined);
             form.setValue("paperThicknessMm", undefined);
           }} value={field.value || ""}>
-            <FormControl><SelectTrigger className="font-body"><SelectValue placeholder="Select paper quality" /></SelectTrigger></FormControl>
+            <FormControl>
+              <div>
+                <SelectTrigger className="font-body"><SelectValue placeholder="Select paper quality" /></SelectTrigger>
+              </div>
+            </FormControl>
             <SelectContent>{PAPER_QUALITY_OPTIONS.map(opt => (<SelectItem key={opt.value} value={opt.value} className="font-body">{opt.label}</SelectItem>))}</SelectContent>
           </Select>
           <FormMessage />
@@ -156,9 +158,11 @@ const CurrentItemCommonFields = ({ form, onFormChange }: { form: UseFormReturn<P
         <FormField control={form.control} name="unit" render={({ field }) => (
           <FormItem>
             <FormLabel>Unit</FormLabel>
-            <Select onValueChange={field.onChange} value={field.value || "sheets"}>
+            <Select onValueChange={field.onChange} value={field.value || "sheets" as UnitValue}>
               <FormControl>
-                <SelectTrigger className="font-body"><SelectValue placeholder="Select unit" /></SelectTrigger>
+                <div>
+                  <SelectTrigger className="font-body"><SelectValue placeholder="Select unit" /></SelectTrigger>
+                </div>
               </FormControl>
               <SelectContent>{UNIT_OPTIONS.map(opt => (<SelectItem key={opt.value} value={opt.value} className="font-body">{opt.label}</SelectItem>))}</SelectContent>
             </Select>
@@ -191,9 +195,11 @@ const deriveItemNameInternal = (values: Partial<InventoryItemFormValues>): strin
       const width = values.paperMasterSheetSizeWidth || 0;
       const height = values.paperMasterSheetSizeHeight || 0;
       if (unit === 'mm') {
-          return `${qualityLabel} ${values.paperThicknessMm || '?'}mm (${width.toFixed(1)}x${height.toFixed(1)}in)`;
+          const thickness = values.paperThicknessMm || '?';
+          return `${qualityLabel} ${thickness}mm (${width.toFixed(1)}x${height.toFixed(1)}in)`;
       }
-      return `${qualityLabel} ${values.paperGsm || '?'}GSM (${width.toFixed(1)}x${height.toFixed(1)}in)`;
+      const gsm = values.paperGsm || '?';
+      return `${qualityLabel} ${gsm}GSM (${width.toFixed(1)}x${height.toFixed(1)}in)`;
   } else if (values.category === 'INKS') {
       return values.inkName || `Ink (define name)`;
   } else {
@@ -215,7 +221,7 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
   const { toast } = useToast();
   
   const currentItemForm = useForm<Partial<InventoryItemFormValues>>({
-    resolver: zodResolver(InventoryItemFormSchema.innerType().partial()),
+    resolver: zodResolver(InventoryItemFormSchema.innerType().partial()), 
     defaultValues: {
       category: undefined,
       quantity: 0,
@@ -314,7 +320,7 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
         dateOfEntry: purchaseDate.toISOString(),
         vendorName: purchaseVendor,
         otherVendorName: purchaseVendor === 'OTHER' ? otherPurchaseVendor : "",
-        itemName: item.itemName || item.displayName,
+        itemName: item.itemName || item.displayName, 
       };
       
       const result = await addInventoryItem(itemDataForAction);
@@ -411,10 +417,9 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
                       <Select onValueChange={(value) => { 
                           field.onChange(value); 
                           setCurrentItemCategory(value as InventoryCategory); 
-                          // Reset specific fields when category changes
                           currentItemForm.reset({
-                            ...currentItemForm.getValues(), // keep existing common values like quantity if needed
-                            category: value as InventoryCategory, // set new category
+                            ...currentItemForm.getValues(), 
+                            category: value as InventoryCategory, 
                             paperMasterSheetSizeWidth: undefined,
                             paperMasterSheetSizeHeight: undefined,
                             paperQuality: "",
@@ -422,13 +427,17 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
                             paperThicknessMm: undefined,
                             inkName: "",
                             inkSpecification: "",
-                            itemName: "", // Reset itemName so deriveItemName can work correctly
+                            itemName: "", 
                             itemSpecification: "",
-                            unit: value === 'PAPER' ? 'sheets' : value === 'INKS' ? 'kg' : 'pieces' // Set default unit by category
+                            unit: value === 'PAPER' ? 'sheets' : value === 'INKS' ? 'kg' : 'pieces' 
                           });
-                          handleCurrentItemFormChange(); // Update derived name
+                          handleCurrentItemFormChange(); 
                         }} value={field.value || ""}>
-                        <FormControl><SelectTrigger className="font-body"><SelectValue placeholder="Select item category" /></SelectTrigger></FormControl>
+                        <FormControl>
+                          <div>
+                            <SelectTrigger className="font-body"><SelectValue placeholder="Select item category" /></SelectTrigger>
+                          </div>
+                        </FormControl>
                         <SelectContent>{INVENTORY_CATEGORIES.map(cat => (<SelectItem key={cat.value} value={cat.value} className="font-body">{cat.label}</SelectItem>))}</SelectContent>
                       </Select>
                       <FormMessage />
@@ -500,5 +509,3 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
     </Dialog>
   );
 }
-
-    
