@@ -227,6 +227,16 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
       category: undefined,
       quantity: 0,
       unit: "sheets" as UnitValue,
+      paperMasterSheetSizeWidth: undefined,
+      paperMasterSheetSizeHeight: undefined,
+      paperQuality: "",
+      paperGsm: undefined,
+      paperThicknessMm: undefined,
+      inkName: "",
+      inkSpecification: "",
+      itemName: "", 
+      itemSpecification: "",
+      reorderPoint: undefined,
     },
   });
 
@@ -251,7 +261,7 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
         return;
       }
       if (!isValid) {
-        toast({ title: "Current Item Incomplete", description: "Please fill all required fields for the current item based on its category (e.g., paper specs, ink name).", variant: "destructive" });
+        toast({ title: "Current Item Incomplete", description: "Please fill all required fields for the current item based on its category (e.g., paper specs, ink name). Refer to highlighted fields.", variant: "destructive" });
         return;
       }
 
@@ -275,22 +285,26 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
       setItemsInPurchaseList(prev => [...prev, newItemForList]);
       setNextDisplayId(prev => prev + 1);
       
+      const newCategory = currentItemForm.getValues().category; // Keep the category if user wants to add more of same type
+      const defaultUnit = newCategory === 'PAPER' ? 'sheets' : newCategory === 'INKS' ? 'kg' : 'pieces';
+      
       currentItemForm.reset({
-        category: undefined,
-        quantity: 0,
-        unit: "sheets" as UnitValue,
-        paperMasterSheetSizeWidth: undefined,
-        paperMasterSheetSizeHeight: undefined,
-        paperQuality: "",
-        paperGsm: undefined,
-        paperThicknessMm: undefined,
-        inkName: "",
-        inkSpecification: "",
-        itemName: "", 
+        category: newCategory, // Keep current category
+        quantity: 0, // Reset quantity for new item
+        unit: defaultUnit as UnitValue,
+        // Reset other fields unless you want them to persist for same-category items
+        paperMasterSheetSizeWidth: newCategory === 'PAPER' ? currentItemValues.paperMasterSheetSizeWidth : undefined,
+        paperMasterSheetSizeHeight: newCategory === 'PAPER' ? currentItemValues.paperMasterSheetSizeHeight : undefined,
+        paperQuality: newCategory === 'PAPER' ? currentItemValues.paperQuality : "",
+        paperGsm: newCategory === 'PAPER' ? currentItemValues.paperGsm : undefined,
+        paperThicknessMm: newCategory === 'PAPER' ? currentItemValues.paperThicknessMm : undefined,
+        inkName: newCategory === 'INKS' ? currentItemValues.inkName : "",
+        inkSpecification: newCategory === 'INKS' ? currentItemValues.inkSpecification : "",
+        itemName: "", // Always reset item name for non-paper/ink, or if different from derived
         itemSpecification: "",
-        reorderPoint: undefined,
+        reorderPoint: undefined, // Typically reset reorder point
       });
-      setCurrentItemCategory(null);
+      setCurrentItemCategory(newCategory || null);
       setDerivedCurrentItemName("");
     });
   };
@@ -328,7 +342,7 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
   };
 
   const handleSavePurchase = async () => {
-    setOtherVendorError(null); // Reset vendor error
+    setOtherVendorError(null); 
     if (!purchaseBillNo.trim()) {
       toast({ title: "Missing Purchase Bill No.", description: "Please enter the purchase bill number.", variant: "destructive" });
       return;
@@ -473,7 +487,6 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
                           setCurrentItemCategory(value as InventoryCategory); 
                           const defaultUnit = value === 'PAPER' ? 'sheets' : value === 'INKS' ? 'kg' : 'pieces';
                           currentItemForm.reset({
-                            ...currentItemForm.getValues(), 
                             category: value as InventoryCategory, 
                             paperMasterSheetSizeWidth: undefined,
                             paperMasterSheetSizeHeight: undefined,
@@ -484,7 +497,7 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
                             inkSpecification: "",
                             itemName: "", 
                             itemSpecification: "",
-                            quantity: 0, // Reset quantity for new item
+                            quantity: 0, 
                             unit: defaultUnit as UnitValue, 
                             reorderPoint: undefined,
                           });
