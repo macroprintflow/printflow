@@ -153,7 +153,14 @@ export default function CategorizedInventoryPage() {
             type: 'spec' as const,
           }));
         }
-        return getDynamicSpecsFromInventory(); // Fallback to dynamic if predefined not found for finish
+        // Fallback to dynamic if predefined not found for finish, or if it doesn't have predefinedSpecs
+        const dynamicSpecs = getDynamicSpecsFromInventory();
+        if (dynamicSpecs.length === 0 && selectedFinishDef) { 
+            // If dynamic returns nothing, but we have a valid finish selected, still allow adding.
+            // We return an empty array so the "No Specs" message appears, but this choice doesn't block rendering the table view later.
+            return [];
+        }
+        return dynamicSpecs;
       }
     }
 
@@ -484,7 +491,7 @@ export default function CategorizedInventoryPage() {
         </TableBody>
       </Table>
     );
-  }, [isLoading, searchQuery, categoryDisplayName, categorySlug, inventoryItems, currentPaperSubCategoryDefinition, selectedSubCategoryFinishFilter, selectedSpec]);
+  }, [isLoading, searchQuery, categoryDisplayName, categorySlug, currentPaperSubCategoryDefinition, selectedSubCategoryFinishFilter, selectedSpec, inventoryItems]);
 
 
   if (categorySlug === "paper") {
