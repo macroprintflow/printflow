@@ -3,7 +3,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Archive, PlusCircle, Search, History, ArrowLeft, Printer, Paintbrush, Box, Package, MagnetIcon, FileText, Newspaper, ShoppingCart, Warehouse, Layers } from "lucide-react";
+import { Archive, PlusCircle, Search, History, ArrowLeft, Printer, Layers, FileText, Newspaper, Box, ShoppingCart, Warehouse } from "lucide-react"; // Removed unused icons, added Layers
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -80,46 +80,55 @@ export default function CategorizedInventoryPage() {
 
   const handleInventoryUpdate = () => {
     fetchInventory(); 
-    // router.refresh(); // Consider if router.refresh() is needed or if state update is enough
   };
 
   const availableSpecsForSelectedQuality = useMemo(() => {
     if (!selectedPaperQuality || selectedPaperQuality === "__ALL_PAPER__") return [];
 
+    // Find the definition for the selected paper quality (e.g., "SBS", "KAPPA_GROUP")
     const subCategoryDef = PAPER_SUB_CATEGORIES.find(sc => sc.filterValue === selectedPaperQuality);
     if (!subCategoryDef) return [];
 
+    // Filter inventory items to get only those matching the selected paper quality and type 'Master Sheet'
     const itemsOfSelectedQuality = inventoryItems.filter(item => {
-      if (item.type !== 'Master Sheet' || !item.paperQuality) return false;
+      if (item.type !== 'Master Sheet') return false;
+      if (!item.paperQuality) return false;
+
+      // For "OTHER_PAPER_GROUP", find items whose quality is not in any *other* defined sub-category.
       if (subCategoryDef.filterValue === "OTHER_PAPER_GROUP") {
         const allExplicitPaperQualities = PAPER_SUB_CATEGORIES
           .filter(sc => sc.filterValue !== "__ALL_PAPER__" && sc.filterValue !== "OTHER_PAPER_GROUP")
           .flatMap(sc => sc.qualityValues);
-        return !allExplicitPaperQualities.includes(item.paperQuality);
+        return !allExplicitPaperQualities.includes(item.paperQuality as PaperQualityType);
       }
-      return subCategoryDef.qualityValues.includes(item.paperQuality);
+      // For specific paper groups, check if the item's quality is one of the values defined for that group.
+      return subCategoryDef.qualityValues.includes(item.paperQuality as PaperQualityType);
     });
-
+    
     if (itemsOfSelectedQuality.length === 0) return [];
     
-    const firstItemPaperQuality = itemsOfSelectedQuality[0]?.paperQuality as PaperQualityType | undefined;
-    if (!firstItemPaperQuality) return []; // Should not happen if itemsOfSelectedQuality is not empty and passed previous checks
-
-    const unit = getPaperQualityUnit(firstItemPaperQuality); 
-    if (!unit) return [];
+    // Determine the unit (GSM or mm) based on the first item found for this quality.
+    // This assumes all items of a certain quality (e.g., all SBS) use the same unit.
+    const firstItemPaperQualityType = itemsOfSelectedQuality[0]?.paperQuality as PaperQualityType | undefined;
+    if (!firstItemPaperQualityType) return []; 
+    
+    const unit = getPaperQualityUnit(firstItemPaperQualityType);
+    if (!unit) return []; // If unit cannot be determined (should not happen for defined qualities)
 
     const specs = new Set<number>();
     if (unit === 'GSM') {
       itemsOfSelectedQuality.forEach(item => {
-        if (typeof item.paperGsm === 'number' && item.paperGsm > 0) { // Ensure GSM is a positive number
-            specs.add(item.paperGsm);
+        // Crucial check: item must have a defined, positive, numeric GSM value.
+        if (item.paperGsm !== undefined && typeof item.paperGsm === 'number' && item.paperGsm > 0) {
+          specs.add(item.paperGsm);
         }
       });
     } else if (unit === 'mm') {
       itemsOfSelectedQuality.forEach(item => {
-         if (typeof item.paperThicknessMm === 'number' && item.paperThicknessMm > 0) { // Ensure thickness is a positive number
-            specs.add(item.paperThicknessMm);
-         }
+        // Crucial check: item must have a defined, positive, numeric Thickness value.
+        if (item.paperThicknessMm !== undefined && typeof item.paperThicknessMm === 'number' && item.paperThicknessMm > 0) {
+          specs.add(item.paperThicknessMm);
+        }
       });
     }
     
@@ -127,10 +136,10 @@ export default function CategorizedInventoryPage() {
   }, [inventoryItems, selectedPaperQuality]);
 
   const filteredItems = useMemo(() => {
-    let itemsToFilter = [...inventoryItems]; // Start with a copy of all inventory items
+    let itemsToFilter = [...inventoryItems]; 
 
     if (categorySlug === "paper") {
-      itemsToFilter = itemsToFilter.filter(item => item.type === 'Master Sheet'); // Base filter: only master sheets for paper category
+      itemsToFilter = itemsToFilter.filter(item => item.type === 'Master Sheet');
 
       if (selectedPaperQuality && selectedPaperQuality !== "__ALL_PAPER__") {
         const subCategoryDef = PAPER_SUB_CATEGORIES.find(sc => sc.filterValue === selectedPaperQuality);
@@ -141,9 +150,9 @@ export default function CategorizedInventoryPage() {
               const allExplicitPaperQualities = PAPER_SUB_CATEGORIES
                 .filter(sc => sc.filterValue !== "__ALL_PAPER__" && sc.filterValue !== "OTHER_PAPER_GROUP")
                 .flatMap(sc => sc.qualityValues);
-              return !allExplicitPaperQualities.includes(item.paperQuality);
+              return !allExplicitPaperQualities.includes(item.paperQuality as PaperQualityType);
             }
-            return subCategoryDef.qualityValues.includes(item.paperQuality);
+            return subCategoryDef.qualityValues.includes(item.paperQuality as PaperQualityType);
           });
 
           if (selectedSpec) {
@@ -164,8 +173,6 @@ export default function CategorizedInventoryPage() {
     } else if (categorySlug === "other-materials") {
       itemsToFilter = itemsToFilter.filter(item => item.itemGroup === "Other Stock");
     } else {
-      // This case should ideally not be reached if category slugs are managed by links/routes
-      // but as a fallback, show no items if the category is unrecognized.
       itemsToFilter = []; 
     }
 
@@ -234,9 +241,6 @@ export default function CategorizedInventoryPage() {
 
   const renderPaperSpecifications = () => {
     if (!selectedPaperQuality || selectedPaperQuality === "__ALL_PAPER__") { 
-        // This case should ideally not be hit if __ALL_PAPER__ skips to table
-        // or if selectedPaperQuality is null (which shows subcategories)
-        // This component should only render if a specific paper type is selected.
         return (
           <div className="space-y-6">
             <Button variant="outline" onClick={() => setSelectedPaperQuality(null)} className="mb-4 font-body">
@@ -268,7 +272,7 @@ export default function CategorizedInventoryPage() {
                 <CardContent className="text-center py-8">
                 <p className="text-muted-foreground font-body">
                     No items of this paper type ({getSubCategoryDisplayName(selectedPaperQuality)}) are currently in stock with defined GSM/Thickness,
-                    or no distinct GSM/Thickness values were found for existing stock.
+                    or no distinct GSM/Thickness values were found for existing stock. This could be because items are missing GSM/Thickness values or type is not 'Master Sheet'.
                 </p>
                 <Button className="mt-6 font-body" onClick={() => setIsAddItemDialogOpen(true)}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Add New Item to {getSubCategoryDisplayName(selectedPaperQuality)}
@@ -428,18 +432,16 @@ export default function CategorizedInventoryPage() {
         </TableBody>
       </Table>
     );
-  }, [isLoading, searchQuery, categoryDisplayName, selectedPaperQuality, selectedSpec, categorySlug]);
+  }, [isLoading, searchQuery, categoryDisplayName, selectedPaperQuality, selectedSpec, categorySlug, inventoryItems]); // Added inventoryItems dependency
 
   
   if (categorySlug === "paper") {
     if (!selectedPaperQuality) {
       return renderPaperSubCategories();
     }
-    // If a specific paper type (not "All") is selected AND no spec is selected yet, show spec selection
     if (selectedPaperQuality !== "__ALL_PAPER__" && !selectedSpec) {
       return renderPaperSpecifications();
     }
-    // If "__ALL_PAPER__" is selected, or if a spec is selected, proceed to table view (handled by the return below)
   }
 
 
@@ -453,7 +455,6 @@ export default function CategorizedInventoryPage() {
       } else if (selectedPaperQuality === "__ALL_PAPER__") {
         currentOverallCategoryName = "All Paper Types";
       }
-      // If no paper quality is selected, it remains "Paper" (handled by renderPaperSubCategories)
   }
 
 
@@ -529,6 +530,5 @@ export default function CategorizedInventoryPage() {
     </div>
   );
 }
-
 
     
