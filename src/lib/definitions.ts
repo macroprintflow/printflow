@@ -136,7 +136,7 @@ export type JobCardData = {
   createdAt?: string;
   updatedAt?: string;
   workflowSteps?: WorkflowStep[];
-  pdfDataUri?: string; // Added for storing PDF link if job created from design
+  pdfDataUri?: string; 
 };
 
 export type JobTemplateData = {
@@ -197,7 +197,7 @@ export const JobCardSchema = z.object({
   remarks: z.string().optional(),
   dispatchDate: z.string().optional(),
   workflowSteps: z.array(WorkflowStepSchema).optional(),
-  pdfDataUri: z.string().optional(), // Added to schema
+  pdfDataUri: z.string().optional(), 
 }).superRefine((data, ctx) => {
   const unit = getPaperQualityUnit(data.paperQuality as PaperQualityType);
   if (data.paperQuality && unit === 'gsm' && (data.paperGsm === undefined || data.paperGsm <= 0)) {
@@ -568,6 +568,20 @@ export const PAPER_SUB_CATEGORIES: PaperSubCategory[] = [
   },
 ];
 
+export const PLATE_TYPES = [
+  { value: 'old', label: 'Old Plates' },
+  { value: 'new', label: 'New Plates' },
+] as const;
+export type PlateTypeValue = typeof PLATE_TYPES[number]['value'];
+
+export const COLOR_PROFILES = [
+  { value: 'cmyk', label: 'CMYK' },
+  { value: 'cmyk_white', label: 'CMYK + White' },
+  { value: 'other', label: 'Other (Specify)' },
+] as const;
+export type ColorProfileValue = typeof COLOR_PROFILES[number]['value'];
+
+
 // Design Submission Schemas and Types (Input and Output for AI Flow)
 export const SubmitDesignInputSchema = z.object({
   pdfName: z.string().describe("The original name of the PDF file."),
@@ -578,6 +592,9 @@ export const SubmitDesignInputSchema = z.object({
     .describe(
       "The PDF file content as a data URI. Expected format: 'data:application/pdf;base64,<encoded_data>'."
     ),
+  plateType: z.enum(['new', 'old']).describe("Specifies if the design is for new or old plates."),
+  colorProfile: z.enum(['cmyk', 'cmyk_white', 'other']).optional().describe("Color profile for new plates."),
+  otherColorProfileDetail: z.string().optional().describe("Details if color profile is 'other'."),
 });
 export type SubmitDesignInput = z.infer<typeof SubmitDesignInputSchema>;
 
@@ -588,6 +605,9 @@ export const SubmitDesignOutputSchema = z.object({
   customerName: z.string().describe("The customer name."),
   status: z.enum(["pending", "approved", "rejected"]).describe("The initial status of the submission."),
   message: z.string().optional().describe("A confirmation or status message from the AI."),
+  plateType: z.enum(['new', 'old']).describe("The plate type of the submission."),
+  colorProfile: z.enum(['cmyk', 'cmyk_white', 'other']).optional().describe("Color profile if new plate."),
+  otherColorProfileDetail: z.string().optional().describe("Details if color profile is 'other'."),
 });
 export type SubmitDesignOutput = z.infer<typeof SubmitDesignOutputSchema>;
 
@@ -600,8 +620,10 @@ export interface DesignSubmission {
   uploader: string; // For now, can be "Current User" or "AI Flow"
   date: string; // ISO string date of submission
   status: "pending" | "approved" | "rejected";
-  pdfDataUri?: string; // Store the Data URI temporarily if needed by AI, not ideal for long-term storage
-  // thumbnail?: string; // Could be added later if we generate thumbnails
+  pdfDataUri?: string; 
+  plateType: PlateTypeValue;
+  colorProfile?: ColorProfileValue;
+  otherColorProfileDetail?: string;
 }
 
 // Country Code Definitions

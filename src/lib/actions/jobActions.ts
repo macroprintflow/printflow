@@ -1,7 +1,7 @@
 
 'use server';
 
-import type { JobCardFormValues, JobCardData, JobTemplateData, JobTemplateFormValues, InventoryItem, PaperQualityType, InventorySuggestion, InventoryItemFormValues, InventoryItemType, ItemGroupType, UnitValue, OptimizeInventoryOutput, InventoryAdjustment, InventoryAdjustmentReasonValue, WorkflowStep, InventoryAdjustmentItemFormValues, DesignSubmission, SubmitDesignInput } from '@/lib/definitions';
+import type { JobCardFormValues, JobCardData, JobTemplateData, JobTemplateFormValues, InventoryItem, PaperQualityType, InventorySuggestion, InventoryItemFormValues, InventoryItemType, ItemGroupType, UnitValue, OptimizeInventoryOutput, InventoryAdjustment, InventoryAdjustmentReasonValue, WorkflowStep, InventoryAdjustmentItemFormValues, DesignSubmission, SubmitDesignInput, PlateTypeValue, ColorProfileValue } from '@/lib/definitions';
 import { PAPER_QUALITY_OPTIONS, getPaperQualityLabel, INVENTORY_ADJUSTMENT_REASONS, KAPPA_MDF_QUALITIES, getPaperQualityUnit } from '@/lib/definitions';
 import { calculateUps } from '@/lib/calculateUps';
 import { revalidatePath } from 'next/cache';
@@ -595,7 +595,7 @@ export async function applyInventoryAdjustments(
 
 // Design Submission Actions
 export async function addDesignSubmissionInternal(
-  submissionDetails: Omit<DesignSubmission, 'id' | 'status' | 'date' | 'uploader'> & { pdfDataUri?: string }
+  submissionDetails: Omit<DesignSubmission, 'id' | 'status' | 'date' | 'uploader'>
 ): Promise<DesignSubmission> {
   const newId = `ds-${global.__designSubmissionCounter__!++}`;
   const newSubmission: DesignSubmission = {
@@ -604,9 +604,10 @@ export async function addDesignSubmissionInternal(
     status: "pending",
     date: new Date().toISOString(),
     uploader: "Current User", // Or derive from auth if available
+    // plateType, colorProfile, otherColorProfileDetail are passed in submissionDetails
   };
   global.__designSubmissionsStore__!.push(newSubmission);
-  console.log('[JobActions] Added design submission:', newSubmission.id, newSubmission.pdfName);
+  console.log('[JobActions] Added design submission:', newSubmission.id, newSubmission.pdfName, 'PlateType:', newSubmission.plateType);
   revalidatePath('/for-approval');
   revalidatePath('/jobs/new'); // In case approved designs list needs update
   return newSubmission;
