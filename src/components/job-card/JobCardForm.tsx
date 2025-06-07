@@ -307,7 +307,7 @@ export function JobCardForm({ initialJobName, initialCustomerName }: JobCardForm
   };
 
   const handlePrintJobCard = (jobCard: JobCardData) => {
-    const logoUrl = '/images/logo.png'; // Updated logo path
+    const logoUrl = '/high.png'; // Updated logo path
   
     const formatWorkflowSteps = (steps: WorkflowStep[] | undefined) => {
       if (!steps || steps.length === 0) return '<li>No workflow defined</li>';
