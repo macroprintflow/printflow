@@ -242,7 +242,7 @@ export function AddItemDialog({ isOpen, setIsOpen, onItemAdded }: AddItemDialogP
     itemName: "", 
     itemSpecification: "",
     quantity: 0, 
-    unit: "sheets" as UnitValue,
+    unit: "sheets" as UnitValue, // Default unit, will be overridden by category
     purchaseBillNo: "",
     vendorName: undefined,
     otherVendorName: "",
@@ -260,25 +260,41 @@ export function AddItemDialog({ isOpen, setIsOpen, onItemAdded }: AddItemDialogP
     setSelectedCategory(category);
     form.setValue("category", category);
 
-    if (category === 'PAPER') {
-      form.setValue("itemName", "Paper Stock Entry"); 
-      form.setValue("unit", "sheets" as UnitValue);
-    } else if (category === 'INKS') {
-      form.setValue("itemName", "Ink Entry"); 
-      form.setValue("unit", "kg" as UnitValue);
-    } else if (category === 'PLASTIC_TRAY') {
-      form.setValue("itemName", "Plastic Tray");
-      form.setValue("unit", "pieces" as UnitValue);
-    } else if (category === 'GLASS_JAR') {
-      form.setValue("itemName", "Glass Jar");
-      form.setValue("unit", "pieces" as UnitValue);
-    } else if (category === 'MAGNET') {
-      form.setValue("itemName", "Magnet");
-      form.setValue("unit", "pieces" as UnitValue);
-    } else { 
-      form.setValue("itemName", ""); 
-      form.setValue("unit", "units" as UnitValue);
+    let defaultUnit: UnitValue;
+    let autoItemName = "";
+
+    switch (category) {
+      case 'PAPER':
+        defaultUnit = 'sheets';
+        autoItemName = "Paper Stock Entry";
+        break;
+      case 'INKS':
+        defaultUnit = 'kg';
+        autoItemName = "Ink Entry";
+        break;
+      case 'PLASTIC_TRAY':
+        defaultUnit = 'pieces';
+        autoItemName = "Plastic Tray";
+        break;
+      case 'GLASS_JAR':
+        defaultUnit = 'pieces';
+        autoItemName = "Glass Jar";
+        break;
+      case 'MAGNET':
+        defaultUnit = 'pieces';
+        autoItemName = "Magnet";
+        break;
+      case 'OTHER':
+        defaultUnit = 'pieces'; // Default for "Other Material/Stock"
+        autoItemName = ""; // User to define for 'Other'
+        break;
+      default:
+        defaultUnit = 'units'; // Should not happen
+        autoItemName = "";
     }
+    form.setValue("unit", defaultUnit);
+    form.setValue("itemName", autoItemName);
+    
     setStep(2);
   };
 
@@ -382,6 +398,3 @@ export function AddItemDialog({ isOpen, setIsOpen, onItemAdded }: AddItemDialogP
     </Dialog>
   );
 }
-
-
-    

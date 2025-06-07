@@ -263,8 +263,8 @@ export default function NewPurchasePage() {
     resolver: zodResolver(InventoryItemFormSchema.innerType().partial()),
     defaultValues: {
       category: undefined,
-      quantity: undefined,
-      unit: "sheets" as UnitValue,
+      quantity: undefined, // Default to empty
+      unit: "sheets" as UnitValue, // General default, overridden by category selection
       paperMasterSheetSizeWidth: undefined,
       paperMasterSheetSizeHeight: undefined,
       paperQuality: "",
@@ -325,14 +325,33 @@ export default function NewPurchasePage() {
       setNextDisplayId(prev => prev + 1);
       
       const newCategory = currentItemForm.getValues().category; 
-      const defaultUnit = newCategory === 'PAPER' ? 'sheets' : newCategory === 'INKS' ? 'kg' : 'pieces';
+      
+      let defaultUnit: UnitValue;
       let autoItemName = "";
-      if (newCategory === 'PAPER') autoItemName = "Paper Stock Item";
-      else if (newCategory === 'INKS') autoItemName = "Ink Item";
+
+      switch (newCategory) {
+        case 'PAPER':
+          defaultUnit = 'sheets';
+          autoItemName = "Paper Stock Item";
+          break;
+        case 'INKS':
+          defaultUnit = 'kg';
+          autoItemName = "Ink Item";
+          break;
+        case 'PLASTIC_TRAY':
+        case 'GLASS_JAR':
+        case 'MAGNET':
+        case 'OTHER':
+          defaultUnit = 'pieces';
+          autoItemName = newCategory === 'PLASTIC_TRAY' ? "Plastic Tray" : newCategory === 'GLASS_JAR' ? "Glass Jar" : newCategory === 'MAGNET' ? "Magnet" : "";
+          break;
+        default:
+          defaultUnit = 'units';
+      }
       
       currentItemForm.reset({
         category: newCategory, 
-        quantity: undefined, 
+        quantity: undefined, // Reset quantity to empty
         unit: defaultUnit as UnitValue,
         paperMasterSheetSizeWidth: newCategory === 'PAPER' ? currentItemValues.paperMasterSheetSizeWidth : undefined,
         paperMasterSheetSizeHeight: newCategory === 'PAPER' ? currentItemValues.paperMasterSheetSizeHeight : undefined,
@@ -361,15 +380,27 @@ export default function NewPurchasePage() {
     setOtherPurchaseVendor("");
     setOtherVendorError(null);
     setItemsInPurchaseList([]);
-    let autoItemName = "";
+    
     const currentCategory = currentItemForm.getValues().category;
-    if (currentCategory === 'PAPER') autoItemName = "Paper Stock Item";
-    else if (currentCategory === 'INKS') autoItemName = "Ink Item";
+    let autoItemName = "";
+    let defaultUnit: UnitValue = 'sheets';
+
+    if (currentCategory) {
+      switch (currentCategory) {
+        case 'PAPER': autoItemName = "Paper Stock Item"; defaultUnit = 'sheets'; break;
+        case 'INKS': autoItemName = "Ink Item"; defaultUnit = 'kg'; break;
+        case 'PLASTIC_TRAY': case 'GLASS_JAR': case 'MAGNET': case 'OTHER':
+          defaultUnit = 'pieces';
+          autoItemName = currentCategory === 'PLASTIC_TRAY' ? "Plastic Tray" : currentCategory === 'GLASS_JAR' ? "Glass Jar" : currentCategory === 'MAGNET' ? "Magnet" : "";
+          break;
+        default: defaultUnit = 'units';
+      }
+    }
 
     currentItemForm.reset({ 
         category: undefined, 
-        quantity: undefined, 
-        unit: "sheets" as UnitValue,
+        quantity: undefined, // Reset quantity to empty
+        unit: defaultUnit,
         paperMasterSheetSizeWidth: undefined,
         paperMasterSheetSizeHeight: undefined,
         paperQuality: "",
@@ -423,14 +454,11 @@ export default function NewPurchasePage() {
       })
     );
     
-    const errorMessages: string[] = [];
-    results.forEach((result, index) => {
-      const item = itemsInPurchaseList[index];
-      if (!result.success) {
-        errorMessages.push(`Failed for item "${item.displayName}": ${result.message}`);
-      }
-    });
-    
+    const errorMessages: string[] = results
+      .map((res, i) => !res.success ? `Failed for item "${itemsInPurchaseList[i].displayName}": ${res.message}` : null)
+      .filter((msg): msg is string => msg !== null);
+
+
     const allItemsSaved = errorMessages.length === 0;
 
     setIsSubmittingPurchase(false);
@@ -536,14 +564,43 @@ export default function NewPurchasePage() {
                       <Select onValueChange={(value) => { 
                           field.onChange(value); 
                           setCurrentItemCategory(value as InventoryCategory); 
-                          const defaultUnit = value === 'PAPER' ? 'sheets' : value === 'INKS' ? 'kg' : 'pieces';
+                          
+                          let defaultUnit: UnitValue;
                           let autoItemName = "";
-                          if (value === 'PAPER') autoItemName = "Paper Stock Item";
-                          else if (value === 'INKS') autoItemName = "Ink Item";
-                          else autoItemName = ""; 
+                          const newCategoryValue = value as InventoryCategory;
+
+                          switch (newCategoryValue) {
+                            case 'PAPER':
+                              defaultUnit = 'sheets';
+                              autoItemName = "Paper Stock Item";
+                              break;
+                            case 'INKS':
+                              defaultUnit = 'kg';
+                              autoItemName = "Ink Item";
+                              break;
+                            case 'PLASTIC_TRAY':
+                              defaultUnit = 'pieces';
+                              autoItemName = "Plastic Tray";
+                              break;
+                            case 'GLASS_JAR':
+                              defaultUnit = 'pieces';
+                              autoItemName = "Glass Jar";
+                              break;
+                            case 'MAGNET':
+                              defaultUnit = 'pieces';
+                              autoItemName = "Magnet";
+                              break;
+                            case 'OTHER':
+                               defaultUnit = 'pieces';
+                               autoItemName = ""; // User to define
+                               break;
+                            default:
+                              defaultUnit = 'units';
+                              autoItemName = "";
+                          }
                           
                           currentItemForm.reset({
-                            category: value as InventoryCategory, 
+                            category: newCategoryValue, 
                             paperMasterSheetSizeWidth: undefined,
                             paperMasterSheetSizeHeight: undefined,
                             paperQuality: "",
@@ -554,7 +611,7 @@ export default function NewPurchasePage() {
                             itemName: autoItemName, 
                             itemSpecification: "",
                             quantity: undefined, 
-                            unit: defaultUnit as UnitValue, 
+                            unit: defaultUnit, 
                             reorderPoint: undefined,
                           });
                           handleCurrentItemFormChange(); 
@@ -633,4 +690,3 @@ export default function NewPurchasePage() {
     </div>
   );
 }
-
