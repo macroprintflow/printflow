@@ -141,7 +141,6 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
       form.reset(initialJobData); 
       setCustomerInputValue(initialJobData.customerName);
       setSelectedCustomer(initialJobData.customerName);
-      // Trigger re-evaluation for customerName field after programmatic update
       form.trigger("customerName"); 
       applyWorkflow(initialJobData);
     } else {
@@ -195,12 +194,12 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
     }
   }, []);
   
-  const handleCustomerInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCustomerInputChange = (e: React.ChangeEvent<HTMLInputElement>, fieldOnChange: (value: string) => void) => {
     const value = e.target.value;
     setCustomerInputValue(value);
-    form.setValue("customerName", value, { shouldValidate: true }); // Update form value & validate
+    fieldOnChange(value); // Update react-hook-form's state
     if (value) {
-      setSelectedCustomer(value); // Keep selectedCustomer in sync for job fetching
+      setSelectedCustomer(value);
       const filtered = allCustomers.filter(customer =>
         customer.toLowerCase().includes(value.toLowerCase())
       );
@@ -209,7 +208,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
     } else {
       setCustomerSuggestions([]);
       setIsCustomerPopoverOpen(false);
-      setSelectedCustomer(""); // Clear selected customer if input is empty
+      setSelectedCustomer("");
       setJobsForCustomer([]);
       setJobInputValue("");
       setSelectedPastJobId("");
@@ -303,7 +302,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
     applyWorkflow(job);
     setCustomerInputValue(job.customerName); 
     setSelectedCustomer(job.customerName); 
-    form.trigger("customerName"); // Trigger validation after setting
+    form.trigger("customerName"); 
   };
 
 
@@ -613,8 +612,8 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
                         ref={customerInputRef}
                         type="text"
                         placeholder={isLoadingCustomers ? "Loading customers..." : "Type to search customer"}
-                        value={customerInputValue}
-                        onChange={handleCustomerInputChange}
+                        value={customerInputValue} // Use local state for display
+                        onChange={(e) => handleCustomerInputChange(e, (value) => form.setValue("customerName", value, { shouldValidate: true }))}
                         onFocus={() => {
                           if (customerInputValue && customerSuggestions.length > 0) setIsCustomerPopoverOpen(true);
                         }}
@@ -711,7 +710,6 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
                 <FormMessage />
               </FormItem>
             )} />
-            {/* Replaced direct Input with FormField for customerName */}
             <FormField
               control={form.control}
               name="customerName"
@@ -721,9 +719,8 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
                   <FormControl>
                     <Input
                       placeholder="e.g., Chic Fragrances"
-                      {...field} // Spread field props here
-                      value={customerInputValue} // Controlled by customerInputValue
-                      onChange={handleCustomerInputChange} // Use specific handler
+                      value={field.value || ""} // Use RHF field value here
+                      onChange={(e) => handleCustomerInputChange(e, field.onChange)} // Pass RHF onChange
                       onFocus={() => {
                         if (customerInputValue && customerSuggestions.length > 0) setIsCustomerPopoverOpen(true);
                       }}

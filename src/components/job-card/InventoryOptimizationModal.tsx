@@ -24,11 +24,11 @@ import { Badge } from '@/components/ui/badge';
 interface InventoryOptimizationModalProps {
   jobDetails: {
     paperGsm?: number;
-    paperThicknessMm?: number; // Added for thickness
+    paperThicknessMm?: number; 
     paperQuality?: PaperQualityType;
     jobSizeWidth?: number;
     jobSizeHeight?: number;
-    quantityForOptimization?: number; // Changed from netQuantity
+    quantityForOptimization?: number; 
   };
   onSuggestionSelect: (suggestion: InventorySuggestion) => void;
   isOpen: boolean;
@@ -74,7 +74,7 @@ export function InventoryOptimizationModal({
       paperQuality: jobDetails.paperQuality!, 
       jobSizeWidth: jobDetails.jobSizeWidth!,
       jobSizeHeight: jobDetails.jobSizeHeight!,
-      quantityToProduce: jobDetails.quantityForOptimization!, // Use quantityForOptimization
+      quantityToProduce: jobDetails.quantityForOptimization!, 
     };
 
     const result = await getInventoryOptimizationSuggestions(actionInput) as OptimizeInventoryOutput | { error: string };
