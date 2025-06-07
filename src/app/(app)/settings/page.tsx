@@ -1,7 +1,7 @@
 
 "use client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Settings, Users, UserPlus, Edit3, Loader2, Trash2, KeyRound } from "lucide-react";
+import { Settings, Users, UserPlus, Edit3, Loader2, Trash2, KeyRound, Save } from "lucide-react"; // Added Save icon
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -48,7 +48,8 @@ export default function SettingsPage() {
 
   useEffect(() => {
     fetchUsers();
-  }, [toast]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleCreateUser = async (e: FormEvent) => {
     e.preventDefault();
@@ -260,7 +261,7 @@ export default function SettingsPage() {
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>>
+      </Dialog>
 
       {/* Delete User Confirmation Dialog */}
       <Dialog open={isDeleteUserOpen} onOpenChange={setIsDeleteUserOpen}>
