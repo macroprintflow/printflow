@@ -2,7 +2,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   FileCheck2, Scissors, Printer, Wand2, Film, Crop, Sparkles, ClipboardPaste, Box, Package, FileSpreadsheet,
-  FileText, Newspaper, Archive // Added icons for paper categories
+  FileText, Newspaper, Archive, Layers // Added Layers
 } from "lucide-react";
 import { z } from 'zod';
 
@@ -458,6 +458,8 @@ export type PaperSubCategoryFilterValue =
   | "OTHER_PAPER_GROUP" | "__ALL_PAPER__";
 
 export type ArtPaperFinishFilterValue = "ART_PAPER_MATT_FINISH" | "ART_PAPER_GLOSS_FINISH";
+export type KappaFinishFilterValue = "KAPPA_GG_FINISH" | "KAPPA_WG_FINISH";
+
 
 export type PaperSubCategory = {
   name: string;
@@ -467,8 +469,8 @@ export type PaperSubCategory = {
   specUnit?: 'GSM' | 'mm';
   subFinishes?: Array<{
     name: string;
-    finishFilterValue: ArtPaperFinishFilterValue;
-    actualQualityValue: PaperQualityType; // e.g., "ART_PAPER_MATT"
+    finishFilterValue: ArtPaperFinishFilterValue | KappaFinishFilterValue; // Updated to include Kappa
+    actualQualityValue: PaperQualityType;
     predefinedSpecs: number[];
     specUnit: 'GSM' | 'mm';
     icon: LucideIcon;
@@ -486,7 +488,16 @@ export const PAPER_SUB_CATEGORIES: PaperSubCategory[] = [
   {
     name: "Kappa", filterValue: "KAPPA_GROUP", icon: Newspaper,
     qualityValues: ["GG_KAPPA", "WG_KAPPA"],
-    // No predefinedSpecs, will use dynamic scanning from inventory
+    subFinishes: [
+      {
+        name: "Grey-Grey (GG) Kappa", finishFilterValue: "KAPPA_GG_FINISH", actualQualityValue: "GG_KAPPA",
+        predefinedSpecs: [0.82, 0.96, 1.0, 1.1, 1.2, 1.4, 1.5], specUnit: 'mm', icon: Layers
+      },
+      {
+        name: "White-Grey (WG) Kappa", finishFilterValue: "KAPPA_WG_FINISH", actualQualityValue: "WG_KAPPA",
+        predefinedSpecs: [0.82, 0.96, 1.0, 1.1, 1.2, 1.4, 1.5], specUnit: 'mm', icon: Layers
+      }
+    ]
   },
   {
     name: "Greyback", filterValue: "GREYBACK", icon: FileText,
@@ -497,7 +508,7 @@ export const PAPER_SUB_CATEGORIES: PaperSubCategory[] = [
   {
     name: "Whiteback", filterValue: "WHITEBACK", icon: FileText,
     qualityValues: ["WHITEBACK"],
-    predefinedSpecs: [230, 285, 300, 320, 340, 350, 380, 400], // Same as Greyback
+    predefinedSpecs: [230, 285, 300, 320, 340, 350, 380, 400],
     specUnit: 'GSM',
   },
   {
@@ -517,32 +528,29 @@ export const PAPER_SUB_CATEGORIES: PaperSubCategory[] = [
   {
     name: "Japanese Paper", filterValue: "JAPANESE_PAPER", icon: FileText,
     qualityValues: ["JAPANESE_PAPER"],
-    // No predefinedSpecs
   },
   {
     name: "Imported Paper", filterValue: "IMPORTED_PAPER", icon: FileText,
     qualityValues: ["IMPORTED_PAPER"],
-    // No predefinedSpecs
   },
   {
     name: "MDF", filterValue: "MDF", icon: Box,
     qualityValues: ["MDF"],
-    // No predefinedSpecs
+    predefinedSpecs: [2.0, 2.3, 2.5, 3.0, 4.0, 5.0, 6.0], // Example MDF thicknesses
+    specUnit: 'mm',
   },
   {
     name: "Butter Paper", filterValue: "BUTTER_PAPER", icon: FileText,
     qualityValues: ["BUTTER_PAPER"],
-    // No predefinedSpecs
   },
   {
     name: "Other Paper", filterValue: "OTHER_PAPER_GROUP", icon: Archive,
-    qualityValues: [], // Special case: items whose quality is not in any other group
-    // No predefinedSpecs
+    qualityValues: [], 
   },
   {
     name: "View All Paper Types", filterValue: "__ALL_PAPER__", icon: Printer,
-    qualityValues: [], // This will show all paper regardless of specific quality type
-    // No predefinedSpecs for "all" view
+    qualityValues: [],
   },
 ];
+
 
