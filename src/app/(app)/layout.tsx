@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/sidebar';
 import AppLogo from '@/components/AppLogo';
 import { Header } from '@/components/layout/Header';
-import { LayoutDashboard, Briefcase, FileUp, FilePlus2, CalendarCheck2, ClipboardList, UserCircle, Settings, Archive, LogOut, type LucideIcon, ShoppingBag, Check } from 'lucide-react';
+import { LayoutDashboard, Briefcase, FileUp, FilePlus2, CalendarCheck2, ClipboardList, UserCircle, Settings, Archive, LogOut, type LucideIcon, ShoppingBag, Check, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -35,11 +35,10 @@ import {
 import { Button } from '@/components/ui/button';
 import ClientOnlyWrapper from '@/components/ClientOnlyWrapper';
 import { useAuth } from '@/contexts/AuthContext';
-import { signOut, getIdTokenResult } from 'firebase/auth'; // getIdTokenResult might not be needed if not checking claims
+import { signOut, getIdTokenResult } from 'firebase/auth'; 
 import { auth } from '@/lib/firebase/clientApp';
 import { useToast } from '@/hooks/use-toast';
 import type { UserRole } from '@/lib/definitions';
-// getUserRoleFromFirestore and createUserDocumentInFirestore imports removed
 
 interface NavItem {
   href: string;
@@ -60,7 +59,7 @@ const allNavItems: NavItem[] = [
 ];
 
 const ADMIN_EMAIL = "kuvam@macroprinters.com".toLowerCase();
-const MANAGER_EMAIL = "niharikasehgal0512@gmail.com".toLowerCase();
+const MANAGER_EMAIL = "niharikasehgal0512@gmail.com".toLowerCase(); // Explicitly defined manager
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -79,9 +78,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     const determineRoleLogic = async () => {
-      if (isDeterminingRoleRef.current) return;
-      if (loading) {
-        // If auth is still loading, don't determine role yet, wait for user object
+      if (isDeterminingRoleRef.current || loading) {
         return;
       }
 
@@ -89,7 +86,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       setIsLoadingRole(true);
 
       if (!user) {
-        if (!loading && pathname !== '/login' && pathname !== '/signup') { // Ensure we are not on login/signup page already
+        if (pathname !== '/login' && pathname !== '/signup') {
           router.push('/login');
         }
         setIsLoadingRole(false);
@@ -98,26 +95,25 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       }
 
       if (isRoleFromDevTool) {
-        // Dev tool role is active, no recalculation needed from "backend"
         setIsLoadingRole(false);
         isDeterminingRoleRef.current = false;
         return;
       }
 
-      let roleToSet: UserRole = "Customer"; // Default role
+      let roleToSet: UserRole = "Customer"; // Default role for new signups and others
 
-      // Simplified role determination (no Firestore fetch)
-      if (user.email?.toLowerCase() === ADMIN_EMAIL) {
+      const userEmailLower = user.email?.toLowerCase();
+
+      if (userEmailLower === ADMIN_EMAIL) {
         roleToSet = "Admin";
-      } else if (user.email?.toLowerCase() === MANAGER_EMAIL) {
+      } else if (userEmailLower === MANAGER_EMAIL) {
+        // This user is explicitly designated as a Manager
         roleToSet = "Manager";
-      } else {
-        // In a more complex app, you might have other rules or default roles
-        // For now, non-admin/manager users are Customers
-        roleToSet = "Customer";
       }
+      // Any other user (including new signups via the app or other console-created users not matching the above)
+      // will retain the default "Customer" role.
       
-      console.log(`[Auth Role] Determined role via simple check: ${roleToSet} for ${user.email}`);
+      console.log(`[Auth Role] Determined role: ${roleToSet} for ${user.email}`);
 
       if (effectiveUserRole !== roleToSet) {
         console.log(`[Auth Role] Setting effective role to: ${roleToSet}`);
@@ -136,7 +132,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       await signOut(auth);
       toast({ title: 'Logged Out', description: 'You have been successfully logged out.' });
       setIsRoleFromDevTool(false);
-      setEffectiveUserRole("Customer"); // Reset effective role on logout
+      setEffectiveUserRole("Customer"); 
       router.push('/login');
     } catch (error) {
       console.error("Logout error:", error);
@@ -146,13 +142,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const handleRoleSwitch = (newRole: UserRole) => {
     setEffectiveUserRole(newRole);
-    setIsRoleFromDevTool(true); // Indicate that the role is now set by dev tool
+    setIsRoleFromDevTool(true); 
     toast({ title: 'Dev Tool: Role Switched', description: `Viewing as ${newRole}. (Session only)`});
   };
 
   if (loading || isLoadingRole || (!user && pathname !== '/login' && pathname !== '/signup')) {
-     // While loading or if no user and not on auth pages, render nothing or a loader
-     // This prevents rendering the layout before role determination or if user is not authenticated
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -161,8 +155,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   if (!user && (pathname !== '/login' && pathname !== '/signup')) {
-    // This case should ideally be caught by the loading condition or the effect redirecting.
-    // But as a fallback, if not loading and no user, and not on auth pages, show loader.
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -170,16 +162,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
   
-  // If user is not authenticated and trying to access protected routes,
-  // the useEffect hook would have redirected to '/login'.
-  // If on '/login' or '/signup' page itself, children will be login/signup pages.
   if (!user && (pathname === '/login' || pathname === '/signup')) {
      return <ClientOnlyWrapper>{children}</ClientOnlyWrapper>;
   }
 
 
   const userDisplayName = user?.displayName || user?.email?.split('@')[0] || "User";
-  const userEmail = user?.email || "No email";
+  const userEmailDisplay = user?.email || "No email"; // Renamed from userEmail to avoid conflict
 
   const userRoleDisplay = effectiveUserRole;
 
@@ -239,7 +228,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   <div className="flex flex-col space-y-1">
                     <p className="text-sm font-medium leading-none">{userDisplayName}</p>
                     <p className="text-xs leading-none text-muted-foreground">
-                      {userEmail}
+                      {userEmailDisplay}
                     </p>
                   </div>
                 </DropdownMenuLabel>
