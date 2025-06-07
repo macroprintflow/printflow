@@ -731,6 +731,33 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
             <CardDescription className="font-body">Specify the target paper and job dimensions. Then use the optimizer.</CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <FormField
+              control={form.control}
+              name="paperQuality"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Target Paper Quality</FormLabel>
+                  <Select 
+                    onValueChange={(value) => {
+                        field.onChange(value);
+                        form.setValue("paperGsm", undefined);
+                        form.setValue("targetPaperThicknessMm", undefined);
+                    }} 
+                    value={field.value || ""}
+                  >
+                    <FormControl><SelectTrigger className="font-body"><SelectValue placeholder="Select paper quality" /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      {PAPER_QUALITY_OPTIONS.filter(opt => opt.value !== "").map(option => (
+                        <SelectItem key={option.value} value={option.value} className="font-body">
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             {targetPaperUnit === 'gsm' && (
               <FormField control={form.control} name="paperGsm" render={({ field }) => (
                 <FormItem>
@@ -765,33 +792,6 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
                     <FormControl><Input type="text" placeholder="Select paper quality first" readOnly className="font-body bg-muted" /></FormControl>
                  </FormItem>
             )}
-            <FormField
-              control={form.control}
-              name="paperQuality"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Target Paper Quality</FormLabel>
-                  <Select 
-                    onValueChange={(value) => {
-                        field.onChange(value);
-                        form.setValue("paperGsm", undefined);
-                        form.setValue("targetPaperThicknessMm", undefined);
-                    }} 
-                    value={field.value || ""}
-                  >
-                    <FormControl><SelectTrigger className="font-body"><SelectValue placeholder="Select paper quality" /></SelectTrigger></FormControl>
-                    <SelectContent>
-                      {PAPER_QUALITY_OPTIONS.filter(opt => opt.value !== "").map(option => (
-                        <SelectItem key={option.value} value={option.value} className="font-body">
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
             <div className="md:col-span-2 lg:col-span-1 grid grid-cols-2 gap-6">
               <FormField control={form.control} name="netQuantity" render={({ field }) => (
                 <FormItem>
