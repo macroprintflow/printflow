@@ -25,11 +25,11 @@ import { cn } from "@/lib/utils";
 interface InventoryOptimizationModalProps {
   jobDetails: {
     paperGsm?: number;
-    paperThicknessMm?: number; 
+    paperThicknessMm?: number;
     paperQuality?: PaperQualityType;
     jobSizeWidth?: number;
     jobSizeHeight?: number;
-    quantityForOptimization?: number; 
+    quantityForOptimization?: number;
   };
   onSuggestionSelect: (suggestion: InventorySuggestion) => void;
   isOpen: boolean;
@@ -55,7 +55,7 @@ export function InventoryOptimizationModal({
     if (qualityUnit === 'gsm' && !jobDetails.paperGsm) missingInfo = true;
     if (qualityUnit === 'mm' && !jobDetails.paperThicknessMm) missingInfo = true;
     if (!jobDetails.jobSizeWidth || !jobDetails.jobSizeHeight || !jobDetails.quantityForOptimization) missingInfo = true;
-    
+
     if (missingInfo) {
        toast({
         title: "Missing Information",
@@ -72,14 +72,14 @@ export function InventoryOptimizationModal({
     const actionInput = {
       paperGsm: jobDetails.paperGsm,
       paperThicknessMm: jobDetails.paperThicknessMm,
-      paperQuality: jobDetails.paperQuality!, 
+      paperQuality: jobDetails.paperQuality!,
       jobSizeWidth: jobDetails.jobSizeWidth!,
       jobSizeHeight: jobDetails.jobSizeHeight!,
-      quantityToProduce: jobDetails.quantityForOptimization!, 
+      quantityToProduce: jobDetails.quantityForOptimization!,
     };
 
     const result = await getInventoryOptimizationSuggestions(actionInput) as OptimizeInventoryOutput | { error: string };
-    
+
     if ('error' in result) {
       toast({
         title: "Error",
@@ -104,7 +104,7 @@ export function InventoryOptimizationModal({
     onSuggestionSelect(suggestion);
     setIsOpen(false);
   };
-  
+
   const renderSheetSpec = (suggestion: InventorySuggestion) => {
     const unit = getPaperQualityUnit(suggestion.paperQuality as PaperQualityType);
     if (unit === 'mm' && suggestion.paperThicknessMm !== undefined) {
@@ -127,7 +127,7 @@ export function InventoryOptimizationModal({
             Suggestions are based on inventory items matching quality (exact) and GSM/Thickness (+/- tolerance).
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="my-4">
           <Button onClick={handleFetchSuggestions} disabled={isLoading} className="w-full">
             {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
@@ -136,13 +136,13 @@ export function InventoryOptimizationModal({
         </div>
 
         {optimalSuggestion && (
-          <div className="my-4 p-4 border border-green-500 bg-green-100 dark:bg-green-700/40 rounded-md">
+          <div className="my-4 p-4 border border-green-500 bg-green-100 dark:bg-green-800/60 rounded-md">
             <h3 className="text-lg font-semibold text-green-700 dark:text-green-200 font-headline">Optimal Suggestion</h3>
             <p className="text-sm text-green-600 dark:text-green-100">
-              Sheet: {optimalSuggestion.masterSheetSizeWidth.toFixed(2)}in x {optimalSuggestion.masterSheetSizeHeight.toFixed(2)}in 
+              Sheet: {optimalSuggestion.masterSheetSizeWidth.toFixed(2)}in x {optimalSuggestion.masterSheetSizeHeight.toFixed(2)}in
               ({renderSheetSpec(optimalSuggestion)}, Quality: {getPaperQualityLabel(optimalSuggestion.paperQuality as PaperQualityType)}) <br />
-              Wastage: {optimalSuggestion.wastagePercentage.toFixed(2)}% | 
-              Sheets/Master: {optimalSuggestion.sheetsPerMasterSheet} | 
+              Wastage: {optimalSuggestion.wastagePercentage.toFixed(2)}% |
+              Sheets/Master: {optimalSuggestion.sheetsPerMasterSheet} |
               Total Masters: {optimalSuggestion.totalMasterSheetsNeeded} <br />
               Layout: {optimalSuggestion.cuttingLayoutDescription || 'N/A'}
             </p>
@@ -169,12 +169,17 @@ export function InventoryOptimizationModal({
               </TableHeader>
               <TableBody>
                 {suggestions.map((s, index) => (
-                  <TableRow 
-                    key={s.sourceInventoryItemId || index} 
+                  <TableRow
+                    key={s.sourceInventoryItemId || index}
                     className={cn(
-                      s.sourceInventoryItemId === optimalSuggestion?.sourceInventoryItemId 
-                        ? "bg-green-100 dark:bg-green-700/40 hover:bg-green-100 dark:hover:bg-green-700/40" // Optimal
-                        : "bg-muted dark:bg-slate-800 hover:bg-muted dark:hover:bg-slate-800" // Normal
+                      // Base styles (light mode) & hover styles (identical to base to remove effect)
+                      s.sourceInventoryItemId === optimalSuggestion?.sourceInventoryItemId
+                        ? "bg-green-100 hover:bg-green-100" // Optimal light
+                        : "bg-gray-50 hover:bg-gray-50",   // Normal light
+                      // Dark mode overrides & hover styles for dark mode (identical to base)
+                      s.sourceInventoryItemId === optimalSuggestion?.sourceInventoryItemId
+                        ? "dark:bg-green-800 dark:hover:bg-green-800" // Optimal dark
+                        : "dark:bg-gray-900 dark:hover:bg-gray-900"   // Normal dark
                     )}
                   >
                     <TableCell className="text-card-foreground">{s.masterSheetSizeWidth.toFixed(2)} x {s.masterSheetSizeHeight.toFixed(2)}</TableCell>
@@ -199,7 +204,7 @@ export function InventoryOptimizationModal({
             </Table>
           </ScrollArea>
         )}
-        
+
         <DialogFooter className="mt-6">
           <Button variant="outline" onClick={() => setIsOpen(false)}>
             Close
@@ -209,4 +214,3 @@ export function InventoryOptimizationModal({
     </Dialog>
   );
 }
-    
