@@ -8,7 +8,9 @@ import {
   signInWithEmailAndPassword,
   RecaptchaVerifier,
   signInWithPhoneNumber,
-  type ConfirmationResult
+  type ConfirmationResult,
+  GoogleAuthProvider, 
+  signInWithPopup 
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase/clientApp';
 import { Button } from '@/components/ui/button';
@@ -21,6 +23,19 @@ import AppLogo from '@/components/AppLogo';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { COUNTRY_CODES, type CountryCode } from '@/lib/definitions';
+import { Separator } from '@/components/ui/separator';
+
+// Google Icon SVG
+const GoogleIcon = () => (
+  <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+    <path d="M1 1h22v22H1z" fill="none"/>
+  </svg>
+);
+
 
 declare global {
   interface Window {
@@ -34,12 +49,13 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   
-  const [selectedCountryCode, setSelectedCountryCode] = useState<string>('IN'); // Stores country code e.g., "IN"
-  const [phoneNumber, setPhoneNumber] = useState(''); // Stores only the local part of the number
+  const [selectedCountryCode, setSelectedCountryCode] = useState<string>('IN'); 
+  const [phoneNumber, setPhoneNumber] = useState(''); 
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
 
@@ -89,15 +105,15 @@ export default function LoginPage() {
       return window.recaptchaVerifier;
     } catch (error: any) {
         console.error("Login Page: Critical Error initializing RecaptchaVerifier:", error);
-        let userMessage = "Failed to initialize reCAPTCHA. Please check console for details.";
+        let userMessage = "Failed to initialize reCAPTCHA. Please ensure your domain is authorized in Google Cloud for the reCAPTCHA key and your Firebase project has billing enabled for Phone Auth. Common issues include network errors, misconfigured API keys, or unauthorized domains.";
         if (error.code === 'auth/network-request-failed') {
-            userMessage = "Network error during reCAPTCHA setup. Check connection and Firebase/Google Cloud domain whitelisting.";
+            userMessage = "Network error during reCAPTCHA setup. Check internet connection and Firebase/Google Cloud domain whitelisting.";
         } else if (error.code === 'auth/internal-error' && error.message?.includes("reCAPTCHA")) {
-            userMessage = "reCAPTCHA internal error. Ensure your domain is authorized in Google Cloud Console for the reCAPTCHA key.";
+            userMessage = "reCAPTCHA internal error. Ensure your domain is authorized in Google Cloud Console for the reCAPTCHA key. Also, check if your Firebase project has billing enabled, as Phone Auth requires it.";
         } else if (error.code === 'auth/argument-error') {
             userMessage = "reCAPTCHA setup argument error. This might be an issue with the container element or auth instance."
         }
-        toast({ title: "reCAPTCHA Setup Error", description: userMessage, variant: "destructive", duration: 8000 });
+        toast({ title: "reCAPTCHA Setup Error", description: userMessage, variant: "destructive", duration: 10000 });
         return null;
     }
   };
@@ -140,13 +156,13 @@ export default function LoginPage() {
       }
       const fullPhoneNumber = country.dialCode + phoneNumber;
 
-      if (!/^\+[1-9]\d{1,14}$/.test(fullPhoneNumber)) {
+      if (!/^\\+[1-9]\\d{1,14}$/.test(fullPhoneNumber)) {
         toast({ title: "Invalid Phone Number", description: "Please enter a valid phone number after selecting country code.", variant: "destructive" });
         setIsLoading(false);
         return;
       }
 
-      console.log("Login Page: Attempting to send OTP to ", fullPhoneNumber);
+      console.log(`Login Page: Attempting to send OTP to ${fullPhoneNumber}`);
       try {
         window.loginConfirmationResult = await signInWithPhoneNumber(auth, fullPhoneNumber, recaptchaVerifier);
         setOtpSent(true);
@@ -155,7 +171,7 @@ export default function LoginPage() {
       } catch (error: any) {
         console.error("Login Page: Error sending OTP:", error);
         let errorDesc = "Could not send OTP. " + (error.message || "Please try again.");
-        if (error.code === 'auth/invalid-phone-number') {
+         if (error.code === 'auth/invalid-phone-number') {
             errorDesc = "The phone number provided is not valid.";
         } else if (error.code === 'auth/too-many-requests') {
             errorDesc = "Too many requests. Please try again later.";
@@ -182,7 +198,7 @@ export default function LoginPage() {
         setIsLoading(false);
         return;
       }
-      console.log("Login Page: Attempting to verify OTP ", otp);
+      console.log("Login Page: Attempting to verify OTP " + otp);
       try {
         await window.loginConfirmationResult.confirm(otp);
         toast({ title: 'Phone Login Successful', description: 'Welcome back!' });
@@ -199,6 +215,31 @@ export default function LoginPage() {
       } finally {
         setIsLoading(false);
       }
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setIsGoogleLoading(true);
+    const provider = new GoogleAuthProvider();
+    try {
+      await signInWithPopup(auth, provider);
+      toast({ title: 'Google Sign-In Successful', description: 'Welcome!' });
+      router.push('/dashboard');
+    } catch (error: any) {
+      console.error("Google Sign-In error:", error);
+      let errorMessage = 'Could not sign in with Google. Please try again.';
+      if (error.code === 'auth/account-exists-with-different-credential') {
+        errorMessage = 'An account already exists with the same email address but different sign-in credentials. Try signing in using the original method.';
+      } else if (error.code === 'auth/popup-closed-by-user') {
+        errorMessage = 'Google Sign-In popup was closed before completion.';
+      }
+      toast({
+        title: 'Google Sign-In Failed',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsGoogleLoading(false);
     }
   };
 
@@ -221,7 +262,7 @@ export default function LoginPage() {
             Sign in to your Macro PrintFlow account.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <Tabs defaultValue="email" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="email" className="font-body">Email</TabsTrigger>
@@ -265,7 +306,7 @@ export default function LoginPage() {
                     </Button>
                   </div>
                 </div>
-                <Button type="submit" className="w-full font-body" disabled={isLoading}>
+                <Button type="submit" className="w-full font-body" disabled={isLoading || isGoogleLoading}>
                   {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LogIn className="mr-2 h-4 w-4" />}
                   {isLoading ? 'Signing In...' : 'Sign In with Email'}
                 </Button>
@@ -279,9 +320,9 @@ export default function LoginPage() {
                     <Select
                       value={selectedCountryCode}
                       onValueChange={setSelectedCountryCode}
-                      disabled={otpSent}
+                      disabled={otpSent || isLoading || isGoogleLoading}
                     >
-                      <SelectTrigger className="w-[120px] font-body"> {/* Adjusted width */}
+                      <SelectTrigger className="w-[150px] font-body">
                         <SelectValue>
                           {selectedCountryInfo ? `${selectedCountryInfo.code} (${selectedCountryInfo.dialCode})` : "Country"}
                         </SelectValue>
@@ -302,7 +343,7 @@ export default function LoginPage() {
                       onChange={(e) => setPhoneNumber(e.target.value)}
                       required
                       className="font-body flex-1"
-                      disabled={otpSent}
+                      disabled={otpSent || isLoading || isGoogleLoading}
                     />
                   </div>
                 </div>
@@ -319,10 +360,11 @@ export default function LoginPage() {
                       required
                       maxLength={6}
                       className="font-body"
+                      disabled={isLoading || isGoogleLoading}
                     />
                   </div>
                 )}
-                <Button type="submit" className="w-full font-body" disabled={isLoading}>
+                <Button type="submit" className="w-full font-body" disabled={isLoading || isGoogleLoading}>
                   {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (otpSent ? <KeyRound className="mr-2 h-4 w-4" /> : <Smartphone className="mr-2 h-4 w-4" />)}
                   {isLoading ? (otpSent ? 'Verifying...' : 'Sending OTP...') : (otpSent ? 'Verify OTP & Login' : 'Send OTP')}
                 </Button>
@@ -333,13 +375,26 @@ export default function LoginPage() {
                         if (window.recaptchaVerifier) { 
                             try { window.recaptchaVerifier.clear(); } catch (e) { console.warn("Login Page: Error clearing verifier on change number/resend:", e); } 
                         } 
-                    }} disabled={isLoading} className="w-full text-sm font-body">
+                    }} disabled={isLoading || isGoogleLoading} className="w-full text-sm font-body">
                         Change Phone Number or Resend OTP
                     </Button>
                 )}
               </form>
             </TabsContent>
           </Tabs>
+
+          <div className="relative my-4">
+            <Separator />
+            <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex justify-center">
+                <span className="bg-card px-2 text-xs text-muted-foreground font-body">OR CONTINUE WITH</span>
+            </div>
+          </div>
+
+          <Button variant="outline" className="w-full font-body" onClick={handleGoogleSignIn} disabled={isLoading || isGoogleLoading}>
+            {isGoogleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <GoogleIcon />}
+            {isGoogleLoading ? 'Signing In...' : 'Sign In with Google'}
+          </Button>
+
         </CardContent>
         <CardFooter className="flex-col items-center text-sm text-muted-foreground pt-6 space-y-2">
             <Link href="/signup" className="font-body text-primary hover:underline">
@@ -354,5 +409,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
-    

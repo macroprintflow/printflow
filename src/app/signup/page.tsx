@@ -10,7 +10,9 @@ import {
   type User,
   RecaptchaVerifier,
   signInWithPhoneNumber,
-  type ConfirmationResult
+  type ConfirmationResult,
+  GoogleAuthProvider, 
+  signInWithPopup 
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase/clientApp';
 import { Button } from '@/components/ui/button';
@@ -23,6 +25,19 @@ import AppLogo from '@/components/AppLogo';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { COUNTRY_CODES, type CountryCode } from '@/lib/definitions';
+import { Separator } from '@/components/ui/separator';
+
+// Google Icon SVG
+const GoogleIcon = () => (
+  <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+    <path d="M1 1h22v22H1z" fill="none"/>
+  </svg>
+);
+
 
 declare global {
   interface Window {
@@ -37,12 +52,13 @@ export default function SignupPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   
-  const [selectedCountryCode, setSelectedCountryCode] = useState<string>('IN'); // Stores country code e.g., "IN"
-  const [phoneNumber, setPhoneNumber] = useState(''); // Stores only the local part of the number
+  const [selectedCountryCode, setSelectedCountryCode] = useState<string>('IN');
+  const [phoneNumber, setPhoneNumber] = useState(''); 
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
 
@@ -93,16 +109,16 @@ export default function SignupPage() {
       return window.recaptchaVerifier;
     } catch (error: any) {
         console.error("Signup Page: Critical Error initializing RecaptchaVerifier:", error);
-        let userMessage = "Failed to initialize reCAPTCHA. Please check console for details.";
+        let userMessage = "Failed to initialize reCAPTCHA. Please ensure your domain is authorized in Google Cloud for the reCAPTCHA key and your Firebase project has billing enabled for Phone Auth. Common issues include network errors, misconfigured API keys, or unauthorized domains.";
         if (error.code === 'auth/network-request-failed') {
-            userMessage = "Network error during reCAPTCHA setup. Check connection and Firebase/Google Cloud domain whitelisting.";
+            userMessage = "Network error during reCAPTCHA setup. Check internet connection and Firebase/Google Cloud domain whitelisting.";
         } else if (error.code === 'auth/internal-error' && error.message?.includes("reCAPTCHA")) {
-            userMessage = "reCAPTCHA internal error. Ensure your domain is authorized in Google Cloud Console for the reCAPTCHA key.";
+            userMessage = "reCAPTCHA internal error. Ensure your domain is authorized in Google Cloud Console for the reCAPTCHA key. Also, check if your Firebase project has billing enabled, as Phone Auth requires it.";
         } else if (error.code === 'auth/argument-error') {
             userMessage = "reCAPTCHA setup argument error. This might be an issue with the container element or auth instance."
         }
         
-        toast({ title: "reCAPTCHA Setup Error", description: userMessage, variant: "destructive", duration: 8000 });
+        toast({ title: "reCAPTCHA Setup Error", description: userMessage, variant: "destructive", duration: 10000 });
         return null;
     }
   };
@@ -167,13 +183,13 @@ export default function SignupPage() {
       }
       const fullPhoneNumber = country.dialCode + phoneNumber;
 
-      if (!/^\+[1-9]\d{1,14}$/.test(fullPhoneNumber)) {
+      if (!/^\\+[1-9]\\d{1,14}$/.test(fullPhoneNumber)) {
         toast({ title: "Invalid Phone Number", description: "Please enter a valid phone number after selecting country code.", variant: "destructive" });
         setIsLoading(false);
         return;
       }
 
-      console.log("Signup Page: Attempting to send OTP to ", fullPhoneNumber);
+      console.log("Signup Page: Attempting to send OTP to " + fullPhoneNumber);
       try {
         window.confirmationResult = await signInWithPhoneNumber(auth, fullPhoneNumber, recaptchaVerifier);
         setOtpSent(true);
@@ -218,7 +234,7 @@ export default function SignupPage() {
         setIsLoading(false);
         return;
       }
-      console.log("Signup Page: Attempting to verify OTP ", otp);
+      console.log("Signup Page: Attempting to verify OTP " + otp);
       try {
         const userCredential = await window.confirmationResult.confirm(otp);
         console.log("Signup Page: OTP Verify - Successfully verified.");
@@ -252,6 +268,45 @@ export default function SignupPage() {
     }
   };
 
+  const handleGoogleSignUp = async () => {
+    setIsGoogleLoading(true);
+    const provider = new GoogleAuthProvider();
+    try {
+      const userCredential = await signInWithPopup(auth, provider);
+      
+      if (userCredential.user && displayName.trim() !== '' && userCredential.user.displayName !== displayName.trim()) {
+        try {
+          await updateProfile(userCredential.user, { displayName: displayName.trim() });
+        } catch (profileError: any) {
+          console.error("Google Sign-Up: Profile update error:", profileError);
+          toast({
+              title: 'Profile Update Skipped',
+              description: 'Could not set display name provided in form, but account was created/linked with Google. You can set it in your profile.',
+              variant: 'default', 
+          });
+        }
+      }
+
+      toast({ title: 'Google Sign-Up Successful', description: 'Welcome!' });
+      router.push('/dashboard');
+    } catch (error: any) {
+      console.error("Google Sign-Up error:", error);
+      let errorMessage = 'Could not sign up with Google. Please try again.';
+      if (error.code === 'auth/account-exists-with-different-credential') {
+        errorMessage = 'An account already exists with this email. Try logging in or use a different Google account.';
+      } else if (error.code === 'auth/popup-closed-by-user') {
+        errorMessage = 'Google Sign-Up popup was closed before completion.';
+      }
+      toast({
+        title: 'Google Sign-Up Failed',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
+
   const togglePasswordVisibility = () => {
     setShowPassword(prev => !prev);
   };
@@ -271,7 +326,7 @@ export default function SignupPage() {
             Join Macro PrintFlow to manage your print jobs.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <Tabs defaultValue="email" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="email" className="font-body">Sign up with Email</TabsTrigger>
@@ -288,6 +343,7 @@ export default function SignupPage() {
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
                     className="font-body"
+                    disabled={isGoogleLoading}
                   />
                 </div>
                 <div className="space-y-2">
@@ -300,6 +356,7 @@ export default function SignupPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     className="font-body"
+                    disabled={isLoading || isGoogleLoading}
                   />
                 </div>
                 <div className="space-y-2">
@@ -314,6 +371,7 @@ export default function SignupPage() {
                       required
                       minLength={6} 
                       className="font-body pr-10" 
+                      disabled={isLoading || isGoogleLoading}
                     />
                     <Button
                       type="button"
@@ -327,7 +385,7 @@ export default function SignupPage() {
                     </Button>
                   </div>
                 </div>
-                <Button type="submit" className="w-full font-body" disabled={isLoading}>
+                <Button type="submit" className="w-full font-body" disabled={isLoading || isGoogleLoading}>
                   {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}
                   {isLoading ? 'Creating Account...' : 'Sign Up with Email'}
                 </Button>
@@ -344,7 +402,7 @@ export default function SignupPage() {
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
                     className="font-body"
-                    disabled={otpSent}
+                    disabled={otpSent || isLoading || isGoogleLoading}
                   />
                 </div>
                 <div className="space-y-2">
@@ -353,9 +411,9 @@ export default function SignupPage() {
                     <Select
                       value={selectedCountryCode}
                       onValueChange={setSelectedCountryCode}
-                      disabled={otpSent}
+                      disabled={otpSent || isLoading || isGoogleLoading}
                     >
-                      <SelectTrigger className="w-[120px] font-body"> {/* Adjusted width */}
+                      <SelectTrigger className="w-[150px] font-body">
                          <SelectValue>
                           {selectedCountryInfo ? `${selectedCountryInfo.code} (${selectedCountryInfo.dialCode})` : "Country"}
                         </SelectValue>
@@ -376,7 +434,7 @@ export default function SignupPage() {
                       onChange={(e) => setPhoneNumber(e.target.value)}
                       required
                       className="font-body flex-1"
-                      disabled={otpSent}
+                      disabled={otpSent || isLoading || isGoogleLoading}
                     />
                   </div>
                 </div>
@@ -393,10 +451,11 @@ export default function SignupPage() {
                       required
                       maxLength={6}
                       className="font-body"
+                      disabled={isLoading || isGoogleLoading}
                     />
                   </div>
                 )}
-                <Button type="submit" className="w-full font-body" disabled={isLoading}>
+                <Button type="submit" className="w-full font-body" disabled={isLoading || isGoogleLoading}>
                   {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (otpSent ? <KeyRound className="mr-2 h-4 w-4" /> : <Smartphone className="mr-2 h-4 w-4" />)}
                   {isLoading ? (otpSent ? 'Verifying...' : 'Sending OTP...') : (otpSent ? 'Verify OTP & Sign Up' : 'Send OTP')}
                 </Button>
@@ -412,13 +471,26 @@ export default function SignupPage() {
                                 console.warn("Signup Page: Error clearing verifier on change number/resend:", e);
                             } 
                         } 
-                    }} disabled={isLoading} className="w-full text-sm font-body">
+                    }} disabled={isLoading || isGoogleLoading} className="w-full text-sm font-body">
                         Change Phone Number or Resend OTP
                     </Button>
                 )}
               </form>
             </TabsContent>
           </Tabs>
+
+          <div className="relative my-4">
+            <Separator />
+            <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex justify-center">
+                <span className="bg-card px-2 text-xs text-muted-foreground font-body">OR CONTINUE WITH</span>
+            </div>
+          </div>
+
+          <Button variant="outline" className="w-full font-body" onClick={handleGoogleSignUp} disabled={isLoading || isGoogleLoading}>
+            {isGoogleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <GoogleIcon />}
+            {isGoogleLoading ? 'Signing Up...' : 'Sign Up with Google'}
+          </Button>
+
         </CardContent>
         <CardFooter className="flex justify-center text-sm pt-4">
           <Link href="/login" className="font-body text-primary hover:underline">
