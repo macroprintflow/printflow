@@ -80,10 +80,8 @@ export default function CategorizedInventoryPage() {
 
   const handleInventoryUpdate = () => {
     fetchInventory(); 
-    router.refresh(); 
+    // router.refresh(); // Consider if router.refresh() is needed or if state update is enough
   };
-
-  const paperQualityValues = useMemo(() => PAPER_QUALITY_OPTIONS.map(opt => opt.label), []);
 
   const availableSpecsForSelectedQuality = useMemo(() => {
     if (!selectedPaperQuality || selectedPaperQuality === "__ALL_PAPER__") return [];
@@ -102,24 +100,38 @@ export default function CategorizedInventoryPage() {
       return subCategoryDef.qualityValues.includes(item.paperQuality);
     });
 
-    const unit = getPaperQualityUnit(itemsOfSelectedQuality[0]?.paperQuality as PaperQualityType); // Assume all items of a sub-cat have same unit basis
+    if (itemsOfSelectedQuality.length === 0) return [];
+    
+    const firstItemPaperQuality = itemsOfSelectedQuality[0]?.paperQuality as PaperQualityType | undefined;
+    if (!firstItemPaperQuality) return []; // Should not happen if itemsOfSelectedQuality is not empty and passed previous checks
+
+    const unit = getPaperQualityUnit(firstItemPaperQuality); 
     if (!unit) return [];
 
     const specs = new Set<number>();
     if (unit === 'GSM') {
-      itemsOfSelectedQuality.forEach(item => item.paperGsm && specs.add(item.paperGsm));
+      itemsOfSelectedQuality.forEach(item => {
+        if (typeof item.paperGsm === 'number' && item.paperGsm > 0) { // Ensure GSM is a positive number
+            specs.add(item.paperGsm);
+        }
+      });
     } else if (unit === 'mm') {
-      itemsOfSelectedQuality.forEach(item => item.paperThicknessMm && specs.add(item.paperThicknessMm));
+      itemsOfSelectedQuality.forEach(item => {
+         if (typeof item.paperThicknessMm === 'number' && item.paperThicknessMm > 0) { // Ensure thickness is a positive number
+            specs.add(item.paperThicknessMm);
+         }
+      });
     }
     
     return Array.from(specs).sort((a,b) => a-b).map(value => ({ value, unit }));
   }, [inventoryItems, selectedPaperQuality]);
 
   const filteredItems = useMemo(() => {
-    let itemsToFilter = inventoryItems;
+    let itemsToFilter = [...inventoryItems]; // Start with a copy of all inventory items
 
     if (categorySlug === "paper") {
-      itemsToFilter = itemsToFilter.filter(item => item.type === 'Master Sheet' || paperQualityValues.includes(item.itemGroup as string));
+      itemsToFilter = itemsToFilter.filter(item => item.type === 'Master Sheet'); // Base filter: only master sheets for paper category
+
       if (selectedPaperQuality && selectedPaperQuality !== "__ALL_PAPER__") {
         const subCategoryDef = PAPER_SUB_CATEGORIES.find(sc => sc.filterValue === selectedPaperQuality);
         if (subCategoryDef) {
@@ -152,7 +164,9 @@ export default function CategorizedInventoryPage() {
     } else if (categorySlug === "other-materials") {
       itemsToFilter = itemsToFilter.filter(item => item.itemGroup === "Other Stock");
     } else {
-      itemsToFilter = []; // Should not happen with valid category slugs
+      // This case should ideally not be reached if category slugs are managed by links/routes
+      // but as a fallback, show no items if the category is unrecognized.
+      itemsToFilter = []; 
     }
 
     if (searchQuery.trim() !== "") {
@@ -168,7 +182,7 @@ export default function CategorizedInventoryPage() {
       );
     }
     return itemsToFilter;
-  }, [inventoryItems, searchQuery, categorySlug, selectedPaperQuality, selectedSpec, paperQualityValues]);
+  }, [inventoryItems, searchQuery, categorySlug, selectedPaperQuality, selectedSpec]);
 
   const handleViewAdjustments = (item: InventoryItem) => {
     setSelectedItemForAdjustments(item);
@@ -202,7 +216,7 @@ export default function CategorizedInventoryPage() {
                   className="h-16 p-4 flex flex-col items-start justify-center text-left hover:shadow-md transition-shadow"
                   onClick={() => {
                     setSelectedPaperQuality(subCat.filterValue);
-                    setSelectedSpec(null); // Reset spec when paper type changes
+                    setSelectedSpec(null); 
                   }}
                 >
                   <div className="flex items-center">
@@ -219,32 +233,52 @@ export default function CategorizedInventoryPage() {
   };
 
   const renderPaperSpecifications = () => {
-    if (!selectedPaperQuality || availableSpecsForSelectedQuality.length === 0) {
-      return (
-        <div className="space-y-6">
-          <Button variant="outline" onClick={() => setSelectedPaperQuality(null)} className="mb-4 font-body">
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Paper Types
-          </Button>
-          <Card>
-            <CardHeader>
-              <CardTitle className="font-headline flex items-center">
-                <Layers className="mr-2 h-6 w-6 text-primary" /> 
-                No Specifications for {getSubCategoryDisplayName(selectedPaperQuality)}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="text-center py-8">
-              <p className="text-muted-foreground font-body">
-                No items of this paper type ({getSubCategoryDisplayName(selectedPaperQuality)}) are currently in stock,
-                or no distinct GSM/Thickness values found.
-              </p>
-              <Button className="mt-6 font-body" onClick={() => setIsAddItemDialogOpen(true)}>
-                <PlusCircle className="mr-2 h-4 w-4" /> Add New Item to {getSubCategoryDisplayName(selectedPaperQuality)}
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      );
+    if (!selectedPaperQuality || selectedPaperQuality === "__ALL_PAPER__") { 
+        // This case should ideally not be hit if __ALL_PAPER__ skips to table
+        // or if selectedPaperQuality is null (which shows subcategories)
+        // This component should only render if a specific paper type is selected.
+        return (
+          <div className="space-y-6">
+            <Button variant="outline" onClick={() => setSelectedPaperQuality(null)} className="mb-4 font-body">
+              <ArrowLeft className="mr-2 h-4 w-4" /> Back to Paper Types
+            </Button>
+            <Card>
+              <CardHeader>
+                <CardTitle className="font-headline">Error</CardTitle>
+              </CardHeader>
+              <CardContent><p className="font-body">Invalid state. Please go back and select a paper type.</p></CardContent>
+            </Card>
+          </div>
+        );
     }
+
+    if (availableSpecsForSelectedQuality.length === 0) {
+        return (
+            <div className="space-y-6">
+            <Button variant="outline" onClick={() => setSelectedPaperQuality(null)} className="mb-4 font-body">
+                <ArrowLeft className="mr-2 h-4 w-4" /> Back to Paper Types
+            </Button>
+            <Card>
+                <CardHeader>
+                <CardTitle className="font-headline flex items-center">
+                    <Layers className="mr-2 h-6 w-6 text-primary" /> 
+                    No Stock or Specifications for {getSubCategoryDisplayName(selectedPaperQuality)}
+                </CardTitle>
+                </CardHeader>
+                <CardContent className="text-center py-8">
+                <p className="text-muted-foreground font-body">
+                    No items of this paper type ({getSubCategoryDisplayName(selectedPaperQuality)}) are currently in stock with defined GSM/Thickness,
+                    or no distinct GSM/Thickness values were found for existing stock.
+                </p>
+                <Button className="mt-6 font-body" onClick={() => setIsAddItemDialogOpen(true)}>
+                    <PlusCircle className="mr-2 h-4 w-4" /> Add New Item to {getSubCategoryDisplayName(selectedPaperQuality)}
+                </Button>
+                </CardContent>
+            </Card>
+            </div>
+        );
+    }
+    
 
     return (
       <div className="space-y-6">
@@ -264,7 +298,7 @@ export default function CategorizedInventoryPage() {
           <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {availableSpecsForSelectedQuality.map((spec) => (
               <Button 
-                key={spec.value} 
+                key={`${spec.value}-${spec.unit}`}
                 variant="outline" 
                 className="h-16 p-4 flex flex-col items-start justify-center text-left hover:shadow-md transition-shadow"
                 onClick={() => setSelectedSpec(spec)}
@@ -284,13 +318,15 @@ export default function CategorizedInventoryPage() {
   const renderInventoryTable = useCallback((items: InventoryItem[]) => {
     let currentFilterDisplayName = categoryDisplayName;
     if (categorySlug === "paper") {
-      if (selectedPaperQuality) {
+      if (selectedPaperQuality && selectedPaperQuality !== "__ALL_PAPER__") {
         currentFilterDisplayName = getSubCategoryDisplayName(selectedPaperQuality);
         if (selectedSpec) {
           currentFilterDisplayName += ` - ${selectedSpec.value}${selectedSpec.unit}`;
         }
+      } else if (selectedPaperQuality === "__ALL_PAPER__") {
+        currentFilterDisplayName = "All Paper Types";
       } else {
-        currentFilterDisplayName = "Paper"; // Default if no sub-category yet
+        currentFilterDisplayName = "Paper"; 
       }
     }
 
@@ -331,7 +367,7 @@ export default function CategorizedInventoryPage() {
             <TableHead className="font-headline">GSM/Thickness</TableHead>
             <TableHead className="font-headline">Location</TableHead>
             <TableHead className="font-headline text-right">Available Stock</TableHead>
-            <TableHead className="font-headline text-right">Unit</TableHead>
+            <TableHead className="font-headline">Unit</TableHead>
             <TableHead className="font-headline text-right">Reorder Point</TableHead>
             <TableHead className="font-headline text-center">Actions</TableHead>
           </TableRow>
@@ -379,7 +415,7 @@ export default function CategorizedInventoryPage() {
                   </div>
                 </TableCell>
                 <TableCell className="font-body text-right">{item.availableStock?.toLocaleString() ?? 0}</TableCell>
-                <TableCell className="font-body text-right">{item.unit}</TableCell>
+                <TableCell className="font-body">{item.unit}</TableCell>
                 <TableCell className="font-body text-right">{item.reorderPoint ? item.reorderPoint.toLocaleString() : '-'}</TableCell>
                 <TableCell className="text-center">
                   <Button variant="ghost" size="icon" onClick={() => handleViewAdjustments(item)} title="View Stock History">
@@ -394,48 +430,49 @@ export default function CategorizedInventoryPage() {
     );
   }, [isLoading, searchQuery, categoryDisplayName, selectedPaperQuality, selectedSpec, categorySlug]);
 
-  // Determine current view based on category and selections
+  
   if (categorySlug === "paper") {
     if (!selectedPaperQuality) {
       return renderPaperSubCategories();
     }
+    // If a specific paper type (not "All") is selected AND no spec is selected yet, show spec selection
     if (selectedPaperQuality !== "__ALL_PAPER__" && !selectedSpec) {
       return renderPaperSpecifications();
     }
-    // If __ALL_PAPER__ is selected, or if a spec is selected, proceed to table
+    // If "__ALL_PAPER__" is selected, or if a spec is selected, proceed to table view (handled by the return below)
   }
 
-  // Dynamic title for the table card
+
   let currentOverallCategoryName = categoryDisplayName;
   if (categorySlug === "paper") {
-      if (selectedPaperQuality) {
+      if (selectedPaperQuality && selectedPaperQuality !== "__ALL_PAPER__") {
         currentOverallCategoryName = getSubCategoryDisplayName(selectedPaperQuality);
         if (selectedSpec) {
             currentOverallCategoryName += ` - ${selectedSpec.value}${selectedSpec.unit}`;
         }
-      } else {
-        currentOverallCategoryName = "Paper";
+      } else if (selectedPaperQuality === "__ALL_PAPER__") {
+        currentOverallCategoryName = "All Paper Types";
       }
+      // If no paper quality is selected, it remains "Paper" (handled by renderPaperSubCategories)
   }
 
 
-  // Back button logic for the table view
   const handleBackButtonClick = () => {
     if (categorySlug === "paper") {
       if (selectedSpec) {
-        setSelectedSpec(null); // Go back to spec selection
+        setSelectedSpec(null); 
       } else if (selectedPaperQuality) {
-        setSelectedPaperQuality(null); // Go back to paper type selection
+        setSelectedPaperQuality(null); 
       } else {
-        router.push('/inventory'); // Go back to main categories
+        router.push('/inventory'); 
       }
     } else {
-      router.push('/inventory'); // Go back to main categories for non-paper
+      router.push('/inventory'); 
     }
   };
 
   const backButtonText = categorySlug === "paper" 
-    ? (selectedSpec ? "Back to Specifications" : selectedPaperQuality ? "Back to Paper Types" : "Back to Main Categories")
+    ? (selectedSpec ? "Back to Specifications" : (selectedPaperQuality && selectedPaperQuality !== "__ALL_PAPER__") ? "Back to Paper Types" : "Back to Main Categories")
     : "Back to Main Categories";
 
 
@@ -493,3 +530,5 @@ export default function CategorizedInventoryPage() {
   );
 }
 
+
+    
