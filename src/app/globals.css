@@ -32,7 +32,7 @@
   --ios-radius: 20px;
   --ios-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
   --ios-transition: all 0.3s ease;
-  --ios-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --ios-font: 'Glacial Indifference', -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
 
   /* ShadCN HSL Variables - Mapped to iOS Theme where appropriate */
   --background: 220 13% 96%; /* Maps to --ios-gray for body background */
@@ -72,7 +72,7 @@
   --radius: 20px; /* Maps to --ios-radius */
 
   /* iOS-inspired Sidebar Light Theme */
-  --sidebar-background: 220 15% 94% / 0.65; /* Whitish, 65% opaque */
+  --sidebar-background: hsl(220 15% 94% / 0.75); /* Whitish, 75% opaque */
   --sidebar-foreground: 240 2% 25%; 
   --sidebar-primary: 212 100% 50%; 
   --sidebar-primary-foreground: 0 0% 100%; 
@@ -124,13 +124,13 @@
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
 
-    --sidebar-background: 0 0% 95% / 0.65; /* Whitish base, 65% opaque */
+    --sidebar-background: hsl(0 0% 90% / 0.70); /* Light gray, 70% opaque */
     --sidebar-foreground: 240 2% 25%; /* Darker text for whitish bg */
     --sidebar-primary: 212 100% 58%; 
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 0 0% 88% / 0.5; /* Lighter accent for whitish bg */
+    --sidebar-accent: 0 0% 85% / 0.5; /* Lighter accent for whitish bg */
     --sidebar-accent-foreground: 212 100% 45%;
-    --sidebar-border: 0 0% 82% / 0.5; /* Lighter border for whitish bg */
+    --sidebar-border: 0 0% 80% / 0.5; /* Lighter border for whitish bg */
     --sidebar-ring: 212 100% 58%;
   }
 }

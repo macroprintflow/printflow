@@ -11,8 +11,9 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        // Use system UI font stack for an iOS-like feel, with Inter as a fallback
+        // Use Glacial Indifference as primary, with system UI font stack as fallback
         sans: [
+          'Glacial Indifference',
           '-apple-system',
           'BlinkMacSystemFont',
           '"Segoe UI"',
@@ -27,6 +28,7 @@ export default {
           '"Noto Color Emoji"',
         ],
         body: [
+          'Glacial Indifference',
           '-apple-system',
           'BlinkMacSystemFont',
           '"Segoe UI"',
@@ -40,7 +42,7 @@ export default {
           '"Segoe UI Symbol"',
           '"Noto Color Emoji"',
         ],
-        headline: ['Glacial Indifference', 'sans-serif'], // Updated to Glacial Indifference
+        headline: ['Glacial Indifference', 'sans-serif'], 
         code: ['monospace'],
       },
       colors: {
