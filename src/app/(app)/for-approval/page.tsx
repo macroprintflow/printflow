@@ -161,17 +161,47 @@ export default function ForApprovalPage() {
   };
 
   const handleViewPdf = (pdfDataUri: string | undefined) => {
-    if (pdfDataUri && pdfDataUri.startsWith('data:application/pdf;base64,') && pdfDataUri.length > 'data:application/pdf;base64,'.length) {
-      window.open(pdfDataUri, '_blank');
-    } else {
+    if (!pdfDataUri || !pdfDataUri.startsWith('data:application/pdf;base64,')) {
       toast({
         title: "Cannot View PDF",
         description: "The PDF data is empty or invalid for this design.",
         variant: "destructive",
       });
-      console.warn("Attempted to open invalid PDF Data URI: ", pdfDataUri);
+      return;
+    }
+
+    try {
+      const base64 = pdfDataUri.split(',')[1];
+      const byteCharacters = atob(base64);
+      const byteNumbers = Array.from(byteCharacters, char => char.charCodeAt(0));
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: 'application/pdf' });
+
+      const url = URL.createObjectURL(blob);
+      const pdfWindow = window.open(url, '_blank');
+
+      // Clean up the object URL when the window/tab is closed
+      if (pdfWindow) {
+        pdfWindow.addEventListener('unload', () => {
+          URL.revokeObjectURL(url);
+          console.log("Revoked PDF Object URL:", url);
+        });
+      } else {
+        // Fallback if window.open was blocked or failed, revoke immediately
+        URL.revokeObjectURL(url);
+        console.warn("Could not open PDF window, revoked URL immediately:", url);
+      }
+      
+    } catch (error) {
+      console.error("Failed to open PDF:", error);
+      toast({
+        title: "Failed to Open PDF",
+        description: "Something went wrong while rendering the PDF.",
+        variant: "destructive",
+      });
     }
   };
+
 
   return (
     <div className="space-y-6">
