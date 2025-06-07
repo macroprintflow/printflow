@@ -132,7 +132,7 @@ export async function getInventoryOptimizationSuggestions(
     paperQuality: PaperQualityType;
     jobSizeWidth: number;
     jobSizeHeight: number;
-    netQuantity: number;
+    quantityToProduce: number; // Changed from netQuantity
   }
 ): Promise<OptimizeInventoryOutput | { error: string }> {
   console.log('[JobActions TS Calc] === Get Inventory Optimization Suggestions START ===');
@@ -153,8 +153,8 @@ export async function getInventoryOptimizationSuggestions(
         console.log('[JobActions TS Calc] Invalid target thickness for mm-based quality. Returning empty suggestions.');
         return { suggestions: [], optimalSuggestion: undefined };
     }
-    if (jobInput.jobSizeWidth <= 0 || jobInput.jobSizeHeight <= 0 || jobInput.netQuantity <=0) {
-        console.log('[JobActions TS Calc] Invalid job dimensions or net quantity. Returning empty suggestions.');
+    if (jobInput.jobSizeWidth <= 0 || jobInput.jobSizeHeight <= 0 || jobInput.quantityToProduce <=0) { // Use quantityToProduce
+        console.log('[JobActions TS Calc] Invalid job dimensions or quantity to produce. Returning empty suggestions.');
         return { suggestions: [], optimalSuggestion: undefined };
     }
     
@@ -218,7 +218,7 @@ export async function getInventoryOptimizationSuggestions(
             wastagePercentage = 100 - (usedArea / sheetArea) * 100;
         }
 
-        const totalMasterSheetsNeeded = Math.ceil(jobInput.netQuantity / layoutInfo.ups);
+        const totalMasterSheetsNeeded = Math.ceil(jobInput.quantityToProduce / layoutInfo.ups); // Use quantityToProduce
 
         const suggestion: InventorySuggestion = {
           sourceInventoryItemId: sheet.id,

@@ -64,7 +64,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
   const form = useForm<JobCardFormValues>({
     resolver: zodResolver(JobCardSchema),
     defaultValues: initialJobData ? 
-    { // Prefill from initialJobData if provided
+    { 
       jobName: initialJobData.jobName,
       customerName: initialJobData.customerName,
       jobSizeWidth: initialJobData.jobSizeWidth,
@@ -99,7 +99,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
       dispatchDate: initialJobData.dispatchDate ? new Date(initialJobData.dispatchDate).toISOString() : undefined,
       workflowSteps: initialJobData.workflowSteps || [],
     }
-    : { // Default values if no initialJobData
+    : { 
       jobName: initialJobName || "",
       customerName: initialCustomerName || "",
       jobSizeWidth: undefined,
@@ -138,9 +138,11 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
   
   useEffect(() => {
     if (initialJobData) {
-      form.reset(initialJobData); // Reset form with all data if initialJobData is provided
+      form.reset(initialJobData); 
       setCustomerInputValue(initialJobData.customerName);
       setSelectedCustomer(initialJobData.customerName);
+      // Trigger re-evaluation for customerName field after programmatic update
+      form.trigger("customerName"); 
       applyWorkflow(initialJobData);
     } else {
       if (initialJobName) form.setValue("jobName", initialJobName);
@@ -148,6 +150,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
         form.setValue("customerName", initialCustomerName);
         setCustomerInputValue(initialCustomerName);
         setSelectedCustomer(initialCustomerName);
+        form.trigger("customerName");
       }
     }
   }, [initialJobData, initialJobName, initialCustomerName, form]);
@@ -195,7 +198,9 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
   const handleCustomerInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setCustomerInputValue(value);
+    form.setValue("customerName", value, { shouldValidate: true }); // Update form value & validate
     if (value) {
+      setSelectedCustomer(value); // Keep selectedCustomer in sync for job fetching
       const filtered = allCustomers.filter(customer =>
         customer.toLowerCase().includes(value.toLowerCase())
       );
@@ -204,8 +209,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
     } else {
       setCustomerSuggestions([]);
       setIsCustomerPopoverOpen(false);
-      setSelectedCustomer("");
-      form.setValue("customerName", "");
+      setSelectedCustomer(""); // Clear selected customer if input is empty
       setJobsForCustomer([]);
       setJobInputValue("");
       setSelectedPastJobId("");
@@ -215,7 +219,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
   const handleCustomerSuggestionClick = async (customerName: string) => {
     setCustomerInputValue(customerName);
     setSelectedCustomer(customerName);
-    form.setValue("customerName", customerName);
+    form.setValue("customerName", customerName, { shouldValidate: true });
     setIsCustomerPopoverOpen(false);
     setJobInputValue(""); 
     setSelectedPastJobId("");
@@ -299,6 +303,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
     applyWorkflow(job);
     setCustomerInputValue(job.customerName); 
     setSelectedCustomer(job.customerName); 
+    form.trigger("customerName"); // Trigger validation after setting
   };
 
 
@@ -568,7 +573,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
     paperQuality: form.watch("paperQuality") as PaperQualityType || undefined,
     jobSizeWidth: form.watch("jobSizeWidth"),
     jobSizeHeight: form.watch("jobSizeHeight"),
-    netQuantity: form.watch("netQuantity"),
+    quantityForOptimization: form.watch("grossQuantity") || form.watch("netQuantity") || 0,
   };
 
   const processFields = [
@@ -706,22 +711,29 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
                 <FormMessage />
               </FormItem>
             )} />
-            <FormField control={form.control} name="customerName" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Customer Name</FormLabel>
-                <FormControl><Input 
-                    placeholder="e.g., Chic Fragrances" 
-                    {...field} 
-                    value={customerInputValue} 
-                    onFocus={() => {
+            {/* Replaced direct Input with FormField for customerName */}
+            <FormField
+              control={form.control}
+              name="customerName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Customer Name</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="e.g., Chic Fragrances"
+                      {...field} // Spread field props here
+                      value={customerInputValue} // Controlled by customerInputValue
+                      onChange={handleCustomerInputChange} // Use specific handler
+                      onFocus={() => {
                         if (customerInputValue && customerSuggestions.length > 0) setIsCustomerPopoverOpen(true);
-                    }}
-                    onChange={handleCustomerInputChange} 
-                    className="font-body"
-                /></FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
+                      }}
+                      className="font-body"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </CardContent>
         </Card>
 
@@ -867,7 +879,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
             <FormField control={form.control} name="wastagePercentage" render={({ field }) => (
                 <FormItem>
                     <FormLabel>Wastage (%)</FormLabel>
-                    <FormControl><Input type="number" placeholder="Calculated" {...field} readOnly value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)} className="font-body bg-muted" /></FormControl>
+                    <FormControl><Input type="number" placeholder="Calculated %" {...field} readOnly value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)} className="font-body bg-muted" /></FormControl>
                     <FormMessage />
                 </FormItem>
             )} />

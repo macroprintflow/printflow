@@ -28,7 +28,7 @@ interface InventoryOptimizationModalProps {
     paperQuality?: PaperQualityType;
     jobSizeWidth?: number;
     jobSizeHeight?: number;
-    netQuantity?: number;
+    quantityForOptimization?: number; // Changed from netQuantity
   };
   onSuggestionSelect: (suggestion: InventorySuggestion) => void;
   isOpen: boolean;
@@ -53,12 +53,12 @@ export function InventoryOptimizationModal({
     if (!jobDetails.paperQuality || jobDetails.paperQuality === '') missingInfo = true;
     if (qualityUnit === 'gsm' && !jobDetails.paperGsm) missingInfo = true;
     if (qualityUnit === 'mm' && !jobDetails.paperThicknessMm) missingInfo = true;
-    if (!jobDetails.jobSizeWidth || !jobDetails.jobSizeHeight || !jobDetails.netQuantity) missingInfo = true;
+    if (!jobDetails.jobSizeWidth || !jobDetails.jobSizeHeight || !jobDetails.quantityForOptimization) missingInfo = true;
     
     if (missingInfo) {
        toast({
         title: "Missing Information",
-        description: `Please fill in Target Paper Quality, ${qualityUnit === 'mm' ? 'Thickness (mm)' : 'GSM'}, Job Size (in inches), and Net Quantity to get suggestions.`,
+        description: `Please fill in Target Paper Quality, ${qualityUnit === 'mm' ? 'Thickness (mm)' : 'GSM'}, Job Size (in inches), and Gross (or Net) Quantity to get suggestions.`,
         variant: "destructive",
       });
       return;
@@ -71,10 +71,10 @@ export function InventoryOptimizationModal({
     const actionInput = {
       paperGsm: jobDetails.paperGsm,
       paperThicknessMm: jobDetails.paperThicknessMm,
-      paperQuality: jobDetails.paperQuality!, // Assert non-null as checked above
+      paperQuality: jobDetails.paperQuality!, 
       jobSizeWidth: jobDetails.jobSizeWidth!,
       jobSizeHeight: jobDetails.jobSizeHeight!,
-      netQuantity: jobDetails.netQuantity!,
+      quantityToProduce: jobDetails.quantityForOptimization!, // Use quantityForOptimization
     };
 
     const result = await getInventoryOptimizationSuggestions(actionInput) as OptimizeInventoryOutput | { error: string };
@@ -122,7 +122,7 @@ export function InventoryOptimizationModal({
           <DialogTitle className="font-headline">Master Sheet Optimization (from Inventory)</DialogTitle>
           <DialogDescription>
             Get suggestions for the best master sheet size from your current inventory to minimize wastage.
-            Click "Fetch Suggestions" after filling in Target Paper Quality, {getPaperQualityUnit(jobDetails.paperQuality as PaperQualityType) === 'mm' ? 'Thickness (mm)' : 'GSM'}, Job Size (in inches), and Net Quantity.
+            Click "Fetch Suggestions" after filling in Target Paper Quality, {getPaperQualityUnit(jobDetails.paperQuality as PaperQualityType) === 'mm' ? 'Thickness (mm)' : 'GSM'}, Job Size (in inches), and Gross (or Net) Quantity.
             Suggestions are based on inventory items matching quality (exact) and GSM/Thickness (+/- tolerance).
           </DialogDescription>
         </DialogHeader>
@@ -156,31 +156,31 @@ export function InventoryOptimizationModal({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="font-headline">Master Sheet (Inventory)</TableHead>
-                  <TableHead className="font-headline">GSM/Thickness</TableHead>
-                  <TableHead className="font-headline">Quality</TableHead>
-                  <TableHead className="font-headline">Layout</TableHead>
-                  <TableHead className="font-headline text-right">Wastage %</TableHead>
-                  <TableHead className="font-headline text-right">Sheets/Master</TableHead>
-                  <TableHead className="font-headline text-right">Total Masters</TableHead>
-                  <TableHead className="font-headline text-right">Action</TableHead>
+                  <TableHead className="font-headline text-card-foreground">Master Sheet (Inventory)</TableHead>
+                  <TableHead className="font-headline text-card-foreground">GSM/Thickness</TableHead>
+                  <TableHead className="font-headline text-card-foreground">Quality</TableHead>
+                  <TableHead className="font-headline text-card-foreground">Layout</TableHead>
+                  <TableHead className="font-headline text-card-foreground text-right">Wastage %</TableHead>
+                  <TableHead className="font-headline text-card-foreground text-right">Sheets/Master</TableHead>
+                  <TableHead className="font-headline text-card-foreground text-right">Total Masters</TableHead>
+                  <TableHead className="font-headline text-card-foreground text-right">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {suggestions.map((s, index) => (
                   <TableRow key={s.sourceInventoryItemId || index} className={s.sourceInventoryItemId === optimalSuggestion?.sourceInventoryItemId ? "bg-green-50" : ""}>
-                    <TableCell>{s.masterSheetSizeWidth.toFixed(2)} x {s.masterSheetSizeHeight.toFixed(2)}</TableCell>
-                    <TableCell>{renderSheetSpec(s)}</TableCell>
-                    <TableCell>
+                    <TableCell className="text-card-foreground">{s.masterSheetSizeWidth.toFixed(2)} x {s.masterSheetSizeHeight.toFixed(2)}</TableCell>
+                    <TableCell className="text-card-foreground">{renderSheetSpec(s)}</TableCell>
+                    <TableCell className="text-card-foreground">
                         <Badge variant="outline">{getPaperQualityLabel(s.paperQuality as PaperQualityType)}</Badge>
                     </TableCell>
-                    <TableCell className="text-xs">
+                    <TableCell className="text-xs text-card-foreground">
                       {s.cuttingLayoutDescription || '-'}
                     </TableCell>
-                    <TableCell className="text-right">{s.wastagePercentage.toFixed(2)}%</TableCell>
-                    <TableCell className="text-right">{s.sheetsPerMasterSheet}</TableCell>
-                    <TableCell className="text-right">{s.totalMasterSheetsNeeded}</TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right text-card-foreground">{s.wastagePercentage.toFixed(2)}%</TableCell>
+                    <TableCell className="text-right text-card-foreground">{s.sheetsPerMasterSheet}</TableCell>
+                    <TableCell className="text-right text-card-foreground">{s.totalMasterSheetsNeeded}</TableCell>
+                    <TableCell className="text-right text-card-foreground">
                       <Button variant="outline" size="sm" onClick={() => handleSelect(s)}>
                         Select
                       </Button>
@@ -201,5 +201,4 @@ export function InventoryOptimizationModal({
     </Dialog>
   );
 }
-
     
