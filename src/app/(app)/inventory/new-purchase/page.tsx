@@ -186,7 +186,7 @@ const CurrentItemCommonFields = ({ form, onFormChange }: { form: UseFormReturn<P
         <FormField control={form.control} name="unit" render={({ field }) => (
           <FormItem>
             <FormLabel>Unit</FormLabel>
-            <Select onValueChange={field.onChange} value={field.value || "sheets" as UnitValue}>
+            <Select onValueChange={field.onChange} value={field.value || "pieces" as UnitValue}>
               <FormControl>
                 <SelectTrigger className="font-body h-11">
                   <SelectValue placeholder="Select unit" />
@@ -278,7 +278,7 @@ export default function NewPurchasePage() {
     defaultValues: {
       category: undefined,
       quantity: undefined, 
-      unit: "pieces" as UnitValue, // Defaulted to pieces, will be overridden by category logic
+      unit: "pieces" as UnitValue, 
       paperMasterSheetSizeWidth: undefined,
       paperMasterSheetSizeHeight: undefined,
       paperQuality: "",
@@ -355,11 +355,20 @@ export default function NewPurchasePage() {
           autoItemName = "Ink Item";
           break;
         case 'PLASTIC_TRAY':
+           defaultUnit = 'pieces';
+           autoItemName = "Plastic Tray";
+           break;
         case 'GLASS_JAR':
+           defaultUnit = 'pieces';
+           autoItemName = "Glass Jar";
+           break;
         case 'MAGNET':
+           defaultUnit = 'pieces';
+           autoItemName = "Magnet";
+           break;
         case 'OTHER':
            defaultUnit = 'pieces';
-           autoItemName = newCategory === 'PLASTIC_TRAY' ? "Plastic Tray" : newCategory === 'GLASS_JAR' ? "Glass Jar" : newCategory === 'MAGNET' ? "Magnet" : ""; 
+           autoItemName = ""; 
            break;
         default:
           defaultUnit = 'units';
@@ -407,11 +416,20 @@ export default function NewPurchasePage() {
         case 'PAPER': autoItemName = "Paper Stock Item"; defaultUnit = 'sheets'; break;
         case 'INKS': autoItemName = "Ink Item"; defaultUnit = 'kg'; break;
         case 'PLASTIC_TRAY': 
+           autoItemName = "Plastic Tray";
+           defaultUnit = 'pieces'; 
+           break;
         case 'GLASS_JAR': 
+           autoItemName = "Glass Jar";
+           defaultUnit = 'pieces';
+           break;
         case 'MAGNET': 
+           autoItemName = "Magnet";
+           defaultUnit = 'pieces';
+           break;
         case 'OTHER':
+          autoItemName = "";
           defaultUnit = 'pieces';
-          autoItemName = currentCategory === 'PLASTIC_TRAY' ? "Plastic Tray" : currentCategory === 'GLASS_JAR' ? "Glass Jar" : currentCategory === 'MAGNET' ? "Magnet" : "";
           break;
         default: defaultUnit = 'units';
       }
@@ -533,13 +551,13 @@ export default function NewPurchasePage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="purchaseBillNoInput">Purchase Bill No.</Label>
-                  <Input id="purchaseBillNoInput" placeholder="e.g., INV-2024-123" value={purchaseBillNo} onChange={(e) => setPurchaseBillNo(e.target.value)} className="font-body h-11"/>
+                  <Input id="purchaseBillNoInput" placeholder="e.g., INV-2024-123" value={purchaseBillNo} onChange={(e) => setPurchaseBillNo(e.target.value)} className="font-body h-11 px-3"/>
                 </div>
                 <div className="flex flex-col space-y-2">
                   <Label htmlFor="purchaseDateButton">Purchase Date</Label>
                   <Popover>
                     <PopoverTrigger asChild>
-                        <Button id="purchaseDateButton" variant={"outline"} className={cn("w-full pl-3 text-left font-normal font-body h-11 py-2", !purchaseDate && "text-muted-foreground")}>
+                        <Button id="purchaseDateButton" variant={"outline"} className={cn("w-full text-left font-normal font-body h-11 px-3 py-2", !purchaseDate && "text-muted-foreground")}>
                           {purchaseDate ? format(purchaseDate, "PPP") : <span>Pick a date</span>}
                           <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                         </Button>
@@ -552,7 +570,7 @@ export default function NewPurchasePage() {
                  <div className="space-y-2">
                   <Label htmlFor="purchaseVendorSelect">Vendor Name (Optional)</Label>
                   <Select onValueChange={setPurchaseVendor} value={purchaseVendor || ""}>
-                    <SelectTrigger id="purchaseVendorSelect" className="font-body h-11">
+                    <SelectTrigger id="purchaseVendorSelect" className="font-body h-11 px-3">
                         <SelectValue placeholder="Select vendor" />
                     </SelectTrigger>
                     <SelectContent>{VENDOR_OPTIONS.map(opt => (<SelectItem key={opt.value} value={opt.value} className="font-body">{opt.label}</SelectItem>))}</SelectContent>
@@ -570,7 +588,7 @@ export default function NewPurchasePage() {
                         setOtherPurchaseVendor(e.target.value);
                         if (e.target.value.trim()) setOtherVendorError(null);
                     }} 
-                    className={cn("font-body h-11", otherVendorError && "border-destructive")}
+                    className={cn("font-body h-11 px-3", otherVendorError && "border-destructive")}
                   />
                    {otherVendorError && <p className="text-xs text-destructive mt-1">{otherVendorError}</p>}
                 </div>
@@ -602,11 +620,20 @@ export default function NewPurchasePage() {
                               autoItemName = "Ink Item";
                               break;
                             case 'PLASTIC_TRAY':
+                               defaultUnit = 'pieces';
+                               autoItemName = "Plastic Tray"; 
+                               break;
                             case 'GLASS_JAR':
+                                defaultUnit = 'pieces';
+                                autoItemName = "Glass Jar";
+                                break;
                             case 'MAGNET':
+                                defaultUnit = 'pieces';
+                                autoItemName = "Magnet";
+                                break;
                             case 'OTHER':
                                defaultUnit = 'pieces';
-                               autoItemName = newCategoryValue === 'PLASTIC_TRAY' ? "Plastic Tray" : newCategoryValue === 'GLASS_JAR' ? "Glass Jar" : newCategoryValue === 'MAGNET' ? "Magnet" : ""; 
+                               autoItemName = ""; 
                                break;
                             default:
                               defaultUnit = 'units';
