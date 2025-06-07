@@ -59,31 +59,45 @@ export default function LoginPage() {
 
   const setupRecaptcha = () => {
     if (!auth) {
+        console.error("Firebase auth object is not available for reCAPTCHA setup on login page.");
         toast({ title: "Authentication Error", description: "Firebase auth service is not ready. Please refresh.", variant: "destructive" });
         return null;
     }
     if (!recaptchaContainerRef.current) {
+      console.error("reCAPTCHA container ref not found during setup on login page.");
       toast({ title: "Error", description: "reCAPTCHA UI element not ready. Please refresh page or try again.", variant: "destructive" });
       return null;
     }
 
     try {
       if (window.recaptchaVerifier) {
+        console.log("Login Page: Clearing existing RecaptchaVerifier instance.");
         window.recaptchaVerifier.clear(); 
       }
+      console.log("Login Page: Initializing new RecaptchaVerifier instance for element:", recaptchaContainerRef.current);
       window.recaptchaVerifier = new RecaptchaVerifier(auth, recaptchaContainerRef.current, {
         size: 'invisible',
         'callback': (response: any) => {
-          // reCAPTCHA solved
+          console.log("Login Page: reCAPTCHA solved by verifier callback. Response:", response);
         },
         'expired-callback': () => {
+          console.log("Login Page: reCAPTCHA expired via callback.");
           toast({ title: "reCAPTCHA Expired", description: "Please try sending OTP again.", variant: "destructive" });
         }
       });
+      console.log("Login Page: RecaptchaVerifier initialized successfully.");
       return window.recaptchaVerifier;
     } catch (error: any) {
-        console.error("Critical Error initializing RecaptchaVerifier on login:", error);
-        toast({ title: "reCAPTCHA Initialization Error", description: "Failed to initialize reCAPTCHA. Check console.", variant: "destructive", duration: 8000 });
+        console.error("Login Page: Critical Error initializing RecaptchaVerifier:", error);
+        let userMessage = "Failed to initialize reCAPTCHA. Please check console for details.";
+        if (error.code === 'auth/network-request-failed') {
+            userMessage = "Network error during reCAPTCHA setup. Check connection and Firebase/Google Cloud domain whitelisting.";
+        } else if (error.code === 'auth/internal-error' && error.message?.includes("reCAPTCHA")) {
+            userMessage = "reCAPTCHA internal error. Ensure your domain is authorized in Google Cloud Console for the reCAPTCHA key.";
+        } else if (error.code === 'auth/argument-error') {
+            userMessage = "reCAPTCHA setup argument error. This might be an issue with the container element or auth instance."
+        }
+        toast({ title: "reCAPTCHA Setup Error", description: userMessage, variant: "destructive", duration: 8000 });
         return null;
     }
   };
@@ -125,21 +139,27 @@ export default function LoginPage() {
         return;
       }
 
+      console.log(`Login Page: Attempting to send OTP to ${formattedPhoneNumber}`);
       try {
         window.loginConfirmationResult = await signInWithPhoneNumber(auth, formattedPhoneNumber, recaptchaVerifier);
         setOtpSent(true);
         toast({ title: 'OTP Sent', description: `An OTP has been sent to ${formattedPhoneNumber}.` });
+        console.log("Login Page: OTP Sent, loginConfirmationResult stored.");
       } catch (error: any) {
-        console.error("Error sending OTP for login:", error);
-        let errorDesc = error.message || "Please try again.";
+        console.error("Login Page: Error sending OTP:", error);
+        let errorDesc = "Could not send OTP. " + (error.message || "Please try again.");
         if (error.code === 'auth/invalid-phone-number') {
-            errorDesc = "The phone number is not valid.";
+            errorDesc = "The phone number provided is not valid.";
         } else if (error.code === 'auth/too-many-requests') {
             errorDesc = "Too many requests. Please try again later.";
         } else if (error.code === 'auth/captcha-check-failed' || error.message?.includes("reCAPTCHA")) {
-            errorDesc = "reCAPTCHA check failed. Please ensure it's correctly set up, refresh the page, and try again.";
+            errorDesc = "reCAPTCHA verification failed. Ensure your domain is authorized for reCAPTCHA in Google Cloud Console and Firebase project billing is active.";
+        } else if (error.code === 'auth/missing-phone-number') {
+            errorDesc = "Phone number is missing. Please enter your phone number.";
+        } else if (error.message?.toLowerCase().includes("missing or insufficient permissions") || error.message?.toLowerCase().includes("billing")) {
+            errorDesc = "Failed to send OTP. This might be due to project billing not being enabled or insufficient permissions. Please check your Firebase project settings.";
         }
-        toast({ title: 'Failed to Send OTP', description: errorDesc, variant: 'destructive', duration: 7000 });
+        toast({ title: 'Failed to Send OTP', description: errorDesc, variant: 'destructive', duration: 8000 });
         if (window.recaptchaVerifier) window.recaptchaVerifier.clear();
       } finally {
         setIsLoading(false);
@@ -155,19 +175,21 @@ export default function LoginPage() {
         setIsLoading(false);
         return;
       }
+      console.log(`Login Page: Attempting to verify OTP ${otp}`);
       try {
         await window.loginConfirmationResult.confirm(otp);
         toast({ title: 'Phone Login Successful', description: 'Welcome back!' });
         router.push('/dashboard');
       } catch (error: any) {
-        console.error("Error verifying OTP for login:", error);
-        let errorDesc = error.message || "Incorrect OTP or an error occurred.";
+        console.error("Login Page: Error verifying OTP:", error);
+        let errorDesc = "Could not verify OTP. " + (error.message || "Incorrect OTP or an error occurred.");
         if (error.code === 'auth/invalid-verification-code') {
             errorDesc = "The OTP entered is incorrect. Please try again.";
         } else if (error.code === 'auth/code-expired') {
             errorDesc = "The OTP has expired. Please request a new one.";
         }
         toast({ title: 'OTP Verification Failed', description: errorDesc, variant: 'destructive' });
+      } finally {
         setIsLoading(false);
       }
     }
@@ -280,7 +302,7 @@ export default function LoginPage() {
                         setOtpSent(false); 
                         setOtp(''); 
                         if (window.recaptchaVerifier) { 
-                            try { window.recaptchaVerifier.clear(); } catch (e) { console.warn("Error clearing verifier on change number/resend:", e); } 
+                            try { window.recaptchaVerifier.clear(); } catch (e) { console.warn("Login Page: Error clearing verifier on change number/resend:", e); } 
                         } 
                     }} disabled={isLoading} className="w-full text-sm font-body">
                         Change Phone Number or Resend OTP
@@ -295,7 +317,7 @@ export default function LoginPage() {
               Don't have an account? Sign Up
             </Link>
             <div className="text-xs text-center">
-              <p>For demo, use credentials set up in Firebase.</p>
+              <p>For demo, use credentials from Firebase Console.</p>
               <p>(e.g., Enter your email here / password123)</p>
             </div>
         </CardFooter>
