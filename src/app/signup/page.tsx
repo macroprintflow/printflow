@@ -17,7 +17,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { useToast } from '@/hooks/use-toast';
 import { UserPlus, Loader2, Eye, EyeOff } from 'lucide-react';
 import AppLogo from '@/components/AppLogo';
-import { createUserDocumentInFirestore } from '@/lib/actions/userActions'; // Import action
+// createUserDocumentInFirestore import removed
 
 export default function SignupPage() {
   const [displayName, setDisplayName] = useState('');
@@ -49,10 +49,8 @@ export default function SignupPage() {
         }
       }
 
-      // After successful Auth creation, create Firestore user document with default "Customer" role
-      if (firebaseUser) {
-        await createUserDocumentInFirestore(firebaseUser, "Customer");
-      }
+      // Removed call to createUserDocumentInFirestore
+      // The user's role for UI purposes will be determined by layout.tsx logic
 
       toast({ title: 'Signup Successful', description: 'Your account has been created!' });
       router.push('/dashboard'); 
@@ -157,5 +155,3 @@ export default function SignupPage() {
     </div>
   );
 }
-
-    

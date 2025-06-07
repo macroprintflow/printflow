@@ -35,11 +35,11 @@ import {
 import { Button } from '@/components/ui/button';
 import ClientOnlyWrapper from '@/components/ClientOnlyWrapper';
 import { useAuth } from '@/contexts/AuthContext';
-import { signOut, getIdTokenResult } from 'firebase/auth';
+import { signOut, getIdTokenResult } from 'firebase/auth'; // getIdTokenResult might not be needed if not checking claims
 import { auth } from '@/lib/firebase/clientApp';
 import { useToast } from '@/hooks/use-toast';
 import type { UserRole } from '@/lib/definitions';
-import { getUserRoleFromFirestore, createUserDocumentInFirestore } from '@/lib/actions/userActions';
+// getUserRoleFromFirestore and createUserDocumentInFirestore imports removed
 
 interface NavItem {
   href: string;
@@ -70,7 +70,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [effectiveUserRole, setEffectiveUserRole] = React.useState<UserRole>("Customer");
   const [isRoleFromDevTool, setIsRoleFromDevTool] = React.useState(false);
   const [isLoadingRole, setIsLoadingRole] = React.useState(true);
-  const isDeterminingRoleRef = React.useRef(false); // Ref to prevent re-entry
+  const isDeterminingRoleRef = React.useRef(false);
 
   React.useEffect(() => {
     setIsClient(true);
@@ -78,13 +78,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     const determineRoleLogic = async () => {
-      if (isDeterminingRoleRef.current) {
-        // console.log('[Auth Role] Determination already in progress, skipping.');
-        return;
-      }
-      if (loading) { // Auth loading
-        // console.log('[Auth Role] Auth loading, role determination skipped for now.');
-        setIsLoadingRole(false); // Ensure UI doesn't hang if auth is slow
+      if (isDeterminingRoleRef.current) return;
+      if (loading) {
+        setIsLoadingRole(false);
         return;
       }
 
@@ -92,9 +88,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       setIsLoadingRole(true);
 
       if (!user) {
-        if (!loading) { // Double check loading, as it might have changed
-            // console.log('[Auth Role] No user, not auth loading. Redirecting to /login.');
-            router.push('/login');
+        if (!loading) {
+          router.push('/login');
         }
         setIsLoadingRole(false);
         isDeterminingRoleRef.current = false;
@@ -102,52 +97,27 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       }
 
       if (isRoleFromDevTool) {
-        // console.log(`[Auth Role] Dev tool role active: ${effectiveUserRole}. No recalculation.`);
+        // Dev tool role is active, no recalculation needed from "backend"
         setIsLoadingRole(false);
         isDeterminingRoleRef.current = false;
         return;
       }
 
-      let roleToSet: UserRole = "Customer"; // Default
-      let roleSource = "Initial Fallback";
-      try {
-        const idTokenResult = await getIdTokenResult(user, true); // Force refresh token
-        const claimsRole = idTokenResult.claims.role as UserRole;
+      let roleToSet: UserRole = "Customer"; // Default role
 
-        if (claimsRole && ["Admin", "Manager", "Departmental", "Customer"].includes(claimsRole)) {
-          roleToSet = claimsRole;
-          roleSource = "Firebase Claims";
-        } else {
-          const firestoreRole = await getUserRoleFromFirestore(user.uid);
-          if (firestoreRole) {
-            roleToSet = firestoreRole;
-            roleSource = "Firestore";
-          } else {
-            if (user.email?.toLowerCase() === ADMIN_EMAIL) {
-              roleToSet = "Admin";
-              roleSource = "Admin Email (New Firestore Doc)";
-            } else {
-              roleToSet = "Customer";
-              roleSource = "Default Customer (New Firestore Doc)";
-            }
-            // Ensure Firestore document exists for the user
-            await createUserDocumentInFirestore(user, roleToSet);
-            // console.log(`[Auth Role] Ensured Firestore document for ${user.email} with role ${roleToSet} from source: ${roleSource}`);
-          }
-        }
-      } catch (error) {
-        console.error("[Auth Role] Error determining role:", error);
-        if (user.email?.toLowerCase() === ADMIN_EMAIL) {
-          roleToSet = "Admin";
-          roleSource = "Admin Email (Error Fallback)";
-        } else {
-          roleToSet = "Customer";
-          roleSource = "Default (Error Fallback)";
-        }
+      // Simplified role determination (no Firestore fetch)
+      if (user.email?.toLowerCase() === ADMIN_EMAIL) {
+        roleToSet = "Admin";
+      } else {
+        // In a more complex app, you might have other rules or default roles
+        // For now, non-admin users are Customers
+        roleToSet = "Customer";
       }
+      
+      console.log(`[Auth Role] Determined role via simple check: ${roleToSet} for ${user.email}`);
 
       if (effectiveUserRole !== roleToSet) {
-        // console.log(`[Auth Role] Setting effective role to: ${roleToSet} (Source: ${roleSource})`);
+        console.log(`[Auth Role] Setting effective role to: ${roleToSet}`);
         setEffectiveUserRole(roleToSet);
       }
       setIsLoadingRole(false);
@@ -155,14 +125,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     };
 
     determineRoleLogic();
-
-  // Dependencies:
-  // - user, loading: Primary triggers from auth state.
-  // - isRoleFromDevTool: If admin toggles their view.
-  // - effectiveUserRole: Read when isRoleFromDevTool is true, and used in the comparison `effectiveUserRole !== roleToSet`.
-  //   The `isDeterminingRoleRef` and the `if (effectiveUserRole !== roleToSet)` guard are crucial to prevent loops if this is a dependency.
-  // - router: For navigation.
-  }, [user, loading, isRoleFromDevTool, effectiveUserRole, router]);
+  }, [user, loading, isRoleFromDevTool, router, effectiveUserRole]); // effectiveUserRole added back as it's compared
 
 
   const handleLogout = async () => {
@@ -170,7 +133,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       await signOut(auth);
       toast({ title: 'Logged Out', description: 'You have been successfully logged out.' });
       setIsRoleFromDevTool(false);
-      setEffectiveUserRole("Customer");
+      setEffectiveUserRole("Customer"); // Reset effective role on logout
       router.push('/login');
     } catch (error) {
       console.error("Logout error:", error);
@@ -180,7 +143,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const handleRoleSwitch = (newRole: UserRole) => {
     setEffectiveUserRole(newRole);
-    setIsRoleFromDevTool(true);
+    setIsRoleFromDevTool(true); // Indicate that the role is now set by dev tool
     toast({ title: 'Dev Tool: Role Switched', description: `Viewing as ${newRole}. (Session only)`});
   };
 
