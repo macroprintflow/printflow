@@ -1,7 +1,8 @@
 
 import type { LucideIcon } from "lucide-react";
-import { 
-  FileCheck2, Scissors, Printer, Wand2, Film, Crop, Sparkles, ClipboardPaste, Box, Package, FileSpreadsheet 
+import {
+  FileCheck2, Scissors, Printer, Wand2, Film, Crop, Sparkles, ClipboardPaste, Box, Package, FileSpreadsheet,
+  FileText, Newspaper, Archive // Added icons for paper categories
 } from "lucide-react";
 import { z } from 'zod';
 
@@ -21,12 +22,12 @@ export type MasterSheetSize = {
 };
 
 export type InventorySuggestion = {
-  sourceInventoryItemId?: string; 
+  sourceInventoryItemId?: string;
   masterSheetSizeWidth: number;
   masterSheetSizeHeight: number;
-  paperGsm?: number; 
-  paperThicknessMm?: number; 
-  paperQuality: string; 
+  paperGsm?: number;
+  paperThicknessMm?: number;
+  paperQuality: string;
   wastagePercentage: number;
   sheetsPerMasterSheet: number;
   totalMasterSheetsNeeded: number;
@@ -291,7 +292,7 @@ export type ItemGroupType = (typeof ITEM_GROUP_TYPES)[number];
 
 export type InventoryItemType =
   | 'Master Sheet'
-  | 'Paper Stock' 
+  | 'Paper Stock'
   | 'Ink'
   | 'Plastic Tray'
   | 'Glass Jar'
@@ -309,24 +310,24 @@ export const UNIT_OPTIONS = [
 export type UnitValue = typeof UNIT_OPTIONS[number]['value'];
 
 export type InventoryItem = {
-  id: string; 
-  name: string; 
+  id: string;
+  name: string;
   type: InventoryItemType;
   itemGroup: ItemGroupType;
-  specification: string; 
+  specification: string;
   paperGsm?: number;
   paperThicknessMm?: number;
   paperQuality?: PaperQualityType;
   masterSheetSizeWidth?: number;
   masterSheetSizeHeight?: number;
-  unit: UnitValue; 
+  unit: UnitValue;
   reorderPoint?: number;
-  supplier?: string; 
-  purchaseBillNo?: string; 
-  vendorName?: string; 
-  dateOfEntry?: string; 
-  availableStock?: number; 
-  locationCode?: string; 
+  supplier?: string;
+  purchaseBillNo?: string;
+  vendorName?: string;
+  dateOfEntry?: string;
+  availableStock?: number;
+  locationCode?: string;
 };
 
 
@@ -375,7 +376,7 @@ export const InventoryItemFormSchema = z.object({
   otherVendorName: z.string().optional(),
   dateOfEntry: z.string().refine(val => !isNaN(Date.parse(val)), { message: "Invalid date"}),
   reorderPoint: z.coerce.number().optional(),
-  locationCode: z.string().optional(), 
+  locationCode: z.string().optional(),
 }).superRefine((data, ctx) => {
   if (data.category === 'PAPER') {
     if (!data.paperQuality || data.paperQuality === '') {
@@ -438,32 +439,110 @@ export function getInventoryAdjustmentReasonLabel(value: InventoryAdjustmentReas
 }
 
 export type InventoryAdjustment = {
-  id: string; 
-  inventoryItemId: string; 
-  date: string; 
-  quantityChange: number; 
+  id: string;
+  inventoryItemId: string;
+  date: string;
+  quantityChange: number;
   reason: InventoryAdjustmentReasonValue;
-  reference?: string; 
-  userId?: string; 
-  notes?: string; 
-  vendorName?: string; 
-  purchaseBillNo?: string; 
+  reference?: string;
+  userId?: string;
+  notes?: string;
+  vendorName?: string;
+  purchaseBillNo?: string;
 };
 
-export const PAPER_SUB_CATEGORIES = [
-  { name: "SBS", filterValue: "SBS" as const, qualityValues: ["SBS" as PaperQualityType] },
-  { name: "Kappa", filterValue: "KAPPA_GROUP" as const, qualityValues: ["GG_KAPPA" as PaperQualityType, "WG_KAPPA" as PaperQualityType] },
-  { name: "Greyback", filterValue: "GREYBACK" as const, qualityValues: ["GREYBACK" as PaperQualityType] },
-  { name: "Whiteback", filterValue: "WHITEBACK" as const, qualityValues: ["WHITEBACK" as PaperQualityType] },
-  { name: "Art Paper", filterValue: "ART_PAPER_GROUP" as const, qualityValues: ["ART_PAPER_GLOSS" as PaperQualityType, "ART_PAPER_MATT" as PaperQualityType] },
-  { name: "Japanese Paper", filterValue: "JAPANESE_PAPER" as const, qualityValues: ["JAPANESE_PAPER" as PaperQualityType] },
-  { name: "Imported Paper", filterValue: "IMPORTED_PAPER" as const, qualityValues: ["IMPORTED_PAPER" as PaperQualityType] },
-  { name: "MDF", filterValue: "MDF" as const, qualityValues: ["MDF" as PaperQualityType] },
-  { name: "Butter Paper", filterValue: "BUTTER_PAPER" as const, qualityValues: ["BUTTER_PAPER" as PaperQualityType] },
-  { name: "Other Paper", filterValue: "OTHER_PAPER_GROUP" as const, qualityValues: [] as PaperQualityType[] }, 
-  { name: "View All Paper Types", filterValue: "__ALL_PAPER__" as const, qualityValues: [] as PaperQualityType[] },
+// New structure for PAPER_SUB_CATEGORIES
+export type PaperSubCategoryFilterValue =
+  | "SBS" | "KAPPA_GROUP" | "GREYBACK" | "WHITEBACK" | "ART_PAPER_GROUP"
+  | "JAPANESE_PAPER" | "IMPORTED_PAPER" | "MDF" | "BUTTER_PAPER"
+  | "OTHER_PAPER_GROUP" | "__ALL_PAPER__";
+
+export type ArtPaperFinishFilterValue = "ART_PAPER_MATT_FINISH" | "ART_PAPER_GLOSS_FINISH";
+
+export type PaperSubCategory = {
+  name: string;
+  filterValue: PaperSubCategoryFilterValue;
+  qualityValues: PaperQualityType[];
+  predefinedSpecs?: number[];
+  specUnit?: 'GSM' | 'mm';
+  subFinishes?: Array<{
+    name: string;
+    finishFilterValue: ArtPaperFinishFilterValue;
+    actualQualityValue: PaperQualityType; // e.g., "ART_PAPER_MATT"
+    predefinedSpecs: number[];
+    specUnit: 'GSM' | 'mm';
+    icon: LucideIcon;
+  }>;
+  icon: LucideIcon;
+};
+
+export const PAPER_SUB_CATEGORIES: PaperSubCategory[] = [
+  {
+    name: "SBS", filterValue: "SBS", icon: FileText,
+    qualityValues: ["SBS"],
+    predefinedSpecs: [200, 210, 220, 230, 250, 270, 280, 290, 300, 320, 350],
+    specUnit: 'GSM',
+  },
+  {
+    name: "Kappa", filterValue: "KAPPA_GROUP", icon: Newspaper,
+    qualityValues: ["GG_KAPPA", "WG_KAPPA"],
+    // No predefinedSpecs, will use dynamic scanning from inventory
+  },
+  {
+    name: "Greyback", filterValue: "GREYBACK", icon: FileText,
+    qualityValues: ["GREYBACK"],
+    predefinedSpecs: [230, 285, 300, 320, 340, 350, 380, 400],
+    specUnit: 'GSM',
+  },
+  {
+    name: "Whiteback", filterValue: "WHITEBACK", icon: FileText,
+    qualityValues: ["WHITEBACK"],
+    predefinedSpecs: [230, 285, 300, 320, 340, 350, 380, 400], // Same as Greyback
+    specUnit: 'GSM',
+  },
+  {
+    name: "Art Paper", filterValue: "ART_PAPER_GROUP", icon: Newspaper,
+    qualityValues: ["ART_PAPER_GLOSS", "ART_PAPER_MATT"],
+    subFinishes: [
+      {
+        name: "Matt Finish", finishFilterValue: "ART_PAPER_MATT_FINISH", actualQualityValue: "ART_PAPER_MATT",
+        predefinedSpecs: [100, 120, 130, 150, 170], specUnit: 'GSM', icon: FileText
+      },
+      {
+        name: "Gloss Finish", finishFilterValue: "ART_PAPER_GLOSS_FINISH", actualQualityValue: "ART_PAPER_GLOSS",
+        predefinedSpecs: [100, 120, 130, 150, 170], specUnit: 'GSM', icon: FileText
+      }
+    ]
+  },
+  {
+    name: "Japanese Paper", filterValue: "JAPANESE_PAPER", icon: FileText,
+    qualityValues: ["JAPANESE_PAPER"],
+    // No predefinedSpecs
+  },
+  {
+    name: "Imported Paper", filterValue: "IMPORTED_PAPER", icon: FileText,
+    qualityValues: ["IMPORTED_PAPER"],
+    // No predefinedSpecs
+  },
+  {
+    name: "MDF", filterValue: "MDF", icon: Box,
+    qualityValues: ["MDF"],
+    // No predefinedSpecs
+  },
+  {
+    name: "Butter Paper", filterValue: "BUTTER_PAPER", icon: FileText,
+    qualityValues: ["BUTTER_PAPER"],
+    // No predefinedSpecs
+  },
+  {
+    name: "Other Paper", filterValue: "OTHER_PAPER_GROUP", icon: Archive,
+    qualityValues: [], // Special case: items whose quality is not in any other group
+    // No predefinedSpecs
+  },
+  {
+    name: "View All Paper Types", filterValue: "__ALL_PAPER__", icon: Printer,
+    qualityValues: [], // This will show all paper regardless of specific quality type
+    // No predefinedSpecs for "all" view
+  },
 ];
-
-
-export type PaperSubCategoryFilterValue = typeof PAPER_SUB_CATEGORIES[number]['filterValue'];
 
