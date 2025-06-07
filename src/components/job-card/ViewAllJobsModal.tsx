@@ -122,7 +122,7 @@ export function ViewAllJobsModal({ isOpen, setIsOpen, onJobSelect }: ViewAllJobs
   };
 
   const handleViewJobCard = (job: JobCardData) => {
-    handlePrintJobCard(job, toast, false); // Call with autoPrint set to false
+    handlePrintJobCard(job, toast, false); 
   };
 
 
@@ -221,21 +221,32 @@ export function ViewAllJobsModal({ isOpen, setIsOpen, onJobSelect }: ViewAllJobs
                       </Badge>
                     </TableCell>
                     <TableCell className="text-center space-x-1">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => handlePrintJobCard(job, toast)} // autoPrint defaults to true
-                          title="Print Job Card Again"
-                        >
-                            <Printer className="h-4 w-4" />
-                        </Button>
+                        {job.pdfDataUri && job.status !== "To be Billed" && job.status !== "Completed" && job.status !== "Billed" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open(job.pdfDataUri, '_blank')}
+                            title="View Original Design PDF"
+                          >
+                            <FileText className="h-4 w-4" />
+                          </Button>
+                        )}
                         <Button 
                           variant="outline" 
                           size="sm" 
                           onClick={() => handleViewJobCard(job)}
                           title="View Job Card Details"
+                          className={cn(!job.pdfDataUri && "cursor-not-allowed")}
                         >
-                            <Eye className="h-4 w-4" /> {/* Changed icon to Eye */}
+                            <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => handlePrintJobCard(job, toast)} 
+                          title="Print Job Card Again"
+                        >
+                            <Printer className="h-4 w-4" />
                         </Button>
                     </TableCell>
                   </TableRow>
