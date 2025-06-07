@@ -4,23 +4,30 @@
 import { JobCardForm } from "@/components/job-card/JobCardForm";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { LayoutList, FilePlus2, FileCheck2, Sparkles, Eye } from "lucide-react"; // Added Eye
+import { LayoutList, FilePlus2, FileCheck2, Sparkles, Eye, Loader2 } from "lucide-react"; 
 import Link from "next/link";
 import Image from "next/image";
-import { getApprovedDesigns } from "@/lib/actions/jobActions";
-import type { DesignSubmission } from "@/lib/definitions";
-import { useState, useEffect, useRef } from "react";
+import { getApprovedDesigns, getJobCardById } from "@/lib/actions/jobActions";
+import type { DesignSubmission, JobCardData } from "@/lib/definitions";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { ViewAllJobsModal } from "@/components/job-card/ViewAllJobsModal"; // Import the new modal
+import { ViewAllJobsModal } from "@/components/job-card/ViewAllJobsModal";
+import { useSearchParams } from "next/navigation"; // For reading query params
 
-export default function NewJobPage() {
+function NewJobPageContent() {
+  const searchParams = useSearchParams();
+  const fromCustomerJobId = searchParams.get('fromCustomerJobId');
+
   const [approvedDesigns, setApprovedDesigns] = useState<DesignSubmission[]>([]);
   const [isLoadingDesigns, setIsLoadingDesigns] = useState(true);
   const [prefillJobName, setPrefillJobName] = useState<string | undefined>(undefined);
   const [prefillCustomerName, setPrefillCustomerName] = useState<string | undefined>(undefined);
+  const [initialJobDataForForm, setInitialJobDataForForm] = useState<JobCardData | undefined>(undefined);
+  const [isLoadingJobForPrefill, setIsLoadingJobForPrefill] = useState(false);
+
   const { toast } = useToast();
   const jobFormCardRef = useRef<HTMLDivElement>(null);
-  const [isViewAllJobsModalOpen, setIsViewAllJobsModalOpen] = useState(false); // State for the modal
+  const [isViewAllJobsModalOpen, setIsViewAllJobsModalOpen] = useState(false);
 
   useEffect(() => {
     async function fetchDesigns() {
@@ -42,7 +49,49 @@ export default function NewJobPage() {
     fetchDesigns();
   }, [toast]);
 
+  useEffect(() => {
+    async function fetchJobForPrefill() {
+      if (fromCustomerJobId) {
+        setIsLoadingJobForPrefill(true);
+        setInitialJobDataForForm(undefined); // Clear previous prefill
+        try {
+          const jobData = await getJobCardById(fromCustomerJobId);
+          if (jobData) {
+            // Modify jobName for re-order clarity
+            const reorderJobData = {
+              ...jobData,
+              jobName: `Re-order: ${jobData.jobName}`,
+              jobCardNumber: undefined, // New job card number will be generated
+              date: new Date().toISOString().split('T')[0], // Set to today
+              dispatchDate: undefined, // Clear dispatch date for re-order
+              status: 'Pending Planning', // Reset status
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            };
+            setInitialJobDataForForm(reorderJobData);
+            setPrefillJobName(reorderJobData.jobName);
+            setPrefillCustomerName(reorderJobData.customerName);
+            toast({
+              title: "Prefilling Form for Re-order",
+              description: `Using details from job: ${jobData.jobCardNumber || jobData.jobName}`,
+            });
+            jobFormCardRef.current?.scrollIntoView({ behavior: "smooth" });
+          } else {
+            toast({ title: "Error", description: "Could not find job to pre-fill.", variant: "destructive" });
+          }
+        } catch (error) {
+          console.error("Failed to fetch job for prefill:", error);
+          toast({ title: "Error", description: "Could not load job data for re-order.", variant: "destructive" });
+        } finally {
+          setIsLoadingJobForPrefill(false);
+        }
+      }
+    }
+    fetchJobForPrefill();
+  }, [fromCustomerJobId, toast]);
+
   const handleCreateFromDesign = (design: DesignSubmission) => {
+    setInitialJobDataForForm(undefined); // Clear any re-order prefill
     setPrefillJobName(design.jobName);
     setPrefillCustomerName(design.customerName);
     toast({
@@ -51,6 +100,15 @@ export default function NewJobPage() {
     });
     jobFormCardRef.current?.scrollIntoView({ behavior: "smooth" });
   };
+
+  if (isLoadingJobForPrefill) {
+     return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="ml-2 font-body">Loading job details for re-order...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -133,19 +191,32 @@ export default function NewJobPage() {
         <CardHeader>
           <CardTitle className="font-headline flex items-center text-xl">
             <FilePlus2 className="mr-3 h-6 w-6 text-primary" />
-            Create New Job Card (Blank or from Past Job)
+            {fromCustomerJobId ? "Re-order Job" : "Create New Job Card (Blank or from Past Job)"}
           </CardTitle>
           <CardDescription className="font-body">
-            Fill out the details below to create a new job card. You can pre-fill from a customer's past job or an approved design.
+            {fromCustomerJobId 
+              ? "Review and adjust details for this re-order. A new job card will be created."
+              : "Fill out the details below to create a new job card. You can pre-fill from a customer's past job or an approved design."
+            }
           </CardDescription>
         </CardHeader>
         <CardContent>
           <JobCardForm 
+            key={fromCustomerJobId || 'new-job'} // Add key to force re-mount when prefillJobId changes
             initialJobName={prefillJobName} 
-            initialCustomerName={prefillCustomerName} 
+            initialCustomerName={prefillCustomerName}
+            initialJobData={initialJobDataForForm}
           />
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function NewJobPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <NewJobPageContent />
+    </Suspense>
   );
 }

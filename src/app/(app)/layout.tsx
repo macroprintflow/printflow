@@ -2,7 +2,7 @@
 "use client";
 import * as React from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation'; // Added useRouter
+import { usePathname, useRouter } from 'next/navigation'; 
 import {
   SidebarProvider,
   Sidebar,
@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/sidebar';
 import AppLogo from '@/components/AppLogo';
 import { Header } from '@/components/layout/Header';
-import { LayoutDashboard, Briefcase, FileUp, FilePlus2, CalendarCheck2, ClipboardList, UserCircle, Settings, Archive, LogOut, type LucideIcon } from 'lucide-react'; // Added LogOut, LucideIcon
+import { LayoutDashboard, Briefcase, FileUp, FilePlus2, CalendarCheck2, ClipboardList, UserCircle, Settings, Archive, LogOut, type LucideIcon, ShoppingBag } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -30,12 +30,12 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Button } from '@/components/ui/button';
 import ClientOnlyWrapper from '@/components/ClientOnlyWrapper';
-import { useAuth } from '@/contexts/AuthContext'; // Import useAuth
-import { signOut } from 'firebase/auth'; // Import signOut
-import { auth } from '@/lib/firebase/clientApp'; // Import auth
+import { useAuth } from '@/contexts/AuthContext';
+import { signOut } from 'firebase/auth';
+import { auth } from '@/lib/firebase/clientApp';
 import { useToast } from '@/hooks/use-toast';
 
-type UserRole = "Admin" | "Departmental"; // Manager is treated as Admin for access
+type UserRole = "Admin" | "Departmental" | "Customer"; // Added Customer
 
 interface NavItem {
   href: string;
@@ -52,10 +52,10 @@ const allNavItems: NavItem[] = [
   { href: '/planning', label: 'Production Planning', icon: CalendarCheck2, allowedRoles: ['Admin'] },
   { href: '/tasks', label: 'Departmental Tasks', icon: ClipboardList, allowedRoles: ['Admin', 'Departmental'] },
   { href: '/inventory', label: 'Inventory', icon: Archive, allowedRoles: ['Admin'] },
+  { href: '/customer/my-jobs', label: 'My Jobs', icon: ShoppingBag, allowedRoles: ['Customer'] }, // New Customer Portal Link
 ];
 
-// Define your admin email here
-const ADMIN_EMAIL = "kuvamsharma@printflow.app";
+const ADMIN_EMAIL = "kuvamsharma@printflow.app"; // Admin/Manager
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -92,8 +92,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const userDisplayName = user?.displayName || user?.email?.split('@')[0] || "User";
   const userEmail = user?.email || "No email";
   
-  const currentUserRole: UserRole = user?.email === ADMIN_EMAIL ? "Admin" : "Departmental";
-  const userRoleDisplay = currentUserRole === "Admin" ? "Admin" : "User"; // For display in dropdown
+  // Simplified role determination for now
+  let currentUserRole: UserRole;
+  if (user?.email === ADMIN_EMAIL) {
+    currentUserRole = "Admin"; // Admins/Managers
+  } else {
+    // For now, any other authenticated user is a "Customer" for portal access.
+    // A more robust system would check a role field on the user object or custom claims.
+    currentUserRole = "Customer"; 
+  }
+  
+  const userRoleDisplay = currentUserRole === "Admin" ? "Admin" : currentUserRole === "Customer" ? "Customer" : "User";
 
   const visibleNavItems = allNavItems.filter(item => 
     item.allowedRoles.includes(currentUserRole)
@@ -102,7 +111,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <ClientOnlyWrapper>
       <SidebarProvider defaultOpen>
-        <Sidebar variant="sidebar" collapsible="icon">
+        <Sidebar variant="sidebar" collapsible="icon" className="bg-sidebar/80 backdrop-blur-lg">
           <SidebarHeader className="p-4 justify-between items-center">
             <AppLogo />
             {isClient && (
@@ -119,7 +128,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     asChild
                     isActive={pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))}
                     tooltip={{ children: item.label, className: "font-body" }}
-                    className="font-body"
+                    className="font-body bg-card/60 hover:bg-accent/80 data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:shadow-lg"
                   >
                     <Link href={item.href}>
                       <item.icon />
@@ -160,7 +169,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     Profile
                   </Link>
                 </DropdownMenuItem>
-                {currentUserRole === 'Admin' && ( // Only show settings for Admin
+                {currentUserRole === 'Admin' && (
                   <DropdownMenuItem asChild>
                     <Link href="/settings" className="w-full">
                       <Settings className="mr-2 h-4 w-4" />

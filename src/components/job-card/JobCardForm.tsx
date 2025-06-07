@@ -31,9 +31,10 @@ interface DisplayWorkflowStep extends WorkflowProcessStepDefinition {
 interface JobCardFormProps {
   initialJobName?: string;
   initialCustomerName?: string;
+  initialJobData?: JobCardData; // New prop for full prefill
 }
 
-export function JobCardForm({ initialJobName, initialCustomerName }: JobCardFormProps) {
+export function JobCardForm({ initialJobName, initialCustomerName, initialJobData }: JobCardFormProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
@@ -41,10 +42,10 @@ export function JobCardForm({ initialJobName, initialCustomerName }: JobCardForm
   const [currentWorkflowSteps, setCurrentWorkflowSteps] = useState<DisplayWorkflowStep[]>([]);
 
   const [allCustomers, setAllCustomers] = useState<string[]>([]);
-  const [customerInputValue, setCustomerInputValue] = useState("");
+  const [customerInputValue, setCustomerInputValue] = useState(initialJobData?.customerName || initialCustomerName || "");
   const [customerSuggestions, setCustomerSuggestions] = useState<string[]>([]);
   const [isCustomerPopoverOpen, setIsCustomerPopoverOpen] = useState(false);
-  const [selectedCustomer, setSelectedCustomer] = useState<string>("");
+  const [selectedCustomer, setSelectedCustomer] = useState<string>(initialJobData?.customerName || initialCustomerName || "");
   
   const [jobsForCustomer, setJobsForCustomer] = useState<JobCardData[]>([]);
   const [jobInputValue, setJobInputValue] = useState("");
@@ -61,7 +62,43 @@ export function JobCardForm({ initialJobName, initialCustomerName }: JobCardForm
 
   const form = useForm<JobCardFormValues>({
     resolver: zodResolver(JobCardSchema),
-    defaultValues: {
+    defaultValues: initialJobData ? 
+    { // Prefill from initialJobData if provided
+      jobName: initialJobData.jobName,
+      customerName: initialJobData.customerName,
+      jobSizeWidth: initialJobData.jobSizeWidth,
+      jobSizeHeight: initialJobData.jobSizeHeight,
+      netQuantity: initialJobData.netQuantity,
+      grossQuantity: initialJobData.grossQuantity,
+      paperQuality: initialJobData.paperQuality,
+      paperGsm: getPaperQualityUnit(initialJobData.paperQuality as PaperQualityType) === 'gsm' ? initialJobData.paperGsm : undefined,
+      targetPaperThicknessMm: getPaperQualityUnit(initialJobData.paperQuality as PaperQualityType) === 'mm' ? initialJobData.targetPaperThicknessMm : undefined,
+      masterSheetSizeWidth: initialJobData.masterSheetSizeWidth,
+      masterSheetSizeHeight: initialJobData.masterSheetSizeHeight,
+      wastagePercentage: initialJobData.wastagePercentage,
+      cuttingLayoutDescription: initialJobData.cuttingLayoutDescription,
+      selectedMasterSheetGsm: initialJobData.selectedMasterSheetGsm,
+      selectedMasterSheetThicknessMm: initialJobData.selectedMasterSheetThicknessMm,
+      selectedMasterSheetQuality: initialJobData.selectedMasterSheetQuality,
+      sourceInventoryItemId: initialJobData.sourceInventoryItemId,
+      sheetsPerMasterSheet: initialJobData.sheetsPerMasterSheet,
+      totalMasterSheetsNeeded: initialJobData.totalMasterSheetsNeeded,
+      kindOfJob: initialJobData.kindOfJob || "",
+      printingFront: initialJobData.printingFront || "",
+      printingBack: initialJobData.printingBack || "",
+      coating: initialJobData.coating || "",
+      specialInks: initialJobData.specialInks,
+      die: initialJobData.die || "",
+      assignedDieMachine: initialJobData.assignedDieMachine,
+      hotFoilStamping: initialJobData.hotFoilStamping || "",
+      emboss: initialJobData.emboss || "",
+      pasting: initialJobData.pasting || "",
+      boxMaking: initialJobData.boxMaking || "",
+      remarks: initialJobData.remarks,
+      dispatchDate: initialJobData.dispatchDate ? new Date(initialJobData.dispatchDate).toISOString() : undefined,
+      workflowSteps: initialJobData.workflowSteps || [],
+    }
+    : { // Default values if no initialJobData
       jobName: initialJobName || "",
       customerName: initialCustomerName || "",
       jobSizeWidth: undefined,
@@ -97,19 +134,22 @@ export function JobCardForm({ initialJobName, initialCustomerName }: JobCardForm
       workflowSteps: [],
     },
   });
-
+  
   useEffect(() => {
-    if (initialJobName) {
-      form.setValue("jobName", initialJobName);
+    if (initialJobData) {
+      form.reset(initialJobData); // Reset form with all data if initialJobData is provided
+      setCustomerInputValue(initialJobData.customerName);
+      setSelectedCustomer(initialJobData.customerName);
+      applyWorkflow(initialJobData);
+    } else {
+      if (initialJobName) form.setValue("jobName", initialJobName);
+      if (initialCustomerName) {
+        form.setValue("customerName", initialCustomerName);
+        setCustomerInputValue(initialCustomerName);
+        setSelectedCustomer(initialCustomerName);
+      }
     }
-    if (initialCustomerName) {
-      form.setValue("customerName", initialCustomerName);
-      setCustomerInputValue(initialCustomerName); // Sync visual input
-      setSelectedCustomer(initialCustomerName); // Sync internal state
-      // Optionally trigger fetching jobs for this customer if that's desired behavior
-      // handleCustomerSuggestionClick(initialCustomerName); // Be mindful of re-renders
-    }
-  }, [initialJobName, initialCustomerName, form]);
+  }, [initialJobData, initialJobName, initialCustomerName, form]);
 
 
   useEffect(() => {
@@ -168,7 +208,6 @@ export function JobCardForm({ initialJobName, initialCustomerName }: JobCardForm
       setJobsForCustomer([]);
       setJobInputValue("");
       setSelectedPastJobId("");
-      // Potentially reset form fields here if needed
     }
   };
 
@@ -177,7 +216,7 @@ export function JobCardForm({ initialJobName, initialCustomerName }: JobCardForm
     setSelectedCustomer(customerName);
     form.setValue("customerName", customerName);
     setIsCustomerPopoverOpen(false);
-    setJobInputValue(""); // Clear job input when customer changes
+    setJobInputValue(""); 
     setSelectedPastJobId("");
 
     if (customerName) {
@@ -210,7 +249,6 @@ export function JobCardForm({ initialJobName, initialCustomerName }: JobCardForm
       setJobSuggestions([]);
       setIsJobPopoverOpen(false);
       setSelectedPastJobId("");
-      // If job input is cleared, don't reset the whole form, just clear the selection.
     }
   };
 
@@ -258,8 +296,8 @@ export function JobCardForm({ initialJobName, initialCustomerName }: JobCardForm
       workflowSteps: job.workflowSteps || [],
     });
     applyWorkflow(job);
-    setCustomerInputValue(job.customerName); // Ensure customer input also reflects this if selected via job
-    setSelectedCustomer(job.customerName); // And sync the state
+    setCustomerInputValue(job.customerName); 
+    setSelectedCustomer(job.customerName); 
   };
 
 
@@ -307,7 +345,7 @@ export function JobCardForm({ initialJobName, initialCustomerName }: JobCardForm
   };
 
   const handlePrintJobCard = (jobCard: JobCardData) => {
-    const logoUrl = '/images/logo.png'; // Updated path
+    const logoUrl = '/images/logo.png'; 
   
     const formatWorkflowSteps = (steps: WorkflowStep[] | undefined) => {
       if (!steps || steps.length === 0) return '<li>No workflow defined</li>';
@@ -448,7 +486,7 @@ export function JobCardForm({ initialJobName, initialCustomerName }: JobCardForm
     setIsSubmitting(true);
     const valuesToSubmit = {
       ...values,
-      customerName: selectedCustomer || values.customerName, // Ensure selectedCustomer takes precedence if set
+      customerName: selectedCustomer || values.customerName, 
       workflowSteps: currentWorkflowSteps.map(s => ({ stepSlug: s.slug, order: s.order }))
     };
     const result = await createJobCard(valuesToSubmit);
@@ -459,10 +497,9 @@ export function JobCardForm({ initialJobName, initialCustomerName }: JobCardForm
         description: result.message,
       });
       handlePrintJobCard(result.jobCard); 
-      form.reset({ // Reset with initial/empty values, but preserve any passed-in initial props
+      form.reset({ 
         jobName: initialJobName || "",
         customerName: initialCustomerName || "",
-        // ... other fields to their defaults
         jobSizeWidth: undefined,
         jobSizeHeight: undefined,
         netQuantity: undefined,
@@ -496,11 +533,11 @@ export function JobCardForm({ initialJobName, initialCustomerName }: JobCardForm
         workflowSteps: [],
       });
       setCurrentWorkflowSteps([]);
-      setCustomerInputValue(initialCustomerName || ""); // Reset customer input to initial prop or empty
-      setSelectedCustomer(initialCustomerName || "");   // Reset selected customer
+      setCustomerInputValue(initialJobData?.customerName || initialCustomerName || ""); 
+      setSelectedCustomer(initialJobData?.customerName || initialCustomerName || "");   
       setJobInputValue("");
       setSelectedPastJobId("");
-      setJobsForCustomer([]); // Clear jobs list for the previous customer
+      setJobsForCustomer([]); 
       router.push(`/jobs`);
     } else {
       toast({
@@ -661,11 +698,11 @@ export function JobCardForm({ initialJobName, initialCustomerName }: JobCardForm
                 <FormControl><Input 
                     placeholder="e.g., Chic Fragrances" 
                     {...field} 
-                    value={customerInputValue} // Controlled by customerInputValue
+                    value={customerInputValue} 
                     onFocus={() => {
                         if (customerInputValue && customerSuggestions.length > 0) setIsCustomerPopoverOpen(true);
                     }}
-                    onChange={handleCustomerInputChange} // Use the new handler
+                    onChange={handleCustomerInputChange} 
                     className="font-body"
                 /></FormControl>
                 <FormMessage />
@@ -1000,7 +1037,7 @@ export function JobCardForm({ initialJobName, initialCustomerName }: JobCardForm
 
         <div className="flex justify-end gap-4">
           <Button type="button" variant="outline" onClick={() => { 
-                form.reset({ // Reset with initial/empty values, but preserve any passed-in initial props
+                form.reset({ 
                     jobName: initialJobName || "",
                     customerName: initialCustomerName || "",
                      jobSizeWidth: undefined,
@@ -1036,8 +1073,8 @@ export function JobCardForm({ initialJobName, initialCustomerName }: JobCardForm
                     workflowSteps: [],
                 }); 
                 setCurrentWorkflowSteps([]); 
-                setCustomerInputValue(initialCustomerName || "");
-                setSelectedCustomer(initialCustomerName || ""); 
+                setCustomerInputValue(initialJobData?.customerName || initialCustomerName || "");
+                setSelectedCustomer(initialJobData?.customerName || initialCustomerName || ""); 
                 setJobInputValue("");
                 setSelectedPastJobId(""); 
                 setJobsForCustomer([]); 

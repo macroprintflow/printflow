@@ -106,6 +106,7 @@ export async function createJobCard(data: JobCardFormValues): Promise<{ success:
     revalidatePath('/jobs/new');
     revalidatePath('/inventory');
     revalidatePath('/planning');
+    revalidatePath('/customer/my-jobs'); // Revalidate customer portal
     return { success: true, message: 'Job card created successfully!', jobCard: newJobCard };
   } catch (error) {
     console.error('[JobActions Error] Error creating job card:', error);
@@ -116,6 +117,11 @@ export async function createJobCard(data: JobCardFormValues): Promise<{ success:
 
 export async function getJobCards(): Promise<JobCardData[]> {
   return [...(global.__jobCards__ || [])];
+}
+
+export async function getJobCardById(id: string): Promise<JobCardData | null> {
+  const job = global.__jobCards__?.find(job => job.id === id);
+  return job || null;
 }
 
 
