@@ -21,6 +21,7 @@ import { getJobCards } from "@/lib/actions/jobActions";
 import { handlePrintJobCard } from "@/lib/printUtils"; // Import print utility
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 interface ViewAllJobsModalProps {
   isOpen: boolean;
@@ -240,6 +241,7 @@ export function ViewAllJobsModal({ isOpen, setIsOpen, onJobSelect }: ViewAllJobs
                           size="sm" 
                           onClick={() => onViewJobPdf(job.pdfDataUri)}
                           disabled={!job.pdfDataUri}
+                          className={cn(!job.pdfDataUri && "cursor-not-allowed")}
                           title={job.pdfDataUri ? "View Associated PDF" : "No PDF Associated"}
                         >
                             <FileText className="h-4 w-4" />
@@ -261,3 +263,4 @@ export function ViewAllJobsModal({ isOpen, setIsOpen, onJobSelect }: ViewAllJobs
     </Dialog>
   );
 }
+
