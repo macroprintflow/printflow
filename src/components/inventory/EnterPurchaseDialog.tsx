@@ -1,9 +1,9 @@
 
 "use client";
 
-import React, { useState, useEffect, type Dispatch, type SetStateAction, Fragment } from "react";
+import React, { useState, useEffect, type Dispatch, type SetStateAction, Fragment, useCallback } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, type UseFormReturn, Controller, type Control, useFormContext } from "react-hook-form";
+import { useForm, type UseFormReturn, Controller, type Control } from "react-hook-form";
 import type { InventoryItemFormValues, InventoryCategory, PaperQualityType, UnitValue } from "@/lib/definitions";
 import { InventoryItemFormSchema, INVENTORY_CATEGORIES, PAPER_QUALITY_OPTIONS, VENDOR_OPTIONS, UNIT_OPTIONS, getPaperQualityLabel, getPaperQualityUnit, KAPPA_MDF_QUALITIES } from "@/lib/definitions";
 import { addInventoryItem } from "@/lib/actions/jobActions";
@@ -20,18 +20,18 @@ import { cn } from "@/lib/utils";
 import { CalendarIcon, PlusCircle, Trash2, ArrowRight, Loader2, ShoppingCart } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
-import { Label } from "@/components/ui/label"; // Import basic Label
+import { Label } from "@/components/ui/label";
 
-// Re-purposed field components from AddItemDialog (or similar structure)
-// These will be used for the "current item being added" part of the purchase dialog
+// Moved child components to top-level
 
 const CurrentItemPaperFields = ({ form, onFormChange }: { form: UseFormReturn<Partial<InventoryItemFormValues>>, onFormChange: () => void }) => {
   const watchedPaperQuality = form.watch("paperQuality");
   const paperUnit = getPaperQualityUnit(watchedPaperQuality as PaperQualityType);
 
   useEffect(() => {
-    onFormChange();
-  }, [form.watch(), onFormChange]);
+    const subscription = form.watch(() => onFormChange());
+    return () => subscription.unsubscribe();
+  }, [form, onFormChange]);
 
   return (
     <>
@@ -87,23 +87,22 @@ const CurrentItemPaperFields = ({ form, onFormChange }: { form: UseFormReturn<Pa
   );
 };
 
-const CurrentItemInkFields = ({ control, onFormChange }: { control: Control<Partial<InventoryItemFormValues>>, onFormChange: () => void }) => {
-  const { watch } = useFormContext<Partial<InventoryItemFormValues>>();
+const CurrentItemInkFields = ({ form, onFormChange }: { form: UseFormReturn<Partial<InventoryItemFormValues>>, onFormChange: () => void }) => {
    useEffect(() => {
-    const subscription = watch(() => onFormChange());
+    const subscription = form.watch(() => onFormChange());
     return () => subscription.unsubscribe();
-  }, [watch, onFormChange]);
+  }, [form, onFormChange]);
 
   return (
   <>
-     <FormField control={control} name="inkName" render={({ field }) => (
+     <FormField control={form.control} name="inkName" render={({ field }) => (
          <FormItem>
              <FormLabel>Ink Name/Type</FormLabel>
              <FormControl><Input placeholder="e.g., Process Black, Pantone 185C" {...field} value={field.value ?? ''} className="font-body"/></FormControl>
              <FormMessage />
          </FormItem>
      )} />
-     <FormField control={control} name="inkSpecification" render={({ field }) => (
+     <FormField control={form.control} name="inkSpecification" render={({ field }) => (
          <FormItem>
              <FormLabel>Ink Specification/Color</FormLabel>
              <FormControl><Input placeholder="e.g., Oil-based, Red" {...field} value={field.value ?? ''}  className="font-body"/></FormControl>
@@ -113,23 +112,22 @@ const CurrentItemInkFields = ({ control, onFormChange }: { control: Control<Part
   </>
 )};
 
-const CurrentItemOtherCategoryFields = ({ control, categoryLabel, onFormChange }: { control: Control<Partial<InventoryItemFormValues>>; categoryLabel: string; onFormChange: () => void }) => {
-  const { watch } = useFormContext<Partial<InventoryItemFormValues>>();
+const CurrentItemOtherCategoryFields = ({ form, categoryLabel, onFormChange }: { form: UseFormReturn<Partial<InventoryItemFormValues>>; categoryLabel: string; onFormChange: () => void }) => {
    useEffect(() => {
-    const subscription = watch(() => onFormChange());
+    const subscription = form.watch(() => onFormChange());
     return () => subscription.unsubscribe();
-  }, [watch, onFormChange]);
+  }, [form, onFormChange]);
   
   return (
   <>
-    <FormField control={control} name="itemName" render={({ field }) => (
+    <FormField control={form.control} name="itemName" render={({ field }) => (
       <FormItem>
         <FormLabel>Item Name</FormLabel>
         <FormControl><Input placeholder={`e.g., ${categoryLabel} Model X`} {...field} value={field.value ?? ''} className="font-body"/></FormControl>
         <FormMessage />
       </FormItem>
     )} />
-    <FormField control={control} name="itemSpecification" render={({ field }) => (
+    <FormField control={form.control} name="itemSpecification" render={({ field }) => (
       <FormItem>
         <FormLabel>Specification</FormLabel>
         <FormControl><Input placeholder="e.g., Size, Material, Color" {...field} value={field.value ?? ''} className="font-body"/></FormControl>
@@ -143,7 +141,7 @@ const CurrentItemCommonFields = ({ form, onFormChange }: { form: UseFormReturn<P
    useEffect(() => {
     const subscription = form.watch(() => onFormChange());
     return () => subscription.unsubscribe();
-  }, [form.watch, onFormChange]);
+  }, [form, onFormChange]);
 
   return (
     <>
@@ -159,7 +157,9 @@ const CurrentItemCommonFields = ({ form, onFormChange }: { form: UseFormReturn<P
           <FormItem>
             <FormLabel>Unit</FormLabel>
             <Select onValueChange={field.onChange} value={field.value || "sheets"}>
-              <FormControl><SelectTrigger className="font-body"><SelectValue placeholder="Select unit" /></SelectTrigger></FormControl>
+              <FormControl>
+                <SelectTrigger className="font-body"><SelectValue placeholder="Select unit" /></SelectTrigger>
+              </FormControl>
               <SelectContent>{UNIT_OPTIONS.map(opt => (<SelectItem key={opt.value} value={opt.value} className="font-body">{opt.label}</SelectItem>))}</SelectContent>
             </Select>
             <FormMessage />
@@ -177,10 +177,29 @@ const CurrentItemCommonFields = ({ form, onFormChange }: { form: UseFormReturn<P
   );
 };
 
-
-// Type for items in the purchase list (omitting purchase-level details)
 type PurchaseListItem = Omit<InventoryItemFormValues, 'purchaseBillNo' | 'dateOfEntry' | 'vendorName' | 'otherVendorName'> & { displayId: number; displayName: string; };
 
+const deriveItemNameInternal = (values: Partial<InventoryItemFormValues>): string => {
+  if (!values.category) return "Item (select category)";
+  
+  const categoryLabel = INVENTORY_CATEGORIES.find(c => c.value === values.category)?.label || "Item";
+  
+  if (values.category === 'PAPER') {
+      const quality = values.paperQuality as PaperQualityType;
+      const qualityLabel = getPaperQualityLabel(quality);
+      const unit = getPaperQualityUnit(quality);
+      const width = values.paperMasterSheetSizeWidth || 0;
+      const height = values.paperMasterSheetSizeHeight || 0;
+      if (unit === 'mm') {
+          return `${qualityLabel} ${values.paperThicknessMm || '?'}mm (${width.toFixed(1)}x${height.toFixed(1)}in)`;
+      }
+      return `${qualityLabel} ${values.paperGsm || '?'}GSM (${width.toFixed(1)}x${height.toFixed(1)}in)`;
+  } else if (values.category === 'INKS') {
+      return values.inkName || `Ink (define name)`;
+  } else {
+      return values.itemName || `${categoryLabel} (define name)`;
+  }
+};
 
 export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen: boolean; setIsOpen: Dispatch<SetStateAction<boolean>>; onItemAdded?: () => void; }) {
   const [purchaseBillNo, setPurchaseBillNo] = useState("");
@@ -196,7 +215,7 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
   const { toast } = useToast();
   
   const currentItemForm = useForm<Partial<InventoryItemFormValues>>({
-    resolver: zodResolver(InventoryItemFormSchema.innerType().partial()), // Use partial schema for current item
+    resolver: zodResolver(InventoryItemFormSchema.innerType().partial()),
     defaultValues: {
       category: undefined,
       quantity: 0,
@@ -206,31 +225,10 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
 
   const [derivedCurrentItemName, setDerivedCurrentItemName] = useState("");
 
-  const deriveItemName = (values: Partial<InventoryItemFormValues>): string => {
-    if (!values.category) return "Item (select category)";
-    
-    const categoryLabel = INVENTORY_CATEGORIES.find(c => c.value === values.category)?.label || "Item";
-    
-    if (values.category === 'PAPER') {
-        const quality = values.paperQuality as PaperQualityType;
-        const qualityLabel = getPaperQualityLabel(quality);
-        const unit = getPaperQualityUnit(quality);
-        const width = values.paperMasterSheetSizeWidth || 0;
-        const height = values.paperMasterSheetSizeHeight || 0;
-        if (unit === 'mm') {
-            return `${qualityLabel} ${values.paperThicknessMm || '?'}mm (${width.toFixed(1)}x${height.toFixed(1)}in)`;
-        }
-        return `${qualityLabel} ${values.paperGsm || '?'}GSM (${width.toFixed(1)}x${height.toFixed(1)}in)`;
-    } else if (values.category === 'INKS') {
-        return values.inkName || `Ink (define name)`;
-    } else {
-        return values.itemName || `${categoryLabel} (define name)`;
-    }
-  };
+  const handleCurrentItemFormChange = useCallback(() => {
+    setDerivedCurrentItemName(deriveItemNameInternal(currentItemForm.getValues()));
+  }, [currentItemForm]);
 
-  const handleCurrentItemFormChange = () => {
-    setDerivedCurrentItemName(deriveItemName(currentItemForm.getValues()));
-  };
 
   const handleAddItemToPurchaseList = () => {
     currentItemForm.trigger().then(isValid => {
@@ -246,7 +244,7 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
       const currentItemValues = currentItemForm.getValues();
       const newItemForList: PurchaseListItem = {
         displayId: nextDisplayId,
-        displayName: deriveItemName(currentItemValues), // Use derived name
+        displayName: deriveItemNameInternal(currentItemValues),
         category: currentItemCategory,
         paperMasterSheetSizeWidth: currentItemValues.paperMasterSheetSizeWidth,
         paperMasterSheetSizeHeight: currentItemValues.paperMasterSheetSizeHeight,
@@ -255,7 +253,7 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
         paperThicknessMm: currentItemValues.paperThicknessMm,
         inkName: currentItemValues.inkName,
         inkSpecification: currentItemValues.inkSpecification,
-        itemName: currentItemValues.itemName || deriveItemName(currentItemValues), // Ensure itemName is set
+        itemName: currentItemValues.itemName || deriveItemNameInternal(currentItemValues),
         itemSpecification: currentItemValues.itemSpecification,
         quantity: currentItemValues.quantity || 0,
         unit: currentItemValues.unit || 'units',
@@ -264,9 +262,8 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
       setItemsInPurchaseList(prev => [...prev, newItemForList]);
       setNextDisplayId(prev => prev + 1);
       
-      // Reset current item form for next entry
       currentItemForm.reset({
-        category: undefined, // Keep category or reset? For now, reset.
+        category: undefined,
         quantity: 0,
         unit: "sheets" as UnitValue,
       });
@@ -317,7 +314,7 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
         dateOfEntry: purchaseDate.toISOString(),
         vendorName: purchaseVendor,
         otherVendorName: purchaseVendor === 'OTHER' ? otherPurchaseVendor : "",
-        itemName: item.itemName || item.displayName, // Ensure itemName is passed
+        itemName: item.itemName || item.displayName,
       };
       
       const result = await addInventoryItem(itemDataForAction);
@@ -367,7 +364,6 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
 
         <ScrollArea className="flex-grow pr-6 -mr-6"> 
           <div className="space-y-6 py-4">
-            {/* Purchase Level Details */}
             <div className="p-4 border rounded-lg bg-muted/30 space-y-4">
               <h3 className="font-semibold font-headline text-lg">Purchase Bill Details</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -405,7 +401,6 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
               )}
             </div>
 
-            {/* Current Item Entry Form */}
             <div className="p-4 border rounded-lg space-y-4">
                <h3 className="font-semibold font-headline text-lg">Add Item to Purchase</h3>
               <Form {...currentItemForm}>
@@ -413,7 +408,26 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
                    <FormField control={currentItemForm.control} name="category" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Item Category</FormLabel>
-                      <Select onValueChange={(value) => { field.onChange(value); setCurrentItemCategory(value as InventoryCategory); }} value={field.value || ""}>
+                      <Select onValueChange={(value) => { 
+                          field.onChange(value); 
+                          setCurrentItemCategory(value as InventoryCategory); 
+                          // Reset specific fields when category changes
+                          currentItemForm.reset({
+                            ...currentItemForm.getValues(), // keep existing common values like quantity if needed
+                            category: value as InventoryCategory, // set new category
+                            paperMasterSheetSizeWidth: undefined,
+                            paperMasterSheetSizeHeight: undefined,
+                            paperQuality: "",
+                            paperGsm: undefined,
+                            paperThicknessMm: undefined,
+                            inkName: "",
+                            inkSpecification: "",
+                            itemName: "", // Reset itemName so deriveItemName can work correctly
+                            itemSpecification: "",
+                            unit: value === 'PAPER' ? 'sheets' : value === 'INKS' ? 'kg' : 'pieces' // Set default unit by category
+                          });
+                          handleCurrentItemFormChange(); // Update derived name
+                        }} value={field.value || ""}>
                         <FormControl><SelectTrigger className="font-body"><SelectValue placeholder="Select item category" /></SelectTrigger></FormControl>
                         <SelectContent>{INVENTORY_CATEGORIES.map(cat => (<SelectItem key={cat.value} value={cat.value} className="font-body">{cat.label}</SelectItem>))}</SelectContent>
                       </Select>
@@ -422,9 +436,9 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
                   )} />
 
                   {currentItemCategory === 'PAPER' && <CurrentItemPaperFields form={currentItemForm} onFormChange={handleCurrentItemFormChange} />}
-                  {currentItemCategory === 'INKS' && <CurrentItemInkFields control={currentItemForm.control} onFormChange={handleCurrentItemFormChange} />}
+                  {currentItemCategory === 'INKS' && <CurrentItemInkFields form={currentItemForm} onFormChange={handleCurrentItemFormChange} />}
                   {(currentItemCategory && currentItemCategory !== 'PAPER' && currentItemCategory !== 'INKS') && (
-                    <CurrentItemOtherCategoryFields control={currentItemForm.control} categoryLabel={currentCategoryLabel} onFormChange={handleCurrentItemFormChange} />
+                    <CurrentItemOtherCategoryFields form={currentItemForm} categoryLabel={currentCategoryLabel} onFormChange={handleCurrentItemFormChange} />
                   )}
                   
                   {currentItemCategory && <CurrentItemCommonFields form={currentItemForm} onFormChange={handleCurrentItemFormChange} />}
@@ -441,7 +455,6 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
               </Form>
             </div>
 
-            {/* Items in Purchase List */}
             {itemsInPurchaseList.length > 0 && (
               <div className="p-4 border rounded-lg space-y-2">
                 <h3 className="font-semibold font-headline text-lg">Items in this Purchase</h3>
@@ -488,3 +501,4 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
   );
 }
 
+    
