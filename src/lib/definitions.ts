@@ -2,7 +2,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   FileCheck2, Scissors, Printer, Wand2, Film, Crop, Sparkles, ClipboardPaste, Box, Package, FileSpreadsheet,
-  FileText, Newspaper, Archive as ArchiveIcon, Layers
+  FileText, Newspaper, Archive as ArchiveIcon, Layers, Palette, Focus // Added Palette, Focus
 } from "lucide-react"; // Renamed Archive to ArchiveIcon to avoid conflict
 import { z } from 'zod';
 
@@ -75,11 +75,11 @@ export const PRODUCTION_PROCESS_STEPS: WorkflowProcessStepDefinition[] = [
   { name: "Job Approval", slug: "job-approval", icon: FileCheck2 },
   { name: "Cutter", slug: "cutter", icon: Scissors },
   { name: "Printing", slug: "printing", icon: Printer },
-  { name: "Texture UV", slug: "texture-uv", icon: Wand2 },
+  { name: "Texture UV", slug: "texture-uv", icon: Palette }, // Changed from Wand2
   { name: "Lamination", slug: "lamination", icon: Film },
-  { name: "Die Cutting", slug: "die-cutting", icon: Crop },
+  { name: "Die Cutting", slug: "die-cutting", icon: Focus }, // Changed from Crop
   { name: "Foil Stamping", slug: "foil-stamping", icon: Sparkles },
-  { name: "Pasting", slug: "pasting", icon: ClipboardPaste },
+  { name: "Pasting", slug: "pasting", icon: Layers }, // Changed from ClipboardPaste
   { name: "Box Making & Assembly", slug: "box-making-assembly", icon: Box },
   { name: "Packing", slug: "packing", icon: Package },
   { name: "To be Billed", slug: "to-be-billed", icon: FileSpreadsheet },
@@ -132,7 +132,7 @@ export type JobCardData = {
 
   linkedJobCardIds?: string[];
   currentDepartment?: string;
-  status?: string;
+  status?: string; // e.g., "Pending Planning", "In Printing", "Cutting Complete", "Completed", "Billed"
   createdAt?: string;
   updatedAt?: string;
   workflowSteps?: WorkflowStep[];
@@ -618,4 +618,15 @@ export const COUNTRY_CODES: CountryCode[] = [
   // Add more countries as needed.
   // Consider using a more comprehensive list from a library for a production app.
 ];
+
+// User Data for Mock User Management
+export type UserRole = "Admin" | "Manager" | "Departmental" | "Customer";
+
+export interface UserData {
+  id: string; // UID from Firebase Auth or a mock ID
+  email: string;
+  displayName?: string;
+  role: UserRole;
+  // We don't store passwords in the client-accessible mock store
+}
     

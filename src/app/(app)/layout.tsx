@@ -14,6 +14,9 @@ import {
   SidebarMenuButton,
   SidebarInset,
   SidebarTrigger,
+  SidebarMenuSub, // Import Sub components
+  SidebarMenuSubTrigger,
+  SidebarMenuSubContent,
 } from '@/components/ui/sidebar';
 import AppLogo from '@/components/AppLogo';
 import { Header } from '@/components/layout/Header';
@@ -27,6 +30,10 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub as RadixDropdownMenuSub, // Alias Radix sub components
+  DropdownMenuSubTrigger as RadixDropdownMenuSubTrigger,
+  DropdownMenuSubContent as RadixDropdownMenuSubContent,
+  DropdownMenuPortal,
 } from "@/components/ui/dropdown-menu"
 import { Button } from '@/components/ui/button';
 import ClientOnlyWrapper from '@/components/ClientOnlyWrapper';
@@ -35,7 +42,7 @@ import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase/clientApp';
 import { useToast } from '@/hooks/use-toast';
 
-type UserRole = "Admin" | "Manager" | "Departmental" | "Customer";
+export type UserRole = "Admin" | "Manager" | "Departmental" | "Customer";
 
 interface NavItem {
   href: string;
@@ -55,7 +62,7 @@ const allNavItems: NavItem[] = [
   { href: '/customer/my-jobs', label: 'My Jobs', icon: ShoppingBag, allowedRoles: ['Customer'] },
 ];
 
-const ADMIN_EMAIL = "kuvam@macroprinters.com".toLowerCase(); 
+const ADMIN_EMAIL = "kuvam@macroprinters.com"; 
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -63,6 +70,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth(); 
   const { toast } = useToast();
   const [isClient, setIsClient] = React.useState(false);
+  // Store the effectiveUserRole in component state to allow dynamic changes for the dev tool
   const [effectiveUserRole, setEffectiveUserRole] = React.useState<UserRole>("Customer"); // Default to least privileged
 
   React.useEffect(() => {
@@ -74,16 +82,22 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       router.push('/login'); 
     } else if (user && user.email) { 
       let actualRole: UserRole;
-      if (user.email.toLowerCase() === ADMIN_EMAIL) {
+      if (user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
         actualRole = "Admin";
       } else {
-        // This is where you'd typically fetch a role from your database or custom claims
-        // For now, defaulting non-admin users to "Customer" for portal access.
-        actualRole = "Customer"; 
+        actualRole = "Customer"; // Default non-admin to Customer
       }
-      setEffectiveUserRole(actualRole); 
+      // Only set effectiveUserRole if it hasn't been set by the dev tool already
+      // This check ensures that if the user switches role, it persists through re-renders
+      // unless the underlying user (auth state) changes.
+      if (effectiveUserRole === "Customer" || user.email.toLowerCase() !== ADMIN_EMAIL.toLowerCase()){
+         setEffectiveUserRole(actualRole);
+      } else if (user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase() && effectiveUserRole !== "Admin" && effectiveUserRole !== "Manager" && effectiveUserRole !== "Departmental") {
+         // If admin logs in and dev tool role was 'Customer', reset to Admin
+         setEffectiveUserRole("Admin");
+      }
     }
-  }, [user, loading, router]);
+  }, [user, loading, router]); // Removed effectiveUserRole from deps to avoid loop with setEffectiveUserRole
 
   const handleLogout = async () => {
     try {
@@ -109,7 +123,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     item.allowedRoles.includes(effectiveUserRole)
   );
   
-  const isDesignatedAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
+  const isDesignatedAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
 
   return (
     <ClientOnlyWrapper>
@@ -183,17 +197,26 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <DropdownMenuSeparator />
                 {isDesignatedAdmin && (
                   <>
-                    <DropdownMenuLabel className="text-xs text-muted-foreground px-2">Switch Role (Dev Tool)</DropdownMenuLabel>
-                    {(["Admin", "Manager", "Departmental", "Customer"] as UserRole[]).map((role) => (
-                      <DropdownMenuItem 
-                        key={role} 
-                        onClick={() => setEffectiveUserRole(role)}
-                        className={cn("cursor-pointer", effectiveUserRole === role && "bg-accent font-semibold")}
-                      >
-                        Switch to {role}
-                        {effectiveUserRole === role && <Check className="ml-auto h-4 w-4" />}
-                      </DropdownMenuItem>
-                    ))}
+                    <RadixDropdownMenuSub>
+                      <RadixDropdownMenuSubTrigger>
+                        <UserCircle className="mr-2 h-4 w-4" />
+                        <span>Switch Role (Dev)</span>
+                      </RadixDropdownMenuSubTrigger>
+                      <DropdownMenuPortal>
+                        <RadixDropdownMenuSubContent>
+                          {(["Admin", "Manager", "Departmental", "Customer"] as UserRole[]).map((role) => (
+                            <DropdownMenuItem 
+                              key={role} 
+                              onClick={() => setEffectiveUserRole(role)}
+                              className={cn("cursor-pointer", effectiveUserRole === role && "bg-accent font-semibold")}
+                            >
+                              {role}
+                              {effectiveUserRole === role && <Check className="ml-auto h-4 w-4" />}
+                            </DropdownMenuItem>
+                          ))}
+                        </RadixDropdownMenuSubContent>
+                      </DropdownMenuPortal>
+                    </RadixDropdownMenuSub>
                     <DropdownMenuSeparator />
                   </>
                 )}

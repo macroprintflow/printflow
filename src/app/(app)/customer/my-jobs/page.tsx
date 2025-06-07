@@ -8,13 +8,15 @@ import { getJobCards } from "@/lib/actions/jobActions";
 import type { JobCardData } from "@/lib/definitions";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, ShoppingBag, Search, RefreshCw, ExternalLink, ArrowUpDown, XCircle } from "lucide-react";
+import { Loader2, ShoppingBag, Search, RefreshCw, ExternalLink, ArrowUpDown, XCircle, Eye, Briefcase, History } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
+import { CustomerJobDetailModal } from "@/components/customer/CustomerJobDetailModal"; // Import the new modal
 
 type SortKey = "jobName" | "date" | "status";
 type SortDirection = "asc" | "desc";
@@ -28,13 +30,15 @@ export default function MyJobsPage() {
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const { toast } = useToast();
 
+  const [selectedJobForDetail, setSelectedJobForDetail] = useState<JobCardData | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+
   const customerIdentifier = useMemo(() => {
     if (!user) return null;
-    // Prioritize displayName, fallback to email if displayName is generic or unset
     if (user.displayName && user.displayName !== user.email?.split('@')[0]) {
       return user.displayName;
     }
-    return user.email; // Could refine this to extract a name part if needed
+    return user.email; 
   }, [user]);
 
   const fetchJobs = async () => {
@@ -46,8 +50,7 @@ export default function MyJobsPage() {
     try {
       const jobs = await getJobCards();
       const customerJobs = jobs.filter(
-        (job) => job.customerName?.toLowerCase() === customerIdentifier.toLowerCase() &&
-                 job.status !== "Completed" && job.status !== "Billed" // Show active jobs
+        (job) => job.customerName?.toLowerCase() === customerIdentifier.toLowerCase()
       );
       setAllJobs(customerJobs);
     } catch (error) {
@@ -66,11 +69,16 @@ export default function MyJobsPage() {
     if (!authLoading) {
       fetchJobs();
     }
-  }, [authLoading, customerIdentifier]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, customerIdentifier]); // customerIdentifier should trigger re-fetch
 
 
-  const filteredAndSortedJobs = useMemo(() => {
-    let jobs = [...allJobs];
+  const processJobs = (jobsToFilter: JobCardData[], active: boolean) => {
+    let jobs = jobsToFilter.filter(job => {
+        const isActiveStatus = job.status !== "Completed" && job.status !== "Billed";
+        return active ? isActiveStatus : !isActiveStatus;
+    });
+
     if (searchQuery.trim() !== "") {
       const lowerQuery = searchQuery.toLowerCase();
       jobs = jobs.filter(
@@ -102,14 +110,18 @@ export default function MyJobsPage() {
       return 0;
     });
     return jobs;
-  }, [allJobs, searchQuery, sortKey, sortDirection]);
+  };
+
+  const activeJobs = useMemo(() => processJobs([...allJobs], true), [allJobs, searchQuery, sortKey, sortDirection]);
+  const pastJobs = useMemo(() => processJobs([...allJobs], false), [allJobs, searchQuery, sortKey, sortDirection]);
+
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
     } else {
       setSortKey(key);
-      setSortDirection("asc"); // Default to ascending when changing sort key
+      setSortDirection("asc"); 
     }
   };
 
@@ -118,6 +130,11 @@ export default function MyJobsPage() {
       return sortDirection === "asc" ? " (Asc)" : " (Desc)";
     }
     return "";
+  };
+
+  const openJobDetailModal = (job: JobCardData) => {
+    setSelectedJobForDetail(job);
+    setIsDetailModalOpen(true);
   };
 
   if (authLoading || isLoadingJobs) {
@@ -141,16 +158,79 @@ export default function MyJobsPage() {
       </Card>
     );
   }
+  
+  const renderJobsTable = (jobsToList: JobCardData[], tableTitle: string) => {
+    return (
+        <>
+         {jobsToList.length === 0 && !searchQuery ? (
+            <div className="text-center py-12">
+                <Image src={`https://placehold.co/300x200.png?text=No+${tableTitle.replace(/\s/g, '+')}`} alt={`No ${tableTitle}`} width={300} height={200} className="mb-6 rounded-lg mx-auto" data-ai-hint="empty state document"/>
+                <h3 className="text-xl font-semibold mb-2 font-headline">No {tableTitle} Found</h3>
+                <p className="text-muted-foreground font-body">
+                    You currently don't have any {tableTitle.toLowerCase()}.
+                </p>
+            </div>
+         ) : jobsToList.length === 0 && searchQuery ? (
+            <div className="text-center py-12">
+                 <Search className="mx-auto h-12 w-12 text-muted-foreground" />
+                <h3 className="text-xl font-semibold mb-2 font-headline">No Results for "{searchQuery}"</h3>
+                <p className="text-muted-foreground font-body">
+                    Try adjusting your search terms for {tableTitle.toLowerCase()}.
+                </p>
+            </div>
+         ) : (
+            <ScrollArea className="h-[400px] border rounded-md">
+            <Table>
+                <TableHeader>
+                <TableRow>
+                    <TableHead className="font-headline">Job No.</TableHead>
+                    <TableHead className="font-headline">Job Name</TableHead>
+                    <TableHead className="font-headline">Date</TableHead>
+                    <TableHead className="font-headline">Status</TableHead>
+                    <TableHead className="font-headline">Dispatch Date</TableHead>
+                    <TableHead className="font-headline text-right">Actions</TableHead>
+                </TableRow>
+                </TableHeader>
+                <TableBody>
+                {jobsToList.map((job) => (
+                    <TableRow key={job.id}>
+                    <TableCell className="font-mono text-xs">{job.jobCardNumber || job.id}</TableCell>
+                    <TableCell className="font-medium">{job.jobName}</TableCell>
+                    <TableCell className="text-xs">{format(new Date(job.createdAt || job.date), "dd MMM yyyy")}</TableCell>
+                    <TableCell>
+                        <Badge variant={job.status === "Completed" || job.status === "Billed" ? "secondary" : "default"}>{job.status || "N/A"}</Badge>
+                    </TableCell>
+                    <TableCell className="text-xs">{job.dispatchDate ? format(new Date(job.dispatchDate), "dd MMM yyyy") : "N/A"}</TableCell>
+                    <TableCell className="text-right space-x-1">
+                        <Button variant="outline" size="sm" onClick={() => openJobDetailModal(job)}>
+                            <Eye className="mr-1 h-3 w-3" /> Details
+                        </Button>
+                        <Button asChild variant="outline" size="sm">
+                          <Link href={`/jobs/new?fromCustomerJobId=${job.id}`}>
+                            <RefreshCw className="mr-1 h-3 w-3" /> Re-order
+                          </Link>
+                        </Button>
+                    </TableCell>
+                    </TableRow>
+                ))}
+                </TableBody>
+            </Table>
+            </ScrollArea>
+         )}
+        </>
+    );
+  }
+
 
   return (
     <div className="space-y-6">
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="font-headline flex items-center text-xl">
-            <ShoppingBag className="mr-3 h-7 w-7 text-primary" /> My Active Jobs
+            <ShoppingBag className="mr-3 h-7 w-7 text-primary" /> My Jobs Portal
           </CardTitle>
           <CardDescription className="font-body">
-            View the status of your ongoing jobs and re-order past ones. (Logged in as: {customerIdentifier})
+            View the status of your jobs and re-order past ones. (Logged in as: {customerIdentifier})
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -188,56 +268,29 @@ export default function MyJobsPage() {
             </div>
           </div>
 
-          {filteredAndSortedJobs.length === 0 ? (
-            <div className="text-center py-12">
-              <Image src="https://placehold.co/300x200.png?text=No+Active+Jobs" alt="No active jobs" width={300} height={200} className="mb-6 rounded-lg mx-auto" data-ai-hint="empty state illustration" />
-              <h3 className="text-xl font-semibold mb-2 font-headline">No Active Jobs Found</h3>
-              <p className="text-muted-foreground font-body">
-                You currently don't have any active jobs, or your search returned no results.
-              </p>
-            </div>
-          ) : (
-            <ScrollArea className="h-[500px] border rounded-md">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="font-headline">Job No.</TableHead>
-                    <TableHead className="font-headline">Job Name</TableHead>
-                    <TableHead className="font-headline">Date</TableHead>
-                    <TableHead className="font-headline">Status</TableHead>
-                    <TableHead className="font-headline">Dispatch Date</TableHead>
-                    <TableHead className="font-headline text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredAndSortedJobs.map((job) => (
-                    <TableRow key={job.id}>
-                      <TableCell className="font-mono text-xs">{job.jobCardNumber || job.id}</TableCell>
-                      <TableCell className="font-medium">{job.jobName}</TableCell>
-                      <TableCell className="text-xs">{format(new Date(job.createdAt || job.date), "dd MMM yyyy")}</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">{job.status || "N/A"}</Badge>
-                      </TableCell>
-                      <TableCell className="text-xs">{job.dispatchDate ? format(new Date(job.dispatchDate), "dd MMM yyyy") : "N/A"}</TableCell>
-                      <TableCell className="text-right">
-                        <Button asChild variant="outline" size="sm">
-                          <Link href={`/jobs/new?fromCustomerJobId=${job.id}`}>
-                            <RefreshCw className="mr-2 h-3 w-3" /> Re-order
-                          </Link>
-                        </Button>
-                        {/* Future: Link to a customer-specific job detail view */}
-                        {/* <Button variant="ghost" size="sm" asChild className="ml-2">
-                          <Link href={`/customer/jobs/${job.id}`}><ExternalLink className="mr-2 h-3 w-3"/> Details</Link>
-                        </Button> */}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </ScrollArea>
-          )}
+          <Tabs defaultValue="active" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-4">
+              <TabsTrigger value="active" className="font-body flex items-center gap-2"><Briefcase className="h-4 w-4"/>Active Jobs</TabsTrigger>
+              <TabsTrigger value="past" className="font-body flex items-center gap-2"><History className="h-4 w-4"/>Past Jobs</TabsTrigger>
+            </TabsList>
+            <TabsContent value="active">
+              {renderJobsTable(activeJobs, "Active Jobs")}
+            </TabsContent>
+            <TabsContent value="past">
+              {renderJobsTable(pastJobs, "Past Jobs")}
+            </TabsContent>
+          </Tabs>
+
         </CardContent>
       </Card>
+
+      {selectedJobForDetail && (
+        <CustomerJobDetailModal
+          job={selectedJobForDetail}
+          isOpen={isDetailModalOpen}
+          setIsOpen={setIsDetailModalOpen}
+        />
+      )}
     </div>
   );
 }
