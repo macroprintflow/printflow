@@ -2,8 +2,8 @@
 import type { LucideIcon } from "lucide-react";
 import {
   FileCheck2, Scissors, Printer, Wand2, Film, Crop, Sparkles, ClipboardPaste, Box, Package, FileSpreadsheet,
-  FileText, Newspaper, Archive, Layers // Added Layers
-} from "lucide-react";
+  FileText, Newspaper, Archive as ArchiveIcon, Layers 
+} from "lucide-react"; // Renamed Archive to ArchiveIcon to avoid conflict
 import { z } from 'zod';
 
 export type PaperSpecs = {
@@ -347,7 +347,7 @@ export const INVENTORY_CATEGORIES = [
   { value: 'PLASTIC_TRAY', label: 'Plastic Tray', iconName: "Package" },
   { value: 'GLASS_JAR', label: 'Glass Jars', iconName: "Box" },
   { value: 'MAGNET', label: 'Magnets', iconName: "MagnetIcon" },
-  { value: 'OTHER', label: 'Other Material/Stock', iconName: "Archive" },
+  { value: 'OTHER', label: 'Other Material/Stock', iconName: "ArchiveIcon" },
 ] as const;
 export type InventoryCategory = typeof INVENTORY_CATEGORIES[number]['value'];
 
@@ -430,6 +430,7 @@ export const INVENTORY_ADJUSTMENT_REASONS = [
   { value: 'STOCK_TAKE_LOSS', label: 'Stock Take (Loss)' },
   { value: 'RETURN_TO_SUPPLIER', label: 'Return to Supplier' },
   { value: 'DAMAGED_GOODS', label: 'Damaged Goods' },
+  { value: 'OTHER', label: 'Other (Specify in notes)' },
 ] as const;
 
 export type InventoryAdjustmentReasonValue = typeof INVENTORY_ADJUSTMENT_REASONS[number]['value'];
@@ -445,32 +446,44 @@ export type InventoryAdjustment = {
   quantityChange: number;
   reason: InventoryAdjustmentReasonValue;
   reference?: string;
-  userId?: string;
+  userId?: string; // Could be added in future for audit trail
   notes?: string;
-  vendorName?: string;
-  purchaseBillNo?: string;
+  vendorName?: string; // Only relevant for 'PURCHASE_RECEIVED' or 'RETURN_TO_SUPPLIER'
+  purchaseBillNo?: string; // Only relevant for 'PURCHASE_RECEIVED'
 };
 
-// New structure for PAPER_SUB_CATEGORIES
+// Schema for a single item in the adjustment list on the new page
+export const InventoryAdjustmentItemSchema = z.object({
+  inventoryItemId: z.string().min(1, "Inventory Item ID is required"),
+  itemNameFull: z.string(), // For display in the list
+  quantityChange: z.number().refine(val => val !== 0, "Quantity change cannot be zero"),
+  reason: z.enum(INVENTORY_ADJUSTMENT_REASONS.map(r => r.value) as [string, ...string[]])
+          .refine(val => val !== undefined && val !== '', "Reason for adjustment is required"),
+  notes: z.string().optional(),
+});
+export type InventoryAdjustmentItemFormValues = z.infer<typeof InventoryAdjustmentItemSchema>;
+
+
 export type PaperSubCategoryFilterValue =
   | "SBS" | "KAPPA_GROUP" | "GREYBACK" | "WHITEBACK" | "ART_PAPER_GROUP"
-  | "JAPANESE_PAPER" | "IMPORTED_PAPER" | "MDF" | "BUTTER_PAPER"
+  | "JAPANESE_PAPER" | "IMPORTED_PAPER" | "MDF_GROUP" | "BUTTER_PAPER" // Changed MDF to MDF_GROUP
   | "OTHER_PAPER_GROUP" | "__ALL_PAPER__";
 
 export type ArtPaperFinishFilterValue = "ART_PAPER_MATT_FINISH" | "ART_PAPER_GLOSS_FINISH";
 export type KappaFinishFilterValue = "KAPPA_GG_FINISH" | "KAPPA_WG_FINISH";
+export type SubCategoryFinishFilterValue = ArtPaperFinishFilterValue | KappaFinishFilterValue;
 
 
 export type PaperSubCategory = {
   name: string;
   filterValue: PaperSubCategoryFilterValue;
-  qualityValues: PaperQualityType[];
+  qualityValues: PaperQualityType[]; // For filtering inventory items
   predefinedSpecs?: number[];
   specUnit?: 'GSM' | 'mm';
   subFinishes?: Array<{
     name: string;
-    finishFilterValue: ArtPaperFinishFilterValue | KappaFinishFilterValue; // Updated to include Kappa
-    actualQualityValue: PaperQualityType;
+    finishFilterValue: SubCategoryFinishFilterValue;
+    actualQualityValue: PaperQualityType; // The actual paperQuality value for filtering
     predefinedSpecs: number[];
     specUnit: 'GSM' | 'mm';
     icon: LucideIcon;
@@ -486,8 +499,8 @@ export const PAPER_SUB_CATEGORIES: PaperSubCategory[] = [
     specUnit: 'GSM',
   },
   {
-    name: "Kappa", filterValue: "KAPPA_GROUP", icon: Newspaper,
-    qualityValues: ["GG_KAPPA", "WG_KAPPA"],
+    name: "Kappa Paper", filterValue: "KAPPA_GROUP", icon: Newspaper,
+    qualityValues: ["GG_KAPPA", "WG_KAPPA"], // Covers both types
     subFinishes: [
       {
         name: "Grey-Grey (GG) Kappa", finishFilterValue: "KAPPA_GG_FINISH", actualQualityValue: "GG_KAPPA",
@@ -513,7 +526,7 @@ export const PAPER_SUB_CATEGORIES: PaperSubCategory[] = [
   },
   {
     name: "Art Paper", filterValue: "ART_PAPER_GROUP", icon: Newspaper,
-    qualityValues: ["ART_PAPER_GLOSS", "ART_PAPER_MATT"],
+    qualityValues: ["ART_PAPER_GLOSS", "ART_PAPER_MATT"], // Covers both types
     subFinishes: [
       {
         name: "Matt Finish", finishFilterValue: "ART_PAPER_MATT_FINISH", actualQualityValue: "ART_PAPER_MATT",
@@ -527,30 +540,28 @@ export const PAPER_SUB_CATEGORIES: PaperSubCategory[] = [
   },
   {
     name: "Japanese Paper", filterValue: "JAPANESE_PAPER", icon: FileText,
-    qualityValues: ["JAPANESE_PAPER"],
+    qualityValues: ["JAPANESE_PAPER"], // Dynamic specs based on inventory
   },
   {
     name: "Imported Paper", filterValue: "IMPORTED_PAPER", icon: FileText,
-    qualityValues: ["IMPORTED_PAPER"],
+    qualityValues: ["IMPORTED_PAPER"], // Dynamic specs based on inventory
   },
   {
-    name: "MDF", filterValue: "MDF", icon: Box,
+    name: "MDF", filterValue: "MDF_GROUP", icon: Box, // Changed to MDF_GROUP
     qualityValues: ["MDF"],
-    predefinedSpecs: [2.0, 2.3, 2.5, 3.0, 4.0, 5.0, 6.0], // Example MDF thicknesses
+    predefinedSpecs: [2.0, 2.3, 2.5, 3.0, 4.0, 5.0, 6.0],
     specUnit: 'mm',
   },
   {
     name: "Butter Paper", filterValue: "BUTTER_PAPER", icon: FileText,
-    qualityValues: ["BUTTER_PAPER"],
+    qualityValues: ["BUTTER_PAPER"], // Dynamic specs based on inventory
   },
   {
-    name: "Other Paper", filterValue: "OTHER_PAPER_GROUP", icon: Archive,
-    qualityValues: [], 
+    name: "Other Paper", filterValue: "OTHER_PAPER_GROUP", icon: ArchiveIcon, // Changed to ArchiveIcon
+    qualityValues: [], // Will look for any paper not in the above explicit groups, dynamic specs
   },
   {
     name: "View All Paper Types", filterValue: "__ALL_PAPER__", icon: Printer,
-    qualityValues: [],
+    qualityValues: [], // Shows all paper types, no further spec filtering from here
   },
 ];
-
-

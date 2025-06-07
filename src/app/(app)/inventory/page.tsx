@@ -4,10 +4,7 @@
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Archive, Printer, Paintbrush, Box, Package, MagnetIcon, ShoppingCart, PlusCircle } from "lucide-react";
-import { useState } from "react";
-// EnterPurchaseDialog is removed
-import { AddItemDialog } from '@/components/inventory/AddItemDialog'; 
+import { Archive, Printer, Paintbrush, Box, Package, MagnetIcon, ShoppingCart, Edit } from "lucide-react"; // Changed PlusCircle to Edit
 
 const mainCategories = [
   { name: "Paper", slug: "paper", icon: Printer, description: "Master sheets and paper stock." },
@@ -19,13 +16,7 @@ const mainCategories = [
 ];
 
 export default function InventoryCategorySelectionPage() {
-  // isEnterPurchaseDialogOpen state is removed
-  const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false); 
-
-  const handleInventoryUpdate = () => {
-    console.log("Inventory updated, refresh would happen here.");
-    // e.g., router.refresh() or re-fetch data
-  };
+  // Removed state and handler for AddItemDialog
 
   return (
     <div className="space-y-6">
@@ -36,12 +27,14 @@ export default function InventoryCategorySelectionPage() {
                     <Archive className="mr-2 h-6 w-6 text-primary" /> Inventory Management
                 </CardTitle>
                 <CardDescription className="font-body">
-                    Select a category to view stock or enter a new purchase bill.
+                    Select a category to view stock, enter a new purchase bill, or make adjustments.
                 </CardDescription>
             </div>
             <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                <Button onClick={() => setIsAddItemDialogOpen(true)} variant="outline" className="w-full sm:w-auto font-body">
-                    <PlusCircle className="mr-2 h-4 w-4" /> Add Single Item
+                <Button asChild variant="outline" className="w-full sm:w-auto font-body">
+                  <Link href="/inventory/new-adjustment">
+                    <Edit className="mr-2 h-4 w-4" /> Make Inventory Adjustment(s)
+                  </Link>
                 </Button>
                 <Button asChild className="w-full sm:w-auto font-body">
                   <Link href="/inventory/new-purchase">
@@ -69,12 +62,7 @@ export default function InventoryCategorySelectionPage() {
           ))}
         </CardContent>
       </Card>
-      {/* EnterPurchaseDialog component is removed */}
-      <AddItemDialog
-        isOpen={isAddItemDialogOpen}
-        setIsOpen={setIsAddItemDialogOpen}
-        onItemAdded={handleInventoryUpdate}
-      />
+      {/* AddItemDialog component usage removed */}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 
 'use server';
 
-import type { JobCardFormValues, JobCardData, JobTemplateData, JobTemplateFormValues, InventoryItem, PaperQualityType, InventorySuggestion, InventoryItemFormValues, InventoryItemType, ItemGroupType, UnitValue, OptimizeInventoryOutput, InventoryAdjustment, InventoryAdjustmentReasonValue, WorkflowStep } from '@/lib/definitions';
+import type { JobCardFormValues, JobCardData, JobTemplateData, JobTemplateFormValues, InventoryItem, PaperQualityType, InventorySuggestion, InventoryItemFormValues, InventoryItemType, ItemGroupType, UnitValue, OptimizeInventoryOutput, InventoryAdjustment, InventoryAdjustmentReasonValue, WorkflowStep, InventoryAdjustmentItemFormValues } from '@/lib/definitions';
 import { PAPER_QUALITY_OPTIONS, getPaperQualityLabel, INVENTORY_ADJUSTMENT_REASONS, KAPPA_MDF_QUALITIES, getPaperQualityUnit } from '@/lib/definitions';
 import { calculateUps } from '@/lib/calculateUps';
 import { revalidatePath } from 'next/cache';
@@ -290,7 +290,6 @@ export async function getUniqueCustomerNames(): Promise<string[]> {
 export async function getJobsByCustomerName(customerName: string): Promise<JobCardData[]> {
   const jobs = await getJobCards();
   return jobs.filter(job => job.customerName === customerName).sort((a, b) => {
-    // Sort by date descending (newest first), then by job name
     const dateA = new Date(a.date).getTime();
     const dateB = new Date(b.date).getTime();
     if (dateB !== dateA) {
@@ -368,7 +367,7 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
       if (data.reorderPoint && (!existingItem.reorderPoint || data.reorderPoint > existingItem.reorderPoint)) {
         existingItem.reorderPoint = data.reorderPoint;
       }
-      if (data.locationCode) { // Update location code if provided
+      if (data.locationCode) { 
         existingItem.locationCode = data.locationCode;
       }
       itemForMessage = existingItem;
@@ -436,7 +435,7 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
         purchaseBillNo: data.purchaseBillNo,
         vendorName: data.vendorName === 'OTHER' ? data.otherVendorName : data.vendorName,
         dateOfEntry: data.dateOfEntry,
-        locationCode: data.locationCode, // Save location code
+        locationCode: data.locationCode, 
       };
       global.__inventoryItemsStore__!.push(newItemMaster);
       itemForMessage = newItemMaster;
@@ -474,6 +473,8 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
     console.log(`[InventoryManagement] ${existingItem ? 'Added to' : 'Created'} item: ${itemForMessage!.name}. Transaction Quantity: ${data.quantity}. Location: ${itemForMessage.locationCode}`);
     revalidatePath('/inventory'); 
     revalidatePath(`/inventory/${data.category.toLowerCase()}`);
+    revalidatePath('/inventory/new-purchase');
+    revalidatePath('/inventory/new-adjustment');
     return { success: true, message: `Stock updated for: ${itemForMessage!.name}. Quantity added: ${data.quantity}`, item: itemForMessage };
   } catch (error) {
     console.error('[InventoryManagement Error] Error adding/updating inventory item:', error);
@@ -483,17 +484,30 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
 }
 
 
-export async function getInventoryItems(): Promise<InventoryItem[]> {
+export async function getInventoryItems(categoryFilter?: InventoryCategory): Promise<InventoryItem[]> {
   if (!global.__inventoryItemsStore__) global.__inventoryItemsStore__ = [];
   if (!global.__inventoryAdjustmentsStore__) global.__inventoryAdjustmentsStore__ = [];
 
-  const itemsWithCalculatedStock = global.__inventoryItemsStore__!.map(item => {
+  let itemsToProcess = global.__inventoryItemsStore__!;
+  if (categoryFilter) {
+    itemsToProcess = itemsToProcess.filter(item => {
+        if (categoryFilter === 'PAPER') return item.type === 'Master Sheet';
+        if (categoryFilter === 'INKS') return item.type === 'Ink';
+        if (categoryFilter === 'PLASTIC_TRAY') return item.type === 'Plastic Tray';
+        if (categoryFilter === 'GLASS_JAR') return item.type === 'Glass Jar';
+        if (categoryFilter === 'MAGNET') return item.type === 'Magnet';
+        if (categoryFilter === 'OTHER') return item.type === 'Other';
+        return false;
+    });
+  }
+  
+  const itemsWithCalculatedStock = itemsToProcess.map(item => {
     const adjustments = global.__inventoryAdjustmentsStore__!.filter(adj => adj.inventoryItemId === item.id);
     const calculatedStock = adjustments.reduce((sum, adj) => sum + adj.quantityChange, 0);
     return { ...item, availableStock: calculatedStock };
   });
   
-  console.log(`[InventoryManagement] getInventoryItems returning ${itemsWithCalculatedStock.length} items with calculated stock.`);
+  console.log(`[InventoryManagement] getInventoryItems (category: ${categoryFilter || 'all'}) returning ${itemsWithCalculatedStock.length} items.`);
   return itemsWithCalculatedStock;
 }
 
@@ -508,3 +522,48 @@ export async function getInventoryAdjustmentsForItem(inventoryItemId: string): P
   return adjustments;
 }
 
+export async function applyInventoryAdjustments(
+  adjustments: Array<Omit<InventoryAdjustmentItemFormValues, 'itemNameFull'>>
+): Promise<{ success: boolean; message: string; errors?: { itemIndex: number; message: string }[] }> {
+  if (!global.__inventoryAdjustmentsStore__) global.__inventoryAdjustmentsStore__ = [];
+  if (!global.__adjustmentCounter__) global.__adjustmentCounter__ = 1;
+
+  const batchErrors: { itemIndex: number; message: string }[] = [];
+
+  for (let i = 0; i < adjustments.length; i++) {
+    const adjItem = adjustments[i];
+    const inventoryItem = global.__inventoryItemsStore__!.find(item => item.id === adjItem.inventoryItemId);
+
+    if (!inventoryItem) {
+      batchErrors.push({ itemIndex: i, message: `Inventory item with ID ${adjItem.inventoryItemId} not found.` });
+      continue;
+    }
+    if (adjItem.quantityChange === 0) {
+        batchErrors.push({ itemIndex: i, message: `Quantity change for ${inventoryItem.name} cannot be zero.` });
+        continue;
+    }
+
+    const newAdjustmentRecord: InventoryAdjustment = {
+      id: `adj${global.__adjustmentCounter__!++}`,
+      inventoryItemId: adjItem.inventoryItemId,
+      date: new Date().toISOString(),
+      quantityChange: adjItem.quantityChange,
+      reason: adjItem.reason,
+      notes: adjItem.notes || `Adjustment: ${getInventoryAdjustmentReasonLabel(adjItem.reason)}`,
+      reference: `ADJ-${new Date().toISOString().substring(0, 10)}-${global.__adjustmentCounter__}`, // Generic reference
+    };
+    global.__inventoryAdjustmentsStore__!.push(newAdjustmentRecord);
+    console.log(`[InventoryManagement] Applied adjustment for Item ID ${adjItem.inventoryItemId}: Qty ${adjItem.quantityChange}, Reason: ${adjItem.reason}`);
+  }
+
+  if (batchErrors.length > 0) {
+    return {
+      success: false,
+      message: "Some adjustments could not be applied. See details.",
+      errors: batchErrors,
+    };
+  }
+
+  revalidatePath('/inventory', 'layout'); // Revalidate all inventory paths
+  return { success: true, message: `${adjustments.length} inventory adjustment(s) applied successfully.` };
+}
