@@ -159,13 +159,13 @@ export default function SignupPage() {
           return;
       }
       
-      const dialCode = COUNTRY_CODES.find(c => c.code === selectedCountryCode)?.dialCode || '';
-      if (!dialCode) {
+      const country = COUNTRY_CODES.find(c => c.code === selectedCountryCode);
+      if (!country) {
         toast({ title: "Country Code Error", description: "Selected country code is invalid.", variant: "destructive" });
         setIsLoading(false);
         return;
       }
-      const fullPhoneNumber = dialCode + phoneNumber;
+      const fullPhoneNumber = country.dialCode + phoneNumber;
 
       if (!/^\+[1-9]\d{1,14}$/.test(fullPhoneNumber)) {
         toast({ title: "Invalid Phone Number", description: "Please enter a valid phone number after selecting country code.", variant: "destructive" });
@@ -173,7 +173,7 @@ export default function SignupPage() {
         return;
       }
 
-      console.log(`Signup Page: Attempting to send OTP to ${fullPhoneNumber}`);
+      console.log("Signup Page: Attempting to send OTP to ", fullPhoneNumber);
       try {
         window.confirmationResult = await signInWithPhoneNumber(auth, fullPhoneNumber, recaptchaVerifier);
         setOtpSent(true);
@@ -218,7 +218,7 @@ export default function SignupPage() {
         setIsLoading(false);
         return;
       }
-      console.log(`Signup Page: Attempting to verify OTP ${otp}`);
+      console.log("Signup Page: Attempting to verify OTP ", otp);
       try {
         const userCredential = await window.confirmationResult.confirm(otp);
         console.log("Signup Page: OTP Verify - Successfully verified.");
@@ -255,6 +255,8 @@ export default function SignupPage() {
   const togglePasswordVisibility = () => {
     setShowPassword(prev => !prev);
   };
+
+  const selectedCountryInfo = COUNTRY_CODES.find(c => c.code === selectedCountryCode);
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
@@ -349,16 +351,18 @@ export default function SignupPage() {
                   <Label htmlFor="phoneNumberField">Phone Number</Label>
                   <div className="flex gap-2">
                     <Select
-                      value={selectedCountryCode} // Use selectedCountryCode for the Select value
+                      value={selectedCountryCode}
                       onValueChange={setSelectedCountryCode}
                       disabled={otpSent}
                     >
-                      <SelectTrigger className="w-[150px] font-body">
-                        <SelectValue placeholder="Country" />
+                      <SelectTrigger className="w-[120px] font-body"> {/* Adjusted width */}
+                         <SelectValue>
+                          {selectedCountryInfo ? `${selectedCountryInfo.code} (${selectedCountryInfo.dialCode})` : "Country"}
+                        </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         {COUNTRY_CODES.map((country) => (
-                          <SelectItem key={country.code} value={country.code} className="font-body"> {/* Use country.code as value */}
+                          <SelectItem key={country.code} value={country.code} className="font-body">
                             {country.name} ({country.dialCode})
                           </SelectItem>
                         ))}
@@ -425,4 +429,3 @@ export default function SignupPage() {
     </div>
   );
 }
-
