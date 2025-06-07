@@ -601,4 +601,21 @@ export interface DesignSubmission {
   pdfDataUri?: string; // Store the Data URI temporarily if needed by AI, not ideal for long-term storage
   // thumbnail?: string; // Could be added later if we generate thumbnails
 }
+
+// Country Code Definitions
+export interface CountryCode {
+  name: string;
+  code: string; // ISO 3166-1 alpha-2 code, e.g., "IN"
+  dialCode: string; // e.g., "+91"
+}
+
+export const COUNTRY_CODES: CountryCode[] = [
+  { name: "India (भारत)", code: "IN", dialCode: "+91" },
+  { name: "United States", code: "US", dialCode: "+1" },
+  { name: "United Kingdom", code: "GB", dialCode: "+44" },
+  { name: "Canada", code: "CA", dialCode: "+1" },
+  { name: "Australia", code: "AU", dialCode: "+61" },
+  // Add more countries as needed.
+  // Consider using a more comprehensive list from a library for a production app.
+];
     

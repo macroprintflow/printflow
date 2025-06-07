@@ -19,22 +19,23 @@ import { useToast } from '@/hooks/use-toast';
 import { LogIn, Loader2, Smartphone, KeyRound, Eye, EyeOff } from 'lucide-react';
 import AppLogo from '@/components/AppLogo';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { COUNTRY_CODES, type CountryCode } from '@/lib/definitions';
 
 declare global {
   interface Window {
     recaptchaVerifier?: RecaptchaVerifier;
-    loginConfirmationResult?: ConfirmationResult; // Use a different name to avoid conflict with signup page
+    loginConfirmationResult?: ConfirmationResult; 
   }
 }
 
 export default function LoginPage() {
-  // States for Email/Password Login
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   
-  // States for Phone Login
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [selectedCountryDialCode, setSelectedCountryDialCode] = useState<string>(COUNTRY_CODES.find(c => c.code === 'IN')?.dialCode || '+91');
+  const [phoneNumber, setPhoneNumber] = useState(''); // Stores only the local part of the number
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
 
@@ -45,7 +46,6 @@ export default function LoginPage() {
   const recaptchaContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Cleanup reCAPTCHA on unmount
     return () => {
       if (window.recaptchaVerifier) {
         try {
@@ -125,25 +125,25 @@ export default function LoginPage() {
     event.preventDefault();
     setIsLoading(true);
 
-    if (!otpSent) { // Send OTP
+    if (!otpSent) { 
       const recaptchaVerifier = setupRecaptcha();
       if (!recaptchaVerifier) {
           setIsLoading(false);
           return;
       }
       
-      const formattedPhoneNumber = phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`;
-      if (!/^\+[1-9]\d{1,14}$/.test(formattedPhoneNumber)) {
-        toast({ title: "Invalid Phone Number", description: "Please enter a valid phone number with country code (e.g., +91XXXXXXXXXX).", variant: "destructive" });
+      const fullPhoneNumber = selectedCountryDialCode + phoneNumber;
+      if (!/^\+[1-9]\d{1,14}$/.test(fullPhoneNumber)) {
+        toast({ title: "Invalid Phone Number", description: "Please enter a valid phone number after selecting country code.", variant: "destructive" });
         setIsLoading(false);
         return;
       }
 
-      console.log(`Login Page: Attempting to send OTP to ${formattedPhoneNumber}`);
+      console.log(`Login Page: Attempting to send OTP to ${fullPhoneNumber}`);
       try {
-        window.loginConfirmationResult = await signInWithPhoneNumber(auth, formattedPhoneNumber, recaptchaVerifier);
+        window.loginConfirmationResult = await signInWithPhoneNumber(auth, fullPhoneNumber, recaptchaVerifier);
         setOtpSent(true);
-        toast({ title: 'OTP Sent', description: `An OTP has been sent to ${formattedPhoneNumber}.` });
+        toast({ title: 'OTP Sent', description: `An OTP has been sent to ${fullPhoneNumber}.` });
         console.log("Login Page: OTP Sent, loginConfirmationResult stored.");
       } catch (error: any) {
         console.error("Login Page: Error sending OTP:", error);
@@ -164,7 +164,7 @@ export default function LoginPage() {
       } finally {
         setIsLoading(false);
       }
-    } else { // Verify OTP
+    } else { 
       if (!window.loginConfirmationResult) {
         toast({ title: "Error", description: "Verification process issue. Please try sending OTP again.", variant: "destructive" });
         setIsLoading(false);
@@ -221,9 +221,9 @@ export default function LoginPage() {
             <TabsContent value="email">
               <form onSubmit={handleEmailLogin} className="space-y-6 pt-4">
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="emailField">Email</Label>
                   <Input
-                    id="email"
+                    id="emailField"
                     type="email"
                     placeholder="Enter your email here"
                     value={email}
@@ -233,10 +233,10 @@ export default function LoginPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
+                  <Label htmlFor="passwordField">Password</Label>
                   <div className="relative">
                     <Input
-                      id="password"
+                      id="passwordField"
                       type={showPassword ? "text" : "password"}
                       placeholder="Enter your password"
                       value={password}
@@ -265,17 +265,35 @@ export default function LoginPage() {
             <TabsContent value="phone">
               <form onSubmit={handlePhoneLogin} className="space-y-6 pt-4">
                 <div className="space-y-2">
-                  <Label htmlFor="phoneNumber">Phone Number (with country code)</Label>
-                  <Input
-                    id="phoneNumber"
-                    type="tel"
-                    placeholder="+91XXXXXXXXXX"
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
-                    required
-                    className="font-body"
-                    disabled={otpSent}
-                  />
+                  <Label htmlFor="phoneNumberField">Phone Number</Label>
+                  <div className="flex gap-2">
+                    <Select
+                      value={selectedCountryDialCode}
+                      onValueChange={setSelectedCountryDialCode}
+                      disabled={otpSent}
+                    >
+                      <SelectTrigger className="w-[120px] font-body">
+                        <SelectValue placeholder="Country" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {COUNTRY_CODES.map((country) => (
+                          <SelectItem key={country.code} value={country.dialCode} className="font-body">
+                            {country.name} ({country.dialCode})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      id="phoneNumberField"
+                      type="tel"
+                      placeholder="Enter phone number"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      required
+                      className="font-body flex-1"
+                      disabled={otpSent}
+                    />
+                  </div>
                 </div>
                 {otpSent && (
                   <div className="space-y-2">
