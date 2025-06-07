@@ -1,5 +1,5 @@
 
-"use client"; // Ensure this is a client component for onClick handlers
+"use client"; 
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,9 +17,14 @@ import {
   FileSpreadsheet,
   Workflow,
   CheckSquare,
-  QrCode // Added QrCode icon
+  QrCode,
+  Video, // Added Video icon
+  XCircle // Added XCircle icon
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { useState, useEffect, useRef } from "react"; // Added useEffect, useRef, useState
+import { useToast } from "@/hooks/use-toast"; // Added useToast
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; // Added Alert components
 
 interface DepartmentTaskStep {
   name: string;
@@ -43,10 +48,65 @@ const departmentSteps: DepartmentTaskStep[] = [
 ];
 
 export default function TasksPage() {
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const getCameraPermission = async () => {
+      if (!isCameraOpen) {
+        // If camera view is closed, ensure any existing streams are stopped
+        if (videoRef.current && videoRef.current.srcObject) {
+          const stream = videoRef.current.srcObject as MediaStream;
+          stream.getTracks().forEach(track => track.stop());
+          videoRef.current.srcObject = null;
+        }
+        return;
+      }
+
+      // Request camera permission only when isCameraOpen is true
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+          setHasCameraPermission(true);
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+          }
+        } catch (error) {
+          console.error('Error accessing camera:', error);
+          setHasCameraPermission(false);
+          toast({
+            variant: 'destructive',
+            title: 'Camera Access Denied',
+            description: 'Please enable camera permissions in your browser settings to use this feature.',
+          });
+          setIsCameraOpen(false); // Close camera view if permission is denied
+        }
+      } else {
+        setHasCameraPermission(false);
+        toast({
+          variant: 'destructive',
+          title: 'Camera Not Supported',
+          description: 'Your browser does not support camera access or it is not available on this device.',
+        });
+        setIsCameraOpen(false);
+      }
+    };
+
+    getCameraPermission();
+
+    // Cleanup function to stop the camera stream when the component unmounts or isCameraOpen changes to false
+    return () => {
+      if (videoRef.current && videoRef.current.srcObject) {
+        const stream = videoRef.current.srcObject as MediaStream;
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [isCameraOpen, toast]);
 
   const handleScanQrCode = () => {
-    console.log("Scan QR Code button clicked. Functionality to be implemented.");
-    // Future implementation would involve camera access and QR code reading logic.
+    setIsCameraOpen(prev => !prev); // Toggle camera view
   };
 
   return (
@@ -62,10 +122,42 @@ export default function TasksPage() {
             </CardDescription>
           </div>
           <Button onClick={handleScanQrCode} className="font-body w-full sm:w-auto">
-            <QrCode className="mr-2 h-5 w-5" /> Scan QR Code
+            {isCameraOpen ? <XCircle className="mr-2 h-5 w-5" /> : <QrCode className="mr-2 h-5 w-5" />}
+            {isCameraOpen ? "Close Camera" : "Scan Job QR Code"}
           </Button>
         </CardHeader>
         <CardContent>
+          {isCameraOpen && (
+            <Card className="my-4">
+              <CardHeader>
+                <CardTitle className="font-headline flex items-center">
+                  <Video className="mr-2 h-5 w-5 text-primary" /> QR Code Scanner
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col items-center">
+                <video ref={videoRef} className="w-full max-w-md aspect-video rounded-md bg-muted border" autoPlay playsInline muted />
+                {hasCameraPermission === false && (
+                  <Alert variant="destructive" className="mt-4 w-full max-w-md">
+                    <AlertTitle>Camera Access Required</AlertTitle>
+                    <AlertDescription>
+                      Camera permission was denied or is not available. Please enable it in your browser settings and try again.
+                    </AlertDescription>
+                  </Alert>
+                )}
+                {hasCameraPermission === null && (
+                    <Alert variant="default" className="mt-4 w-full max-w-md">
+                        <AlertTitle>Requesting Camera</AlertTitle>
+                        <AlertDescription>
+                        Please allow camera access when prompted by your browser.
+                        </AlertDescription>
+                    </Alert>
+                )}
+                 <p className="text-sm text-muted-foreground mt-2 font-body">Point the camera at a Job QR Code.</p>
+                 {/* QR Code detection logic and result display would go here */}
+              </CardContent>
+            </Card>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
             {departmentSteps.map((step) => (
               <Card 
