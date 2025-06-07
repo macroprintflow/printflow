@@ -51,7 +51,7 @@ export default function SignupPage() {
       router.push('/dashboard'); 
     } catch (error: any) {
       console.error("Email Signup error:", error);
-      let errorMessage = \`Error: \${error.code || 'UNKNOWN_ERROR'}. \${error.message || 'Please try again.'}\`;
+      let errorMessage = `Error: ${error.code || 'UNKNOWN_ERROR'}. ${error.message || 'Please try again.'}`;
       if (error.code === 'auth/email-already-in-use') {
         errorMessage = 'This email address is already in use. Try logging in or use a different email.';
       } else if (error.code === 'auth/weak-password') {
