@@ -98,7 +98,7 @@ export default function SignupPage() {
       console.log("SignupPage: Attempting to create new RecaptchaVerifier instance for element:", recaptchaContainerRef.current);
       window.recaptchaVerifier = new RecaptchaVerifier(auth, recaptchaContainerRef.current, {
         size: 'invisible',
-        'callback': (response: any) => {
+        callback: (response: any) => { // Changed from 'callback'
           console.log("SignupPage: reCAPTCHA solved (callback). Response:", response);
         },
         'expired-callback': () => {
@@ -117,8 +117,10 @@ export default function SignupPage() {
             userMessage = "reCAPTCHA internal error. Ensure your exact hosting domain (e.g. your-project.web.app or custom domain) is authorized in Google Cloud Console for the reCAPTCHA key. Also, check if your Firebase project has billing enabled (Blaze plan), as Phone Auth requires it.";
         } else if (error.code === 'auth/argument-error') {
             userMessage = "reCAPTCHA setup argument error. This might be an issue with the container element or auth instance."
+        } else if (error.code === 'auth/captcha-check-failed') {
+          userMessage = `reCAPTCHA check failed. Error: ${error.message}. This usually means the domain your app is running on (check browser URL bar) is not whitelisted in your reCAPTCHA key settings in Google Cloud Console.`;
         }
-        toast({ title: "reCAPTCHA Setup Error", description: userMessage, variant: "destructive", duration: 12000 });
+        toast({ title: "reCAPTCHA Setup Error", description: userMessage, variant: "destructive", duration: 15000 });
         return null;
     }
   };
@@ -205,7 +207,7 @@ export default function SignupPage() {
         } else if (error.code === 'auth/too-many-requests') {
             errorDesc = "Too many requests for this number. Please try again later.";
         } else if (error.code === 'auth/captcha-check-failed' || error.message?.includes("reCAPTCHA") || error.message?.includes("domain")) {
-            errorDesc = "reCAPTCHA verification failed. Ensure your exact hosting domain (e.g., your-project.web.app, localhost if testing locally with custom keys, or your App Hosting domain) is authorized in Google Cloud Console for the reCAPTCHA key. Also, check that 'Identity Toolkit API' and 'Firebase Installations API' are enabled in Google Cloud, and that your Firebase project has billing enabled (Blaze plan).";
+            errorDesc = `reCAPTCHA verification failed. Error: ${error.message}. Ensure your exact hosting domain (e.g., your-project.web.app, localhost if testing locally with custom keys, or your App Hosting domain) is authorized in Google Cloud Console for the reCAPTCHA key. Also, check that 'Identity Toolkit API' and 'Firebase Installations API' are enabled in Google Cloud, and that your Firebase project has billing enabled (Blaze plan).`;
         } else if (error.code === 'auth/missing-phone-number') {
             errorDesc = "Phone number is missing. Please enter your phone number.";
         } else if (error.message?.toLowerCase().includes("missing or insufficient permissions") || error.message?.toLowerCase().includes("billing")) {
