@@ -2,7 +2,7 @@
 "use client";
 import * as React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation'; // Added useRouter
 import {
   SidebarProvider,
   Sidebar,
@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/sidebar';
 import AppLogo from '@/components/AppLogo';
 import { Header } from '@/components/layout/Header';
-import { LayoutDashboard, Briefcase, FilePlus2, CalendarCheck2, ClipboardList, UserCircle, Settings, Archive, FileUp } from 'lucide-react'; // Added FileUp
+import { LayoutDashboard, Briefcase, FileUp, FilePlus2, CalendarCheck2, ClipboardList, UserCircle, Settings, Archive, LogOut } from 'lucide-react'; // Added LogOut
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -30,7 +30,10 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Button } from '@/components/ui/button';
 import ClientOnlyWrapper from '@/components/ClientOnlyWrapper';
-
+import { useAuth } from '@/contexts/AuthContext'; // Import useAuth
+import { signOut } from 'firebase/auth'; // Import signOut
+import { auth } from '@/lib/firebase/clientApp'; // Import auth
+import { useToast } from '@/hooks/use-toast';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -42,13 +45,46 @@ const navItems = [
   { href: '/inventory', label: 'Inventory', icon: Archive },
 ];
 
+// Define your admin email here for temporary role check
+const ADMIN_EMAIL = "kuvamsharma@printflow.app";
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, loading } = useAuth(); // Get user from AuthContext
+  const { toast } = useToast();
   const [isClient, setIsClient] = React.useState(false);
 
   React.useEffect(() => {
     setIsClient(true);
   }, []);
+
+  React.useEffect(() => {
+    if (!loading && !user) {
+      router.push('/login'); // Redirect to login if not authenticated
+    }
+  }, [user, loading, router]);
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      toast({ title: 'Logged Out', description: 'You have been successfully logged out.' });
+      router.push('/login');
+    } catch (error) {
+      console.error("Logout error:", error);
+      toast({ title: 'Logout Failed', description: 'Could not log you out. Please try again.', variant: 'destructive' });
+    }
+  };
+
+  if (loading || (!user && pathname !== '/login')) {
+     // Show loading indicator or redirect immediately if appropriate
+     // For now, AuthProvider handles a global loading screen
+    return null; 
+  }
+  
+  const userDisplayName = user?.displayName || user?.email?.split('@')[0] || "User";
+  const userEmail = user?.email || "No email";
+  const isUserAdmin = user?.email === ADMIN_EMAIL;
 
   return (
     <ClientOnlyWrapper>
@@ -86,35 +122,36 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-10 w-full justify-start gap-2 p-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:w-10 group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:p-0">
                   <Avatar className="h-8 w-8 group-data-[collapsible=icon]:h-6 group-data-[collapsible=icon]:w-6">
-                      <AvatarImage src="https://placehold.co/100x100.png" alt="User Avatar" data-ai-hint="user avatar" />
-                      <AvatarFallback>JD</AvatarFallback>
+                      <AvatarImage src={user?.photoURL || `https://placehold.co/100x100.png?text=${userDisplayName.charAt(0).toUpperCase()}`} alt="User Avatar" data-ai-hint="user avatar" />
+                      <AvatarFallback>{userDisplayName.charAt(0).toUpperCase()}</AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col items-start group-data-[collapsible=icon]:hidden">
-                      <span className="text-sm font-medium text-sidebar-foreground">John Doe</span>
-                      <span className="text-xs text-sidebar-foreground/70">Admin</span>
+                      <span className="text-sm font-medium text-sidebar-foreground">{userDisplayName}</span>
+                      <span className="text-xs text-sidebar-foreground/70">{isUserAdmin ? "Admin" : "User"}</span>
                     </div>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56 font-body" align="end" forceMount>
                 <DropdownMenuLabel className="font-normal">
                   <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">John Doe</p>
+                    <p className="text-sm font-medium leading-none">{userDisplayName}</p>
                     <p className="text-xs leading-none text-muted-foreground">
-                      johndoe@example.com
+                      {userEmail}
                     </p>
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>
+                <DropdownMenuItem disabled>
                   <UserCircle className="mr-2 h-4 w-4" />
                   Profile
                 </DropdownMenuItem>
-                <DropdownMenuItem>
+                <DropdownMenuItem disabled>
                   <Settings className="mr-2 h-4 w-4" />
                   Settings
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>
+                <DropdownMenuItem onClick={handleLogout}>
+                  <LogOut className="mr-2 h-4 w-4" />
                   Log out
                 </DropdownMenuItem>
               </DropdownMenuContent>
