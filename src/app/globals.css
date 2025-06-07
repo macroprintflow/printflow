@@ -3,6 +3,27 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Add Glacial Indifference font-face rules here */
+/* !! IMPORTANT !! User needs to provide these font files and update paths accordingly */
+@font-face {
+  font-family: 'Glacial Indifference';
+  src: url('/fonts/GlacialIndifference-Regular.woff2') format('woff2'), /* e.g., public/fonts/GlacialIndifference-Regular.woff2 */
+       url('/fonts/GlacialIndifference-Regular.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Glacial Indifference';
+  src: url('/fonts/GlacialIndifference-Bold.woff2') format('woff2'), /* e.g., public/fonts/GlacialIndifference-Bold.woff2 */
+       url('/fonts/GlacialIndifference-Bold.woff') format('woff');
+  font-weight: bold;
+  font-style: normal;
+  font-display: swap;
+}
+
+
 /* iOS 18 Theme CSS */
 :root {
   --ios-bg: rgba(242, 242, 247, 0.8); /* Light mode background with opacity for glassmorphism */

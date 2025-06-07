@@ -5,11 +5,11 @@ const AppLogo = () => {
   return (
     <div className="flex items-center gap-2">
       <Image
-        src="/images/logo.png" // Updated path
+        src="/images/logo.png"
         alt="Macro PrintFlow Logo"
-        width={100} 
-        height={28} 
-        className="h-7 w-auto" 
+        width={128} 
+        height={36} 
+        className="h-9 w-auto" 
       />
       <h1 className="text-xl font-headline font-semibold text-sidebar-foreground">Macro PrintFlow</h1>
     </div>

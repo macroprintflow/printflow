@@ -40,7 +40,7 @@ export default {
           '"Segoe UI Symbol"',
           '"Noto Color Emoji"',
         ],
-        headline: ['Space Grotesk', 'sans-serif'],
+        headline: ['Glacial Indifference', 'sans-serif'], // Updated to Glacial Indifference
         code: ['monospace'],
       },
       colors: {
