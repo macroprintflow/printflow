@@ -228,7 +228,6 @@ const deriveItemNameInternal = (values: Partial<InventoryItemFormValues>): strin
       return values.inkName || `Ink (define name)`;
   } else {
       const baseItemName = values.itemName || `${categoryLabel}`;
-      // Check if categoryLabel is already part of baseItemName to avoid duplication like "Plastic Tray (Plastic Trays)"
       if (baseItemName.toLowerCase().includes(categoryLabel.toLowerCase())) {
           return values.itemName || `${categoryLabel} (define name)`;
       }
@@ -285,8 +284,8 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
         return;
       }
        if (!currentItemValues.quantity || currentItemValues.quantity <= 0) {
-        toast({ title: "Invalid Quantity", description: "Please enter a quantity greater than 0 for the item.", variant: "destructive" });
         currentItemForm.setError("quantity", { type: "manual", message: "Quantity must be > 0" });
+        toast({ title: "Invalid Quantity", description: "Please enter a quantity greater than 0 for the item.", variant: "destructive" });
         return;
       }
       if (!isValid) {
@@ -322,7 +321,6 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
         category: newCategory, 
         quantity: 0, 
         unit: defaultUnit as UnitValue,
-        // Keep relevant fields if category is the same, otherwise reset
         paperMasterSheetSizeWidth: newCategory === 'PAPER' ? currentItemValues.paperMasterSheetSizeWidth : undefined,
         paperMasterSheetSizeHeight: newCategory === 'PAPER' ? currentItemValues.paperMasterSheetSizeHeight : undefined,
         paperQuality: newCategory === 'PAPER' ? currentItemValues.paperQuality : "",
@@ -330,8 +328,8 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
         paperThicknessMm: newCategory === 'PAPER' ? currentItemValues.paperThicknessMm : undefined,
         inkName: newCategory === 'INKS' ? currentItemValues.inkName : "",
         inkSpecification: newCategory === 'INKS' ? currentItemValues.inkSpecification : "",
-        itemName: "", // Always clear itemName
-        itemSpecification: "", // Always clear itemSpecification
+        itemName: "", 
+        itemSpecification: "",
         reorderPoint: undefined, 
       });
       setCurrentItemCategory(newCategory || null);
@@ -456,8 +454,8 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
           <DialogDescription>Add multiple inventory items received under a single purchase bill.</DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="flex-grow pr-6 -mr-6"> 
-          <div className="space-y-6 py-4">
+        <ScrollArea className="flex-1"> 
+          <div className="space-y-6 p-4">
             <div className="p-4 border rounded-lg bg-muted/30 space-y-4">
               <h3 className="font-semibold font-headline text-lg">Purchase Bill Details</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -609,5 +607,7 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
     </Dialog>
   );
 }
+
+    
 
     
