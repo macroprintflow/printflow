@@ -326,7 +326,7 @@ export type InventoryItem = {
   vendorName?: string; 
   dateOfEntry?: string; 
   availableStock?: number; 
-  locationCode?: string; // Added location code
+  locationCode?: string; 
 };
 
 
@@ -375,7 +375,7 @@ export const InventoryItemFormSchema = z.object({
   otherVendorName: z.string().optional(),
   dateOfEntry: z.string().refine(val => !isNaN(Date.parse(val)), { message: "Invalid date"}),
   reorderPoint: z.coerce.number().optional(),
-  locationCode: z.string().optional(), // Added location code
+  locationCode: z.string().optional(), 
 }).superRefine((data, ctx) => {
   if (data.category === 'PAPER') {
     if (!data.paperQuality || data.paperQuality === '') {
@@ -451,17 +451,19 @@ export type InventoryAdjustment = {
 };
 
 export const PAPER_SUB_CATEGORIES = [
-  { name: "SBS", filterValue: "SBS", qualityValues: ["SBS"] },
-  { name: "Kappa", filterValue: "KAPPA_GROUP", qualityValues: ["GG_KAPPA", "WG_KAPPA"] },
-  { name: "Greyback", filterValue: "GREYBACK", qualityValues: ["GREYBACK"] },
-  { name: "Whiteback", filterValue: "WHITEBACK", qualityValues: ["WHITEBACK"] },
-  { name: "Art Paper", filterValue: "ART_PAPER_GROUP", qualityValues: ["ART_PAPER_GLOSS", "ART_PAPER_MATT"] },
-  { name: "Japanese Paper", filterValue: "JAPANESE_PAPER", qualityValues: ["JAPANESE_PAPER"] },
-  { name: "Imported Paper", filterValue: "IMPORTED_PAPER", qualityValues: ["IMPORTED_PAPER"] },
-  { name: "MDF", filterValue: "MDF", qualityValues: ["MDF"] },
-  { name: "Butter Paper", filterValue: "BUTTER_PAPER", qualityValues: ["BUTTER_PAPER"] },
-  { name: "Other Paper", filterValue: "OTHER_PAPER_GROUP", qualityValues: [] }, 
-  { name: "View All Paper Types", filterValue: "__ALL_PAPER__", qualityValues: [] },
-] as const;
+  { name: "SBS", filterValue: "SBS" as const, qualityValues: ["SBS" as PaperQualityType] },
+  { name: "Kappa", filterValue: "KAPPA_GROUP" as const, qualityValues: ["GG_KAPPA" as PaperQualityType, "WG_KAPPA" as PaperQualityType] },
+  { name: "Greyback", filterValue: "GREYBACK" as const, qualityValues: ["GREYBACK" as PaperQualityType] },
+  { name: "Whiteback", filterValue: "WHITEBACK" as const, qualityValues: ["WHITEBACK" as PaperQualityType] },
+  { name: "Art Paper", filterValue: "ART_PAPER_GROUP" as const, qualityValues: ["ART_PAPER_GLOSS" as PaperQualityType, "ART_PAPER_MATT" as PaperQualityType] },
+  { name: "Japanese Paper", filterValue: "JAPANESE_PAPER" as const, qualityValues: ["JAPANESE_PAPER" as PaperQualityType] },
+  { name: "Imported Paper", filterValue: "IMPORTED_PAPER" as const, qualityValues: ["IMPORTED_PAPER" as PaperQualityType] },
+  { name: "MDF", filterValue: "MDF" as const, qualityValues: ["MDF" as PaperQualityType] },
+  { name: "Butter Paper", filterValue: "BUTTER_PAPER" as const, qualityValues: ["BUTTER_PAPER" as PaperQualityType] },
+  { name: "Other Paper", filterValue: "OTHER_PAPER_GROUP" as const, qualityValues: [] as PaperQualityType[] }, 
+  { name: "View All Paper Types", filterValue: "__ALL_PAPER__" as const, qualityValues: [] as PaperQualityType[] },
+];
+
 
 export type PaperSubCategoryFilterValue = typeof PAPER_SUB_CATEGORIES[number]['filterValue'];
+

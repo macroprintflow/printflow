@@ -3,17 +3,16 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Archive, PlusCircle, Search, History, ArrowLeft, Printer, Paintbrush, Box, Package, MagnetIcon, FileText, Newspaper, ShoppingCart, Warehouse } from "lucide-react";
+import { Archive, PlusCircle, Search, History, ArrowLeft, Printer, Paintbrush, Box, Package, MagnetIcon, FileText, Newspaper, ShoppingCart, Warehouse, Layers } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { AddItemDialog } from "@/components/inventory/AddItemDialog";
-// EnterPurchaseDialog is removed
 import { InventoryAdjustmentsDialog } from "@/components/inventory/InventoryAdjustmentsDialog";
 import { getInventoryItems } from "@/lib/actions/jobActions";
 import type { InventoryItem, PaperQualityType, PaperSubCategoryFilterValue } from "@/lib/definitions";
-import { PAPER_QUALITY_OPTIONS, PAPER_SUB_CATEGORIES, KAPPA_MDF_QUALITIES } from "@/lib/definitions";
+import { PAPER_QUALITY_OPTIONS, PAPER_SUB_CATEGORIES, KAPPA_MDF_QUALITIES, getPaperQualityUnit, getPaperQualityLabel } from "@/lib/definitions";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 
@@ -60,12 +59,12 @@ export default function CategorizedInventoryPage() {
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false);
-  // isEnterPurchaseDialogOpen state removed
   const [searchQuery, setSearchQuery] = useState("");
   
   const [isAdjustmentsDialogOpen, setIsAdjustmentsDialogOpen] = useState(false);
   const [selectedItemForAdjustments, setSelectedItemForAdjustments] = useState<InventoryItem | null>(null);
   const [selectedPaperQuality, setSelectedPaperQuality] = useState<PaperSubCategoryFilterValue | null>(null);
+  const [selectedSpec, setSelectedSpec] = useState<{ value: number; unit: 'GSM' | 'mm' } | null>(null);
 
 
   const fetchInventory = useCallback(async () => {
@@ -86,6 +85,36 @@ export default function CategorizedInventoryPage() {
 
   const paperQualityValues = useMemo(() => PAPER_QUALITY_OPTIONS.map(opt => opt.label), []);
 
+  const availableSpecsForSelectedQuality = useMemo(() => {
+    if (!selectedPaperQuality || selectedPaperQuality === "__ALL_PAPER__") return [];
+
+    const subCategoryDef = PAPER_SUB_CATEGORIES.find(sc => sc.filterValue === selectedPaperQuality);
+    if (!subCategoryDef) return [];
+
+    const itemsOfSelectedQuality = inventoryItems.filter(item => {
+      if (item.type !== 'Master Sheet' || !item.paperQuality) return false;
+      if (subCategoryDef.filterValue === "OTHER_PAPER_GROUP") {
+        const allExplicitPaperQualities = PAPER_SUB_CATEGORIES
+          .filter(sc => sc.filterValue !== "__ALL_PAPER__" && sc.filterValue !== "OTHER_PAPER_GROUP")
+          .flatMap(sc => sc.qualityValues);
+        return !allExplicitPaperQualities.includes(item.paperQuality);
+      }
+      return subCategoryDef.qualityValues.includes(item.paperQuality);
+    });
+
+    const unit = getPaperQualityUnit(itemsOfSelectedQuality[0]?.paperQuality as PaperQualityType); // Assume all items of a sub-cat have same unit basis
+    if (!unit) return [];
+
+    const specs = new Set<number>();
+    if (unit === 'GSM') {
+      itemsOfSelectedQuality.forEach(item => item.paperGsm && specs.add(item.paperGsm));
+    } else if (unit === 'mm') {
+      itemsOfSelectedQuality.forEach(item => item.paperThicknessMm && specs.add(item.paperThicknessMm));
+    }
+    
+    return Array.from(specs).sort((a,b) => a-b).map(value => ({ value, unit }));
+  }, [inventoryItems, selectedPaperQuality]);
+
   const filteredItems = useMemo(() => {
     let itemsToFilter = inventoryItems;
 
@@ -94,13 +123,21 @@ export default function CategorizedInventoryPage() {
       if (selectedPaperQuality && selectedPaperQuality !== "__ALL_PAPER__") {
         const subCategoryDef = PAPER_SUB_CATEGORIES.find(sc => sc.filterValue === selectedPaperQuality);
         if (subCategoryDef) {
-          if (subCategoryDef.filterValue === "OTHER_PAPER_GROUP") {
-            const allExplicitPaperQualities = PAPER_SUB_CATEGORIES
-              .filter(sc => sc.filterValue !== "__ALL_PAPER__" && sc.filterValue !== "OTHER_PAPER_GROUP")
-              .flatMap(sc => sc.qualityValues);
-            itemsToFilter = itemsToFilter.filter(item => item.paperQuality && !allExplicitPaperQualities.includes(item.paperQuality));
-          } else {
-            itemsToFilter = itemsToFilter.filter(item => item.paperQuality && subCategoryDef.qualityValues.includes(item.paperQuality));
+          itemsToFilter = itemsToFilter.filter(item => {
+            if (!item.paperQuality) return false;
+            if (subCategoryDef.filterValue === "OTHER_PAPER_GROUP") {
+              const allExplicitPaperQualities = PAPER_SUB_CATEGORIES
+                .filter(sc => sc.filterValue !== "__ALL_PAPER__" && sc.filterValue !== "OTHER_PAPER_GROUP")
+                .flatMap(sc => sc.qualityValues);
+              return !allExplicitPaperQualities.includes(item.paperQuality);
+            }
+            return subCategoryDef.qualityValues.includes(item.paperQuality);
+          });
+
+          if (selectedSpec) {
+            itemsToFilter = itemsToFilter.filter(item => 
+              selectedSpec.unit === 'GSM' ? item.paperGsm === selectedSpec.value : item.paperThicknessMm === selectedSpec.value
+            );
           }
         }
       }
@@ -115,13 +152,14 @@ export default function CategorizedInventoryPage() {
     } else if (categorySlug === "other-materials") {
       itemsToFilter = itemsToFilter.filter(item => item.itemGroup === "Other Stock");
     } else {
-      itemsToFilter = [];
+      itemsToFilter = []; // Should not happen with valid category slugs
     }
 
     if (searchQuery.trim() !== "") {
       const lowerCaseQuery = searchQuery.toLowerCase();
       itemsToFilter = itemsToFilter.filter(item => 
         item.name.toLowerCase().includes(lowerCaseQuery) ||
+        (item.masterSheetSizeWidth && item.masterSheetSizeHeight && `${item.masterSheetSizeWidth.toFixed(1)} x ${item.masterSheetSizeHeight.toFixed(1)}in`.toLowerCase().includes(lowerCaseQuery)) ||
         item.type.toLowerCase().includes(lowerCaseQuery) ||
         (item.paperGsm && item.paperGsm.toString().includes(lowerCaseQuery)) ||
         (item.paperThicknessMm && item.paperThicknessMm.toString().includes(lowerCaseQuery)) ||
@@ -130,7 +168,7 @@ export default function CategorizedInventoryPage() {
       );
     }
     return itemsToFilter;
-  }, [inventoryItems, searchQuery, categorySlug, selectedPaperQuality, paperQualityValues]);
+  }, [inventoryItems, searchQuery, categorySlug, selectedPaperQuality, selectedSpec, paperQualityValues]);
 
   const handleViewAdjustments = (item: InventoryItem) => {
     setSelectedItemForAdjustments(item);
@@ -162,7 +200,10 @@ export default function CategorizedInventoryPage() {
                   key={subCat.filterValue} 
                   variant="outline" 
                   className="h-16 p-4 flex flex-col items-start justify-center text-left hover:shadow-md transition-shadow"
-                  onClick={() => setSelectedPaperQuality(subCat.filterValue)}
+                  onClick={() => {
+                    setSelectedPaperQuality(subCat.filterValue);
+                    setSelectedSpec(null); // Reset spec when paper type changes
+                  }}
                 >
                   <div className="flex items-center">
                     <IconComponent className="mr-2 h-5 w-5 text-muted-foreground" />
@@ -177,14 +218,87 @@ export default function CategorizedInventoryPage() {
     );
   };
 
+  const renderPaperSpecifications = () => {
+    if (!selectedPaperQuality || availableSpecsForSelectedQuality.length === 0) {
+      return (
+        <div className="space-y-6">
+          <Button variant="outline" onClick={() => setSelectedPaperQuality(null)} className="mb-4 font-body">
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Paper Types
+          </Button>
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-headline flex items-center">
+                <Layers className="mr-2 h-6 w-6 text-primary" /> 
+                No Specifications for {getSubCategoryDisplayName(selectedPaperQuality)}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-center py-8">
+              <p className="text-muted-foreground font-body">
+                No items of this paper type ({getSubCategoryDisplayName(selectedPaperQuality)}) are currently in stock,
+                or no distinct GSM/Thickness values found.
+              </p>
+              <Button className="mt-6 font-body" onClick={() => setIsAddItemDialogOpen(true)}>
+                <PlusCircle className="mr-2 h-4 w-4" /> Add New Item to {getSubCategoryDisplayName(selectedPaperQuality)}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-6">
+        <Button variant="outline" onClick={() => setSelectedPaperQuality(null)} className="mb-4 font-body">
+          <ArrowLeft className="mr-2 h-4 w-4" /> Back to Paper Types
+        </Button>
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-headline flex items-center">
+              <Layers className="mr-2 h-6 w-6 text-primary" /> 
+              Select Specification for {getSubCategoryDisplayName(selectedPaperQuality)}
+            </CardTitle>
+            <CardDescription className="font-body">
+              Choose a specific GSM or Thickness for {getSubCategoryDisplayName(selectedPaperQuality).toLowerCase()}.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {availableSpecsForSelectedQuality.map((spec) => (
+              <Button 
+                key={spec.value} 
+                variant="outline" 
+                className="h-16 p-4 flex flex-col items-start justify-center text-left hover:shadow-md transition-shadow"
+                onClick={() => setSelectedSpec(spec)}
+              >
+                <div className="flex items-center">
+                  <Layers className="mr-2 h-5 w-5 text-muted-foreground" />
+                  <span className="font-medium font-body">{spec.value} {spec.unit}</span>
+                </div>
+              </Button>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+
   const renderInventoryTable = useCallback((items: InventoryItem[]) => {
-    const currentCategoryName = categorySlug === "paper" ? getSubCategoryDisplayName(selectedPaperQuality) : categoryDisplayName;
+    let currentFilterDisplayName = categoryDisplayName;
+    if (categorySlug === "paper") {
+      if (selectedPaperQuality) {
+        currentFilterDisplayName = getSubCategoryDisplayName(selectedPaperQuality);
+        if (selectedSpec) {
+          currentFilterDisplayName += ` - ${selectedSpec.value}${selectedSpec.unit}`;
+        }
+      } else {
+        currentFilterDisplayName = "Paper"; // Default if no sub-category yet
+      }
+    }
 
     if (isLoading) {
       return (
         <div className="text-center py-12">
           <Archive className="mx-auto h-12 w-12 text-muted-foreground animate-pulse" />
-          <p className="mt-4 text-lg text-muted-foreground font-body">Loading {currentCategoryName.toLowerCase()} inventory...</p>
+          <p className="mt-4 text-lg text-muted-foreground font-body">Loading {currentFilterDisplayName.toLowerCase()} inventory...</p>
         </div>
       );
     }
@@ -193,16 +307,16 @@ export default function CategorizedInventoryPage() {
         <div className="text-center py-12">
           <Archive className="mx-auto h-12 w-12 text-muted-foreground" />
           <h3 className="mt-4 text-xl font-semibold font-headline">
-            {searchQuery.trim() !== "" ? `No ${currentCategoryName} Match Your Search` : `No Items in ${currentCategoryName}`}
+            {searchQuery.trim() !== "" ? `No ${currentFilterDisplayName} Match Your Search` : `No Items in ${currentFilterDisplayName}`}
           </h3>
           <p className="mt-1 text-sm text-muted-foreground font-body">
             {searchQuery.trim() !== "" 
               ? "Try adjusting your search terms or clearing the search."
-              : `There are no inventory items in the ${currentCategoryName.toLowerCase()} category.`
+              : `There are no inventory items currently matching: ${currentFilterDisplayName.toLowerCase()}.`
             }
           </p>
            <Button className="mt-6 font-body" onClick={() => setIsAddItemDialogOpen(true)}>
-            <PlusCircle className="mr-2 h-4 w-4" /> Add New Item to {currentCategoryName}
+            <PlusCircle className="mr-2 h-4 w-4" /> Add New Item to {currentFilterDisplayName}
           </Button>
         </div>
       );
@@ -213,7 +327,7 @@ export default function CategorizedInventoryPage() {
           <TableRow>
             <TableHead className="font-headline">Item Name (Size)</TableHead>
             <TableHead className="font-headline">Type</TableHead>
-            <TableHead className="font-headline">Item Group</TableHead>
+            <TableHead className="font-headline">Item Group/Quality</TableHead>
             <TableHead className="font-headline">GSM/Thickness</TableHead>
             <TableHead className="font-headline">Location</TableHead>
             <TableHead className="font-headline text-right">Available Stock</TableHead>
@@ -223,71 +337,114 @@ export default function CategorizedInventoryPage() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {items.map((item) => (
-            <TableRow key={item.id}>
-              <TableCell 
-                className="font-medium font-body hover:underline cursor-pointer"
-                onClick={() => handleViewAdjustments(item)}
-              >
-                {item.name}
-              </TableCell>
-              <TableCell>
-                <Badge variant={
-                  item.type === 'Master Sheet' ? 'secondary' :
-                  item.type === 'Paper Stock' ? 'outline' : 
-                  item.type === 'Ink' ? 'default' : 'secondary' 
-                } className="font-body capitalize">
-                  {item.type}
-                </Badge>
-              </TableCell>
-              <TableCell>
-                <Badge variant="default" className="font-body capitalize bg-accent text-accent-foreground">
-                  {item.itemGroup}
-                </Badge>
-              </TableCell>
-              <TableCell className="font-body">
-                {KAPPA_MDF_QUALITIES.includes(item.paperQuality as PaperQualityType) && item.paperThicknessMm ? `${item.paperThicknessMm} mm` : item.paperGsm ? `${item.paperGsm} GSM` : '-'}
-              </TableCell>
-              <TableCell className="font-body">
-                <div className="flex items-center">
-                 {item.locationCode && <Warehouse className="mr-1.5 h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />}
-                 {item.locationCode || '-'}
-                </div>
-              </TableCell>
-              <TableCell className="font-body text-right">{item.availableStock?.toLocaleString() ?? 0}</TableCell>
-              <TableCell className="font-body text-right">{item.unit}</TableCell>
-              <TableCell className="font-body text-right">{item.reorderPoint ? item.reorderPoint.toLocaleString() : '-'}</TableCell>
-              <TableCell className="text-center">
-                <Button variant="ghost" size="icon" onClick={() => handleViewAdjustments(item)} title="View Stock History">
-                  <History className="h-4 w-4" />
-                </Button>
-              </TableCell>
-            </TableRow>
-          ))}
+          {items.map((item) => {
+            const itemNameDisplay = 
+              (item.type === 'Master Sheet' && item.masterSheetSizeWidth && item.masterSheetSizeHeight)
+                ? `${item.masterSheetSizeWidth.toFixed(1)} x ${item.masterSheetSizeHeight.toFixed(1)}in`
+                : item.name;
+            const itemFontWeight = 
+              (item.type === 'Master Sheet' && item.masterSheetSizeWidth && item.masterSheetSizeHeight)
+                ? 'font-semibold' 
+                : 'font-medium';
+            
+            return (
+              <TableRow key={item.id}>
+                <TableCell 
+                  className={`font-body ${itemFontWeight} hover:underline cursor-pointer`}
+                  onClick={() => handleViewAdjustments(item)}
+                >
+                  {itemNameDisplay}
+                </TableCell>
+                <TableCell>
+                  <Badge variant={
+                    item.type === 'Master Sheet' ? 'secondary' :
+                    item.type === 'Paper Stock' ? 'outline' : 
+                    item.type === 'Ink' ? 'default' : 'secondary' 
+                  } className="font-body capitalize">
+                    {item.type}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <Badge variant="default" className="font-body capitalize bg-accent text-accent-foreground">
+                    {item.paperQuality ? getPaperQualityLabel(item.paperQuality) : item.itemGroup}
+                  </Badge>
+                </TableCell>
+                <TableCell className="font-body">
+                  {KAPPA_MDF_QUALITIES.includes(item.paperQuality as PaperQualityType) && item.paperThicknessMm ? `${item.paperThicknessMm} mm` : item.paperGsm ? `${item.paperGsm} GSM` : '-'}
+                </TableCell>
+                <TableCell className="font-body">
+                  <div className="flex items-center">
+                   {item.locationCode && <Warehouse className="mr-1.5 h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />}
+                   {item.locationCode || '-'}
+                  </div>
+                </TableCell>
+                <TableCell className="font-body text-right">{item.availableStock?.toLocaleString() ?? 0}</TableCell>
+                <TableCell className="font-body text-right">{item.unit}</TableCell>
+                <TableCell className="font-body text-right">{item.reorderPoint ? item.reorderPoint.toLocaleString() : '-'}</TableCell>
+                <TableCell className="text-center">
+                  <Button variant="ghost" size="icon" onClick={() => handleViewAdjustments(item)} title="View Stock History">
+                    <History className="h-4 w-4" />
+                  </Button>
+                </TableCell>
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
     );
-  }, [isLoading, searchQuery, categoryDisplayName, selectedPaperQuality, categorySlug]);
+  }, [isLoading, searchQuery, categoryDisplayName, selectedPaperQuality, selectedSpec, categorySlug]);
 
-  if (categorySlug === "paper" && !selectedPaperQuality) {
-    return renderPaperSubCategories();
+  // Determine current view based on category and selections
+  if (categorySlug === "paper") {
+    if (!selectedPaperQuality) {
+      return renderPaperSubCategories();
+    }
+    if (selectedPaperQuality !== "__ALL_PAPER__" && !selectedSpec) {
+      return renderPaperSpecifications();
+    }
+    // If __ALL_PAPER__ is selected, or if a spec is selected, proceed to table
   }
 
-  const currentOverallCategoryName = categorySlug === "paper" ? getSubCategoryDisplayName(selectedPaperQuality) : categoryDisplayName;
+  // Dynamic title for the table card
+  let currentOverallCategoryName = categoryDisplayName;
+  if (categorySlug === "paper") {
+      if (selectedPaperQuality) {
+        currentOverallCategoryName = getSubCategoryDisplayName(selectedPaperQuality);
+        if (selectedSpec) {
+            currentOverallCategoryName += ` - ${selectedSpec.value}${selectedSpec.unit}`;
+        }
+      } else {
+        currentOverallCategoryName = "Paper";
+      }
+  }
+
+
+  // Back button logic for the table view
+  const handleBackButtonClick = () => {
+    if (categorySlug === "paper") {
+      if (selectedSpec) {
+        setSelectedSpec(null); // Go back to spec selection
+      } else if (selectedPaperQuality) {
+        setSelectedPaperQuality(null); // Go back to paper type selection
+      } else {
+        router.push('/inventory'); // Go back to main categories
+      }
+    } else {
+      router.push('/inventory'); // Go back to main categories for non-paper
+    }
+  };
+
+  const backButtonText = categorySlug === "paper" 
+    ? (selectedSpec ? "Back to Specifications" : selectedPaperQuality ? "Back to Paper Types" : "Back to Main Categories")
+    : "Back to Main Categories";
+
 
   return (
     <div className="space-y-6">
-      {categorySlug === "paper" ? (
-        <Button variant="outline" onClick={() => setSelectedPaperQuality(null)} className="mb-4 font-body">
-          <ArrowLeft className="mr-2 h-4 w-4" /> Back to Paper Types
-        </Button>
-      ) : (
-        <Button variant="outline" asChild className="mb-4 font-body">
-          <Link href="/inventory">
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Main Categories
-          </Link>
-        </Button>
-      )}
+      <Button variant="outline" onClick={handleBackButtonClick} className="mb-4 font-body">
+        <ArrowLeft className="mr-2 h-4 w-4" /> {backButtonText}
+      </Button>
+      
       <Card>
         <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
@@ -295,7 +452,7 @@ export default function CategorizedInventoryPage() {
               <Archive className="mr-2 h-6 w-6 text-primary" /> {currentOverallCategoryName} Inventory
             </CardTitle>
             <CardDescription className="font-body">
-              View and manage your stock of {currentOverallCategoryName.toLowerCase()}. Click item name for stock history.
+              View and manage your stock. Click item name for stock history.
             </CardDescription>
           </div>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
@@ -327,7 +484,6 @@ export default function CategorizedInventoryPage() {
         setIsOpen={setIsAddItemDialogOpen} 
         onItemAdded={handleInventoryUpdate} 
       />
-      {/* EnterPurchaseDialog component removed */}
       <InventoryAdjustmentsDialog
         isOpen={isAdjustmentsDialogOpen}
         setIsOpen={setIsAdjustmentsDialogOpen}
@@ -336,3 +492,4 @@ export default function CategorizedInventoryPage() {
     </div>
   );
 }
+
