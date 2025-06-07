@@ -28,7 +28,12 @@ interface DisplayWorkflowStep extends WorkflowProcessStepDefinition {
   order: number;
 }
 
-export function JobCardForm() {
+interface JobCardFormProps {
+  initialJobName?: string;
+  initialCustomerName?: string;
+}
+
+export function JobCardForm({ initialJobName, initialCustomerName }: JobCardFormProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
@@ -57,8 +62,8 @@ export function JobCardForm() {
   const form = useForm<JobCardFormValues>({
     resolver: zodResolver(JobCardSchema),
     defaultValues: {
-      jobName: "",
-      customerName: "",
+      jobName: initialJobName || "",
+      customerName: initialCustomerName || "",
       jobSizeWidth: undefined,
       jobSizeHeight: undefined,
       netQuantity: undefined,
@@ -92,6 +97,20 @@ export function JobCardForm() {
       workflowSteps: [],
     },
   });
+
+  useEffect(() => {
+    if (initialJobName) {
+      form.setValue("jobName", initialJobName);
+    }
+    if (initialCustomerName) {
+      form.setValue("customerName", initialCustomerName);
+      setCustomerInputValue(initialCustomerName); // Sync visual input
+      setSelectedCustomer(initialCustomerName); // Sync internal state
+      // Optionally trigger fetching jobs for this customer if that's desired behavior
+      // handleCustomerSuggestionClick(initialCustomerName); // Be mindful of re-renders
+    }
+  }, [initialJobName, initialCustomerName, form]);
+
 
   useEffect(() => {
     async function fetchInitialData() {
@@ -440,13 +459,48 @@ export function JobCardForm() {
         description: result.message,
       });
       handlePrintJobCard(result.jobCard); 
-      form.reset();
+      form.reset({ // Reset with initial/empty values, but preserve any passed-in initial props
+        jobName: initialJobName || "",
+        customerName: initialCustomerName || "",
+        // ... other fields to their defaults
+        jobSizeWidth: undefined,
+        jobSizeHeight: undefined,
+        netQuantity: undefined,
+        grossQuantity: undefined,
+        paperGsm: undefined,
+        targetPaperThicknessMm: undefined,
+        paperQuality: "",
+        masterSheetSizeWidth: undefined,
+        masterSheetSizeHeight: undefined,
+        wastagePercentage: undefined,
+        cuttingLayoutDescription: "",
+        selectedMasterSheetGsm: undefined,
+        selectedMasterSheetThicknessMm: undefined,
+        selectedMasterSheetQuality: "",
+        sourceInventoryItemId: "",
+        sheetsPerMasterSheet: undefined,
+        totalMasterSheetsNeeded: undefined,
+        kindOfJob: "",
+        printingFront: "",
+        printingBack: "",
+        coating: "",
+        specialInks: "",
+        die: "",
+        assignedDieMachine: "",
+        hotFoilStamping: "",
+        emboss: "",
+        pasting: "",
+        boxMaking: "",
+        remarks: "",
+        dispatchDate: undefined,
+        workflowSteps: [],
+      });
       setCurrentWorkflowSteps([]);
-      setCustomerInputValue("");
-      setSelectedCustomer("");
+      setCustomerInputValue(initialCustomerName || ""); // Reset customer input to initial prop or empty
+      setSelectedCustomer(initialCustomerName || "");   // Reset selected customer
       setJobInputValue("");
       setSelectedPastJobId("");
-      setJobsForCustomer([]);
+      setJobsForCustomer([]); // Clear jobs list for the previous customer
       router.push(`/jobs`);
     } else {
       toast({
@@ -946,10 +1000,44 @@ export function JobCardForm() {
 
         <div className="flex justify-end gap-4">
           <Button type="button" variant="outline" onClick={() => { 
-                form.reset(); 
+                form.reset({ // Reset with initial/empty values, but preserve any passed-in initial props
+                    jobName: initialJobName || "",
+                    customerName: initialCustomerName || "",
+                     jobSizeWidth: undefined,
+                    jobSizeHeight: undefined,
+                    netQuantity: undefined,
+                    grossQuantity: undefined,
+                    paperGsm: undefined,
+                    targetPaperThicknessMm: undefined,
+                    paperQuality: "",
+                    masterSheetSizeWidth: undefined,
+                    masterSheetSizeHeight: undefined,
+                    wastagePercentage: undefined,
+                    cuttingLayoutDescription: "",
+                    selectedMasterSheetGsm: undefined,
+                    selectedMasterSheetThicknessMm: undefined,
+                    selectedMasterSheetQuality: "",
+                    sourceInventoryItemId: "",
+                    sheetsPerMasterSheet: undefined,
+                    totalMasterSheetsNeeded: undefined,
+                    kindOfJob: "",
+                    printingFront: "",
+                    printingBack: "",
+                    coating: "",
+                    specialInks: "",
+                    die: "",
+                    assignedDieMachine: "",
+                    hotFoilStamping: "",
+                    emboss: "",
+                    pasting: "",
+                    boxMaking: "",
+                    remarks: "",
+                    dispatchDate: undefined,
+                    workflowSteps: [],
+                }); 
                 setCurrentWorkflowSteps([]); 
-                setCustomerInputValue("");
-                setSelectedCustomer(""); 
+                setCustomerInputValue(initialCustomerName || "");
+                setSelectedCustomer(initialCustomerName || ""); 
                 setJobInputValue("");
                 setSelectedPastJobId(""); 
                 setJobsForCustomer([]); 

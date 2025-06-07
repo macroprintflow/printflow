@@ -1,4 +1,6 @@
 
+"use client";
+
 import { JobCardForm } from "@/components/job-card/JobCardForm";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,9 +9,47 @@ import Link from "next/link";
 import Image from "next/image";
 import { getApprovedDesigns } from "@/lib/actions/jobActions";
 import type { DesignSubmission } from "@/lib/definitions";
+import { useState, useEffect, useRef } from "react"; // Added useState, useEffect, useRef
+import { useToast } from "@/hooks/use-toast";
 
-export default async function NewJobPage() {
-  const approvedDesigns: DesignSubmission[] = await getApprovedDesigns();
+export default function NewJobPage() {
+  const [approvedDesigns, setApprovedDesigns] = useState<DesignSubmission[]>([]);
+  const [isLoadingDesigns, setIsLoadingDesigns] = useState(true);
+  const [prefillJobName, setPrefillJobName] = useState<string | undefined>(undefined);
+  const [prefillCustomerName, setPrefillCustomerName] = useState<string | undefined>(undefined);
+  const { toast } = useToast();
+  const jobFormCardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    async function fetchDesigns() {
+      setIsLoadingDesigns(true);
+      try {
+        const designs = await getApprovedDesigns();
+        setApprovedDesigns(designs);
+      } catch (error) {
+        console.error("Failed to fetch approved designs:", error);
+        toast({
+          title: "Error",
+          description: "Could not load approved designs.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoadingDesigns(false);
+      }
+    }
+    fetchDesigns();
+  }, [toast]);
+
+  const handleCreateFromDesign = (design: DesignSubmission) => {
+    setPrefillJobName(design.jobName);
+    setPrefillCustomerName(design.customerName);
+    toast({
+      title: "Prefilling Form",
+      description: `Using details from design: ${design.pdfName}`,
+    });
+    // Scroll to the form
+    jobFormCardRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
   return (
     <div className="space-y-8">
@@ -31,21 +71,22 @@ export default async function NewJobPage() {
             Start from an Approved Design
           </CardTitle>
           <CardDescription className="font-body">
-            Select an existing approved design. This would pre-fill Job Name and Customer Name in the form below. (Pre-fill functionality coming soon)
+            Select an existing approved design to pre-fill Job Name and Customer Name in the form below.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {approvedDesigns.length > 0 ? (
+          {isLoadingDesigns ? (
+             <p className="text-muted-foreground font-body text-center py-6">Loading approved designs...</p>
+          ) : approvedDesigns.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
               {approvedDesigns.map(design => (
                 <Card key={design.id} className="overflow-hidden hover:shadow-xl transition-shadow duration-300 group">
                   <div className="relative h-40 w-full">
-                    {/* For now, using a placeholder as actual PDF thumbnail generation is complex */}
                     <Image 
                         src={`https://placehold.co/600x400.png?text=${encodeURIComponent(design.pdfName)}`}
                         alt={design.pdfName} 
-                        layout="fill" 
-                        objectFit="cover"
+                        fill // Changed from layout="fill"
+                        style={{objectFit:"cover"}} // Changed from objectFit="cover"
                         data-ai-hint="document preview"
                     />
                   </div>
@@ -58,7 +99,11 @@ export default async function NewJobPage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="p-4 pt-0">
-                    <Button className="w-full font-body" variant="secondary" disabled> {/* Disabled until pre-fill implemented */}
+                    <Button 
+                      className="w-full font-body" 
+                      variant="secondary" 
+                      onClick={() => handleCreateFromDesign(design)}
+                    >
                       <Sparkles className="mr-2 h-4 w-4" /> Create Job from This Design
                     </Button>
                   </CardContent>
@@ -74,18 +119,21 @@ export default async function NewJobPage() {
       </Card>
 
       {/* Section for creating a new job card from scratch or template */}
-      <Card className="shadow-lg mt-8">
+      <Card className="shadow-lg mt-8" ref={jobFormCardRef}>
         <CardHeader>
           <CardTitle className="font-headline flex items-center text-xl">
             <FilePlus2 className="mr-3 h-6 w-6 text-primary" />
             Create New Job Card (Blank or from Past Job)
           </CardTitle>
           <CardDescription className="font-body">
-            Fill out the details below to create a new job card. You can pre-fill from a customer's past job.
+            Fill out the details below to create a new job card. You can pre-fill from a customer's past job or an approved design.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <JobCardForm />
+          <JobCardForm 
+            initialJobName={prefillJobName} 
+            initialCustomerName={prefillCustomerName} 
+          />
         </CardContent>
       </Card>
     </div>
