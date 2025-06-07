@@ -191,11 +191,14 @@ const deriveItemNameInternal = (values: Partial<InventoryItemFormValues>): strin
       const unit = getPaperQualityUnit(quality);
       const width = values.paperMasterSheetSizeWidth || 0;
       const height = values.paperMasterSheetSizeHeight || 0;
+      if (!qualityLabel || width <= 0 || height <=0) return "Paper (incomplete specs)";
       if (unit === 'mm') {
           const thickness = values.paperThicknessMm || '?';
+          if (thickness === '?') return "Paper (incomplete specs)";
           return `${qualityLabel} ${thickness}mm (${width.toFixed(1)}x${height.toFixed(1)}in)`;
       }
       const gsm = values.paperGsm || '?';
+      if (gsm === '?') return "Paper (incomplete specs)";
       return `${qualityLabel} ${gsm}GSM (${width.toFixed(1)}x${height.toFixed(1)}in)`;
   } else if (values.category === 'INKS') {
       return values.inkName || `Ink (define name)`;
@@ -209,6 +212,7 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
   const [purchaseDate, setPurchaseDate] = useState<Date | undefined>(new Date());
   const [purchaseVendor, setPurchaseVendor] = useState<string | undefined>(undefined);
   const [otherPurchaseVendor, setOtherPurchaseVendor] = useState("");
+  const [otherVendorError, setOtherVendorError] = useState<string | null>(null);
 
   const [itemsInPurchaseList, setItemsInPurchaseList] = useState<PurchaseListItem[]>([]);
   const [currentItemCategory, setCurrentItemCategory] = useState<InventoryCategory | null>(null);
@@ -235,16 +239,22 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
 
   const handleAddItemToPurchaseList = () => {
     currentItemForm.trigger().then(isValid => {
-      if (!isValid) {
-        toast({ title: "Current Item Incomplete", description: "Please fill all required fields for the current item.", variant: "destructive" });
-        return;
-      }
+      const currentItemValues = currentItemForm.getValues();
+
       if (!currentItemCategory) {
          toast({ title: "Category Missing", description: "Please select a category for the current item.", variant: "destructive" });
         return;
       }
+       if (!currentItemValues.quantity || currentItemValues.quantity <= 0) {
+        toast({ title: "Invalid Quantity", description: "Please enter a quantity greater than 0 for the item.", variant: "destructive" });
+        currentItemForm.setError("quantity", { type: "manual", message: "Quantity must be > 0" });
+        return;
+      }
+      if (!isValid) {
+        toast({ title: "Current Item Incomplete", description: "Please fill all required fields for the current item based on its category (e.g., paper specs, ink name).", variant: "destructive" });
+        return;
+      }
 
-      const currentItemValues = currentItemForm.getValues();
       const newItemForList: PurchaseListItem = {
         displayId: nextDisplayId,
         displayName: deriveItemNameInternal(currentItemValues),
@@ -268,6 +278,7 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
       currentItemForm.reset({
         category: undefined,
         quantity: 0,
+        unit: "sheets" as UnitValue,
         paperMasterSheetSizeWidth: undefined,
         paperMasterSheetSizeHeight: undefined,
         paperQuality: "",
@@ -277,6 +288,7 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
         inkSpecification: "",
         itemName: "", 
         itemSpecification: "",
+        reorderPoint: undefined,
       });
       setCurrentItemCategory(null);
       setDerivedCurrentItemName("");
@@ -292,6 +304,7 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
     setPurchaseDate(new Date());
     setPurchaseVendor(undefined);
     setOtherPurchaseVendor("");
+    setOtherVendorError(null);
     setItemsInPurchaseList([]);
     currentItemForm.reset({ 
         category: undefined, 
@@ -306,6 +319,7 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
         inkSpecification: "",
         itemName: "", 
         itemSpecification: "",
+        reorderPoint: undefined,
     });
     setCurrentItemCategory(null);
     setDerivedCurrentItemName("");
@@ -314,12 +328,18 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
   };
 
   const handleSavePurchase = async () => {
+    setOtherVendorError(null); // Reset vendor error
     if (!purchaseBillNo.trim()) {
       toast({ title: "Missing Purchase Bill No.", description: "Please enter the purchase bill number.", variant: "destructive" });
       return;
     }
     if (!purchaseDate) {
       toast({ title: "Missing Purchase Date", description: "Please select the purchase date.", variant: "destructive" });
+      return;
+    }
+    if (purchaseVendor === 'OTHER' && !otherPurchaseVendor.trim()) {
+      setOtherVendorError("Please specify the vendor name when 'Other' is selected.");
+      toast({ title: "Missing Vendor Name", description: "Please specify the vendor name when 'Other' is selected.", variant: "destructive" });
       return;
     }
     if (itemsInPurchaseList.length === 0) {
@@ -345,8 +365,9 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
     
     const errorMessages: string[] = [];
     results.forEach((result, index) => {
+      const item = itemsInPurchaseList[index];
       if (!result.success) {
-        errorMessages.push(`Failed for item "${itemsInPurchaseList[index].displayName}": ${result.message}`);
+        errorMessages.push(`Failed for item "${item.displayName}": ${result.message}`);
       }
     });
     
@@ -363,9 +384,9 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
       toast({
         title: "Error Saving Purchase",
         description: (
-          <div>
-            <p className="font-semibold">Some items could not be saved:</p>
-            <ul className="list-disc list-inside mt-2 text-sm space-y-1">
+          <div className="text-sm">
+            <p className="font-semibold mb-1">Some items could not be saved:</p>
+            <ul className="list-disc list-inside space-y-0.5">
               {errorMessages.map((msg, i) => <li key={i}>{msg}</li>)}
             </ul>
           </div>
@@ -425,7 +446,17 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
               {purchaseVendor === 'OTHER' && (
                 <div className="space-y-2">
                   <Label htmlFor="otherPurchaseVendorInput">Specify Vendor Name</Label>
-                  <Input id="otherPurchaseVendorInput" placeholder="Enter vendor name" value={otherPurchaseVendor} onChange={(e) => setOtherPurchaseVendor(e.target.value)} className="font-body"/>
+                  <Input 
+                    id="otherPurchaseVendorInput" 
+                    placeholder="Enter vendor name" 
+                    value={otherPurchaseVendor} 
+                    onChange={(e) => {
+                        setOtherPurchaseVendor(e.target.value);
+                        if (e.target.value.trim()) setOtherVendorError(null);
+                    }} 
+                    className={cn("font-body", otherVendorError && "border-destructive")}
+                  />
+                   {otherVendorError && <p className="text-xs text-destructive mt-1">{otherVendorError}</p>}
                 </div>
               )}
             </div>
@@ -440,6 +471,7 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
                       <Select onValueChange={(value) => { 
                           field.onChange(value); 
                           setCurrentItemCategory(value as InventoryCategory); 
+                          const defaultUnit = value === 'PAPER' ? 'sheets' : value === 'INKS' ? 'kg' : 'pieces';
                           currentItemForm.reset({
                             ...currentItemForm.getValues(), 
                             category: value as InventoryCategory, 
@@ -452,7 +484,9 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
                             inkSpecification: "",
                             itemName: "", 
                             itemSpecification: "",
-                            unit: value === 'PAPER' ? 'sheets' : value === 'INKS' ? 'kg' : 'pieces' 
+                            quantity: 0, // Reset quantity for new item
+                            unit: defaultUnit as UnitValue, 
+                            reorderPoint: undefined,
                           });
                           handleCurrentItemFormChange(); 
                         }} value={field.value || ""}>
@@ -530,3 +564,4 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
     </Dialog>
   );
 }
+
