@@ -16,13 +16,14 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { CalendarIcon, Wand2, Link2, PlusCircle, Loader2, RotateCcw, ListOrdered, Users, Briefcase as BriefcaseIcon, Search } from "lucide-react";
+import { CalendarIcon, Wand2, Link2, PlusCircle, Loader2, RotateCcw, ListOrdered, Users, Briefcase as BriefcaseIcon, Search, QrCode } from "lucide-react";
 import { format } from "date-fns";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { InventoryOptimizationModal } from "./InventoryOptimizationModal";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import QRCode from 'qrcode';
 
 interface DisplayWorkflowStep extends WorkflowProcessStepDefinition {
   order: number;
@@ -344,8 +345,18 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
     form.setValue("grossQuantity", suggestion.totalMasterSheetsNeeded);
   };
 
-  const handlePrintJobCard = (jobCard: JobCardData) => {
+  const handlePrintJobCard = async (jobCard: JobCardData) => {
     const logoUrl = '/images/logo.png'; 
+    let qrCodeDataUrl = '';
+
+    if (jobCard.jobCardNumber) {
+      try {
+        qrCodeDataUrl = await QRCode.toDataURL(jobCard.jobCardNumber, { errorCorrectionLevel: 'H', width: 80 });
+      } catch (err) {
+        console.error('Failed to generate QR code', err);
+        toast({ title: "QR Code Error", description: "Could not generate QR code for job card.", variant: "destructive"});
+      }
+    }
   
     const formatWorkflowSteps = (steps: WorkflowStep[] | undefined) => {
       if (!steps || steps.length === 0) return '<li>No workflow defined</li>';
@@ -385,7 +396,8 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
               body { font-family: Arial, sans-serif; margin: 20px; color: #333; font-size: 12px; }
               .print-container { width: 100%; max-width: 750px; margin: auto; }
               .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px; }
-              .header img { max-height: 60px; data-ai-hint="company logo" }
+              .header img.logo { max-height: 60px; data-ai-hint="company logo" }
+              .header img.qr-code { max-height: 60px; width: 60px; data-ai-hint="qr code job" }
               .header h1 { margin: 0; font-size: 20px; }
               .job-details, .paper-details, .process-details, .workflow-details, .remarks-details { margin-bottom: 15px; }
               .job-details table, .paper-details table, .process-details table { width: 100%; border-collapse: collapse; }
@@ -399,7 +411,8 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
               @media print {
                 body { margin: 0; color: #000; font-size: 10pt; }
                 .print-container { box-shadow: none; border: none; width: 100%; max-width: 100%; }
-                .header img { max-height: 50px; }
+                .header img.logo { max-height: 50px; }
+                .header img.qr-code { max-height: 50px; width: 50px; }
                 .no-print { display: none; }
                 table { page-break-inside: auto; }
                 tr { page-break-inside: avoid; page-break-after: auto; }
@@ -411,8 +424,9 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
           <body>
             <div class="print-container">
               <div class="header">
-                <img src="${logoUrl}" alt="Company Logo" />
+                <img src="${logoUrl}" alt="Company Logo" class="logo"/>
                 <h1>Job Card</h1>
+                ${qrCodeDataUrl ? `<img src="${qrCodeDataUrl}" alt="Job QR Code" class="qr-code"/>` : '<div style="width:60px; height:60px;"></div>'}
               </div>
   
               <div class="job-details">
@@ -496,7 +510,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
         title: "Success!",
         description: result.message,
       });
-      handlePrintJobCard(result.jobCard); 
+      await handlePrintJobCard(result.jobCard); 
       form.reset({ 
         jobName: initialJobName || "",
         customerName: initialCustomerName || "",
