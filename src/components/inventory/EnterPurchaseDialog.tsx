@@ -58,7 +58,7 @@ const CurrentItemPaperFields = ({ form, onFormChange }: { form: UseFormReturn<Pa
             form.setValue("paperThicknessMm", undefined);
           }} value={field.value || ""}>
             <FormControl>
-              <SelectTrigger className="font-body"><SelectValue placeholder="Select paper quality" /></SelectTrigger>
+                <SelectTrigger className="font-body"><SelectValue placeholder="Select paper quality" /></SelectTrigger>
             </FormControl>
             <SelectContent>{PAPER_QUALITY_OPTIONS.map(opt => (<SelectItem key={opt.value} value={opt.value} className="font-body">{opt.label}</SelectItem>))}</SelectContent>
           </Select>
@@ -358,12 +358,12 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
       toast({
         title: "Error Saving Purchase",
         description: (
-          React.createElement('div', null,
-            React.createElement('p', null, 'Some items could not be saved:'),
-            React.createElement('ul', { className: 'list-disc list-inside mt-2' },
-              errorMessages.map((msg, i) => React.createElement('li', { key: i }, msg))
-            )
-          )
+          <div>
+            <p className="font-semibold">Some items could not be saved:</p>
+            <ul className="list-disc list-inside mt-2 text-sm space-y-1">
+              {errorMessages.map((msg, i) => <li key={i}>{msg}</li>)}
+            </ul>
+          </div>
         ),
         variant: "destructive",
         duration: 10000,
@@ -526,5 +526,6 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
   );
 }
 
+    
 
     
