@@ -3,6 +3,7 @@
 
 import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link'; // Import Link
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/lib/firebase/clientApp';
 import { Button } from '@/components/ui/button';
@@ -83,9 +84,14 @@ export default function LoginPage() {
             </Button>
           </form>
         </CardContent>
-        <CardFooter className="flex-col items-center text-xs text-muted-foreground pt-6">
-            <p>For demo, use credentials set up in Firebase.</p>
-            <p>(e.g., kuvamsharma@printflow.app / @Baymax1)</p>
+        <CardFooter className="flex-col items-center text-sm text-muted-foreground pt-6 space-y-2">
+            <Link href="/signup" className="font-body text-primary hover:underline">
+              Don't have an account? Sign Up
+            </Link>
+            <div className="text-xs text-center">
+              <p>For demo, use credentials set up in Firebase.</p>
+              <p>(e.g., kuvamsharma@printflow.app / @Baymax1)</p>
+            </div>
         </CardFooter>
       </Card>
     </div>
