@@ -136,6 +136,7 @@ export type JobCardData = {
   createdAt?: string;
   updatedAt?: string;
   workflowSteps?: WorkflowStep[];
+  pdfDataUri?: string; // Added for storing PDF link if job created from design
 };
 
 export type JobTemplateData = {
@@ -196,6 +197,7 @@ export const JobCardSchema = z.object({
   remarks: z.string().optional(),
   dispatchDate: z.string().optional(),
   workflowSteps: z.array(WorkflowStepSchema).optional(),
+  pdfDataUri: z.string().optional(), // Added to schema
 }).superRefine((data, ctx) => {
   const unit = getPaperQualityUnit(data.paperQuality as PaperQualityType);
   if (data.paperQuality && unit === 'gsm' && (data.paperGsm === undefined || data.paperGsm <= 0)) {

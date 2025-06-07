@@ -78,6 +78,7 @@ export async function createJobCard(data: JobCardFormValues): Promise<{ success:
       updatedAt: new Date().toISOString(),
       status: 'Pending Planning', 
       workflowSteps: data.workflowSteps || [],
+      pdfDataUri: data.pdfDataUri, // Save the PDF URI
     };
     global.__jobCards__!.push(newJobCard);
     global.__jobCounter__ = currentJobCounter + 1;
@@ -623,3 +624,4 @@ export async function getDesignSubmissions(): Promise<DesignSubmission[]> {
 export async function getApprovedDesigns(): Promise<DesignSubmission[]> {
   return (global.__designSubmissionsStore__ || []).filter(s => s.status === 'approved');
 }
+

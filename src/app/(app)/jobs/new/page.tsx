@@ -12,7 +12,7 @@ import type { DesignSubmission, JobCardData } from "@/lib/definitions";
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { ViewAllJobsModal } from "@/components/job-card/ViewAllJobsModal";
-import { useSearchParams } from "next/navigation"; // For reading query params
+import { useSearchParams } from "next/navigation"; 
 
 function NewJobPageContent() {
   const searchParams = useSearchParams();
@@ -24,6 +24,7 @@ function NewJobPageContent() {
   const [prefillCustomerName, setPrefillCustomerName] = useState<string | undefined>(undefined);
   const [initialJobDataForForm, setInitialJobDataForForm] = useState<JobCardData | undefined>(undefined);
   const [isLoadingJobForPrefill, setIsLoadingJobForPrefill] = useState(false);
+  const [selectedDesignPdfUri, setSelectedDesignPdfUri] = useState<string | undefined>(undefined); // State for PDF URI
 
   const { toast } = useToast();
   const jobFormCardRef = useRef<HTMLDivElement>(null);
@@ -53,24 +54,26 @@ function NewJobPageContent() {
     async function fetchJobForPrefill() {
       if (fromCustomerJobId) {
         setIsLoadingJobForPrefill(true);
-        setInitialJobDataForForm(undefined); // Clear previous prefill
+        setInitialJobDataForForm(undefined); 
+        setSelectedDesignPdfUri(undefined); // Clear design PDF URI
         try {
           const jobData = await getJobCardById(fromCustomerJobId);
           if (jobData) {
-            // Modify jobName for re-order clarity
-            const reorderJobData = {
+            const reorderJobData: JobCardData = {
               ...jobData,
               jobName: `Re-order: ${jobData.jobName}`,
-              jobCardNumber: undefined, // New job card number will be generated
-              date: new Date().toISOString().split('T')[0], // Set to today
-              dispatchDate: undefined, // Clear dispatch date for re-order
-              status: 'Pending Planning', // Reset status
+              jobCardNumber: undefined, 
+              date: new Date().toISOString().split('T')[0], 
+              dispatchDate: undefined, 
+              status: 'Pending Planning', 
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
+              pdfDataUri: jobData.pdfDataUri, // Carry over existing PDF URI if any
             };
             setInitialJobDataForForm(reorderJobData);
             setPrefillJobName(reorderJobData.jobName);
             setPrefillCustomerName(reorderJobData.customerName);
+            // No need to set selectedDesignPdfUri here, as it's part of reorderJobData
             toast({
               title: "Prefilling Form for Re-order",
               description: `Using details from job: ${jobData.jobCardNumber || jobData.jobName}`,
@@ -91,9 +94,20 @@ function NewJobPageContent() {
   }, [fromCustomerJobId, toast]);
 
   const handleCreateFromDesign = (design: DesignSubmission) => {
-    setInitialJobDataForForm(undefined); // Clear any re-order prefill
+    setInitialJobDataForForm(undefined); 
     setPrefillJobName(design.jobName);
     setPrefillCustomerName(design.customerName);
+    setSelectedDesignPdfUri(design.pdfDataUri); // Set the PDF URI from the selected design
+    
+    // Create a minimal initialJobData structure to pass the PDF URI
+    const designPrefillData: Partial<JobCardData> = {
+        jobName: design.jobName,
+        customerName: design.customerName,
+        pdfDataUri: design.pdfDataUri,
+    };
+    setInitialJobDataForForm(designPrefillData as JobCardData);
+
+
     toast({
       title: "Prefilling Form",
       description: `Using details from design: ${design.pdfName}`,
@@ -140,7 +154,7 @@ function NewJobPageContent() {
             Start from an Approved Design
           </CardTitle>
           <CardDescription className="font-body">
-            Select an existing approved design to pre-fill Job Name and Customer Name in the form below.
+            Select an existing approved design to pre-fill Job Name, Customer Name, and link the PDF.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -191,21 +205,21 @@ function NewJobPageContent() {
         <CardHeader>
           <CardTitle className="font-headline flex items-center text-xl">
             <FilePlus2 className="mr-3 h-6 w-6 text-primary" />
-            {fromCustomerJobId ? "Re-order Job" : "Create New Job Card (Blank or from Past Job)"}
+            {fromCustomerJobId ? "Re-order Job" : "Create New Job Card"}
           </CardTitle>
           <CardDescription className="font-body">
             {fromCustomerJobId 
               ? "Review and adjust details for this re-order. A new job card will be created."
-              : "Fill out the details below to create a new job card. You can pre-fill from a customer's past job or an approved design."
+              : "Fill out the details below to create a new job card. You can pre-fill from an approved design or a customer's past job."
             }
           </CardDescription>
         </CardHeader>
         <CardContent>
           <JobCardForm 
-            key={fromCustomerJobId || 'new-job'} // Add key to force re-mount when prefillJobId changes
-            initialJobName={prefillJobName} 
-            initialCustomerName={prefillCustomerName}
-            initialJobData={initialJobDataForForm}
+            key={initialJobData?.id || fromCustomerJobId || 'new-job'}
+            initialJobName={initialJobData?.jobName || prefillJobName} 
+            initialCustomerName={initialJobData?.customerName || prefillCustomerName}
+            initialJobData={initialJobData} // Pass the full data including PDF URI
           />
         </CardContent>
       </Card>
@@ -215,8 +229,9 @@ function NewJobPageContent() {
 
 export default function NewJobPage() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={<div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /><p className="ml-2 font-body">Loading page...</p></div>}>
       <NewJobPageContent />
     </Suspense>
   );
 }
+

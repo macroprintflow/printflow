@@ -9,23 +9,23 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Search, ArrowUpDown, XCircle } from "lucide-react";
+import { Loader2, Search, ArrowUpDown, XCircle, Printer, FileText } from "lucide-react";
 import type { JobCardData } from "@/lib/definitions";
 import { getJobCards } from "@/lib/actions/jobActions";
+import { handlePrintJobCard } from "@/lib/printUtils"; // Import print utility
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
 interface ViewAllJobsModalProps {
   isOpen: boolean;
   setIsOpen: Dispatch<SetStateAction<boolean>>;
-  onJobSelect?: (jobId: string) => void; // Optional: if we want to prefill form from this modal
+  onJobSelect?: (jobId: string) => void; 
 }
 
 type SortKey = "jobCardNumber" | "jobName" | "date";
@@ -84,8 +84,8 @@ export function ViewAllJobsModal({ isOpen, setIsOpen, onJobSelect }: ViewAllJobs
         valA = new Date(a.createdAt || a.date).getTime();
         valB = new Date(b.createdAt || b.date).getTime();
       } else {
-        valA = a[sortKey] || "";
-        valB = b[sortKey] || "";
+        valA = a[sortKey as keyof JobCardData] || "";
+        valB = b[sortKey as keyof JobCardData] || "";
       }
       
       if (typeof valA === 'string' && typeof valB === 'string') {
@@ -118,11 +118,17 @@ export function ViewAllJobsModal({ isOpen, setIsOpen, onJobSelect }: ViewAllJobs
   
   const handleDialogClose = (openState: boolean) => {
     setIsOpen(openState);
-    if (!openState) {
-      // Reset states if needed when dialog closes
-      // setSearchQuery("");
-      // setSortKey("date");
-      // setSortDirection("desc");
+  };
+
+  const onViewJobPdf = (pdfDataUri: string | undefined) => {
+    if (pdfDataUri) {
+      window.open(pdfDataUri, '_blank');
+    } else {
+      toast({
+        title: "No PDF",
+        description: "No PDF is associated with this job.",
+        variant: "default",
+      });
     }
   };
 
@@ -151,6 +157,7 @@ export function ViewAllJobsModal({ isOpen, setIsOpen, onJobSelect }: ViewAllJobs
                 size="icon" 
                 className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
                 onClick={() => setSearchQuery("")}
+                aria-label="Clear search"
               >
                 <XCircle className="h-4 w-4 text-muted-foreground" />
               </Button>
@@ -202,7 +209,7 @@ export function ViewAllJobsModal({ isOpen, setIsOpen, onJobSelect }: ViewAllJobs
                   <TableHead className="font-headline">Customer</TableHead>
                   <TableHead className="font-headline">Date & Time</TableHead>
                   <TableHead className="font-headline">Status</TableHead>
-                  <TableHead className="font-headline">Current Dept.</TableHead>
+                  <TableHead className="font-headline text-center">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -219,7 +226,25 @@ export function ViewAllJobsModal({ isOpen, setIsOpen, onJobSelect }: ViewAllJobs
                         {job.status || "N/A"}
                       </Badge>
                     </TableCell>
-                    <TableCell>{job.currentDepartment || "-"}</TableCell>
+                    <TableCell className="text-center space-x-1">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => handlePrintJobCard(job, toast)}
+                          title="Print Job Card Again"
+                        >
+                            <Printer className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => onViewJobPdf(job.pdfDataUri)}
+                          disabled={!job.pdfDataUri}
+                          title={job.pdfDataUri ? "View Associated PDF" : "No PDF Associated"}
+                        >
+                            <FileText className="h-4 w-4" />
+                        </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
