@@ -35,7 +35,7 @@ import {
 import { Button } from '@/components/ui/button';
 import ClientOnlyWrapper from '@/components/ClientOnlyWrapper';
 import { useAuth } from '@/contexts/AuthContext';
-import { signOut, getIdTokenResult } from 'firebase/auth'; 
+import { signOut } from 'firebase/auth'; 
 import { auth } from '@/lib/firebase/clientApp';
 import { useToast } from '@/hooks/use-toast';
 import type { UserRole } from '@/lib/definitions';
@@ -111,7 +111,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       } else if (userEmailLower === DEPARTMENTAL_EMAIL) {
         roleToSet = "Departmental";
       } else {
-        roleToSet = "Customer"; // Default role for all other users
+        roleToSet = "Customer"; 
       }
       
       console.log(`[Auth Role] Determined role: ${roleToSet} for ${user.email}`);
@@ -126,6 +126,44 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
     determineRoleLogic();
   }, [user, loading, isRoleFromDevTool, router, effectiveUserRole, pathname]);
+
+
+  const visibleNavItems = React.useMemo(() => 
+    allNavItems.filter(item =>
+      item.allowedRoles.includes(effectiveUserRole)
+    ), [effectiveUserRole]);
+
+  React.useEffect(() => {
+    if (!isLoadingRole && user && visibleNavItems.length > 0) {
+      const defaultRoutes: Record<UserRole, string> = {
+        Admin: '/dashboard',
+        Manager: '/dashboard',
+        Departmental: '/tasks',
+        Customer: '/customer/my-jobs',
+      };
+
+      const roleDefaultRoute = defaultRoutes[effectiveUserRole];
+      
+      // Check if current path starts with any of the allowed hrefs
+      const isCurrentPathAllowed = visibleNavItems.some(item => pathname.startsWith(item.href));
+
+      if (!isCurrentPathAllowed && pathname !== roleDefaultRoute && !pathname.startsWith('/login') && !pathname.startsWith('/signup') && !pathname.startsWith('/profile')) {
+        // The /profile page is generally accessible, so we add a check for it.
+        // It's not typically in `allNavItems` as a primary navigation link but is a valid page.
+
+        const isDefaultRouteVisible = visibleNavItems.some(item => item.href === roleDefaultRoute);
+        if (isDefaultRouteVisible) {
+          console.log(`[Auth Role Redirect] Role: ${effectiveUserRole}, Current Path: ${pathname} not allowed or not the default. Redirecting to ${roleDefaultRoute}`);
+          router.replace(roleDefaultRoute);
+        } else {
+          console.error(`[Auth Role Redirect] Critical: Default route ${roleDefaultRoute} for role ${effectiveUserRole} is not in visibleNavItems. This indicates a configuration error. Fallback to /login.`);
+          // If the default route for the role is somehow not visible (config error), redirect to login as a safe fallback.
+          handleLogout(); // Log out to prevent inconsistent state
+        }
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoadingRole, user, effectiveUserRole, pathname, router, visibleNavItems]); // visibleNavItems is now stable due to useMemo
 
 
   const handleLogout = async () => {
@@ -156,6 +194,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   if (!user && (pathname !== '/login' && pathname !== '/signup')) {
+    // This case should ideally be caught by the redirect in determineRoleLogic,
+    // but it's a safe fallback.
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -167,15 +207,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
      return <ClientOnlyWrapper>{children}</ClientOnlyWrapper>;
   }
 
-
   const userDisplayName = user?.displayName || user?.email?.split('@')[0] || "User";
   const userEmailDisplay = user?.email || "No email"; 
 
   const userRoleDisplay = effectiveUserRole;
 
-  const visibleNavItems = allNavItems.filter(item =>
-    item.allowedRoles.includes(effectiveUserRole)
-  );
+  // visibleNavItems is now memoized above
 
   const isDesignatedAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
 
@@ -197,7 +234,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton
                     asChild
-                    isActive={pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))}
+                    isActive={pathname === item.href || (item.href !== '/dashboard' && item.href !== '/tasks' && item.href !== '/customer/my-jobs' && pathname.startsWith(item.href))}
                     tooltip={{ children: item.label, className: "font-body" }}
                     className="font-body bg-card/60 hover:bg-accent/80 data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:shadow-lg"
                   >
