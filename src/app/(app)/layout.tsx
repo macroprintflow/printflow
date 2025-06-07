@@ -2,7 +2,7 @@
 "use client";
 import * as React from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation'; 
+import { usePathname, useRouter } from 'next/navigation';
 import {
   SidebarProvider,
   Sidebar,
@@ -14,9 +14,6 @@ import {
   SidebarMenuButton,
   SidebarInset,
   SidebarTrigger,
-  SidebarMenuSub, 
-  SidebarMenuSubTrigger,
-  SidebarMenuSubContent,
 } from '@/components/ui/sidebar';
 import AppLogo from '@/components/AppLogo';
 import { Header } from '@/components/layout/Header';
@@ -30,7 +27,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuSub as RadixDropdownMenuSub, 
+  DropdownMenuSub as RadixDropdownMenuSub,
   DropdownMenuSubTrigger as RadixDropdownMenuSubTrigger,
   DropdownMenuSubContent as RadixDropdownMenuSubContent,
   DropdownMenuPortal,
@@ -42,7 +39,7 @@ import { signOut, getIdTokenResult } from 'firebase/auth';
 import { auth } from '@/lib/firebase/clientApp';
 import { useToast } from '@/hooks/use-toast';
 import type { UserRole } from '@/lib/definitions';
-import { getUserRoleFromFirestore, createUserDocumentInFirestore } from '@/lib/actions/userActions'; 
+import { getUserRoleFromFirestore, createUserDocumentInFirestore } from '@/lib/actions/userActions';
 
 interface NavItem {
   href: string;
@@ -62,90 +59,118 @@ const allNavItems: NavItem[] = [
   { href: '/customer/my-jobs', label: 'My Jobs', icon: ShoppingBag, allowedRoles: ['Customer'] },
 ];
 
-const ADMIN_EMAIL = "kuvam@macroprinters.com".toLowerCase(); 
+const ADMIN_EMAIL = "kuvam@macroprinters.com".toLowerCase();
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, loading } = useAuth(); 
+  const { user, loading } = useAuth();
   const { toast } = useToast();
   const [isClient, setIsClient] = React.useState(false);
-  const [effectiveUserRole, setEffectiveUserRole] = React.useState<UserRole>("Customer"); 
+  const [effectiveUserRole, setEffectiveUserRole] = React.useState<UserRole>("Customer");
   const [isRoleFromDevTool, setIsRoleFromDevTool] = React.useState(false);
   const [isLoadingRole, setIsLoadingRole] = React.useState(true);
-
+  const isDeterminingRoleRef = React.useRef(false); // Ref to prevent re-entry
 
   React.useEffect(() => {
     setIsClient(true);
   }, []);
 
   React.useEffect(() => {
-    const determineRole = async () => {
-      setIsLoadingRole(true);
-      if (!user) { // If no user, and not loading, redirect to login.
-        if (!loading) router.push('/login');
-        setIsLoadingRole(false);
+    const determineRoleLogic = async () => {
+      if (isDeterminingRoleRef.current) {
+        // console.log('[Auth Role] Determination already in progress, skipping.');
+        return;
+      }
+      if (loading) { // Auth loading
+        // console.log('[Auth Role] Auth loading, role determination skipped for now.');
+        setIsLoadingRole(false); // Ensure UI doesn't hang if auth is slow
         return;
       }
 
-      if (user && user.email) {
-        let roleToSet: UserRole = "Customer"; // Default
-        let roleSource = "Default (Customer)";
+      isDeterminingRoleRef.current = true;
+      setIsLoadingRole(true);
 
-        try {
-          // 1. Attempt to read role from Firestore as the primary source
+      if (!user) {
+        if (!loading) { // Double check loading, as it might have changed
+            // console.log('[Auth Role] No user, not auth loading. Redirecting to /login.');
+            router.push('/login');
+        }
+        setIsLoadingRole(false);
+        isDeterminingRoleRef.current = false;
+        return;
+      }
+
+      if (isRoleFromDevTool) {
+        // console.log(`[Auth Role] Dev tool role active: ${effectiveUserRole}. No recalculation.`);
+        setIsLoadingRole(false);
+        isDeterminingRoleRef.current = false;
+        return;
+      }
+
+      let roleToSet: UserRole = "Customer"; // Default
+      let roleSource = "Initial Fallback";
+      try {
+        const idTokenResult = await getIdTokenResult(user, true); // Force refresh token
+        const claimsRole = idTokenResult.claims.role as UserRole;
+
+        if (claimsRole && ["Admin", "Manager", "Departmental", "Customer"].includes(claimsRole)) {
+          roleToSet = claimsRole;
+          roleSource = "Firebase Claims";
+        } else {
           const firestoreRole = await getUserRoleFromFirestore(user.uid);
           if (firestoreRole) {
             roleToSet = firestoreRole;
             roleSource = "Firestore";
           } else {
-            // If no Firestore role, check if it's the admin email (fallback)
-            if (user.email.toLowerCase() === ADMIN_EMAIL) {
+            if (user.email?.toLowerCase() === ADMIN_EMAIL) {
               roleToSet = "Admin";
-              roleSource = "Admin Email (Fallback)";
-            }
-            // Ensure Firestore document exists for this user with the determined/default role
-            await createUserDocumentInFirestore(user, roleToSet);
-            console.log(`[Auth Role] Ensured Firestore document for ${user.email} with role ${roleToSet}`);
-          }
-        } catch (error) {
-            console.error("[Auth Role] Error determining role from Firestore or creating document:", error);
-            // Fallback if Firestore operations fail (e.g. network issue)
-            if (user.email.toLowerCase() === ADMIN_EMAIL) {
-                roleToSet = "Admin";
-                roleSource = "Admin Email (Error Fallback)";
+              roleSource = "Admin Email (New Firestore Doc)";
             } else {
-                roleToSet = "Customer";
-                roleSource = "Default (Error Fallback)";
+              roleToSet = "Customer";
+              roleSource = "Default Customer (New Firestore Doc)";
             }
-        }
-        
-        if (!isRoleFromDevTool) {
-          // Only update if the role actually needs changing to prevent potential loops
-          if (effectiveUserRole !== roleToSet) {
-            console.log(`[Auth Role] Setting effective role to: ${roleToSet} (Source: ${roleSource})`);
-            setEffectiveUserRole(roleToSet);
-          } else {
-            // console.log(`[Auth Role] Effective role already ${effectiveUserRole}. No change needed from source ${roleSource}.`);
+            // Ensure Firestore document exists for the user
+            await createUserDocumentInFirestore(user, roleToSet);
+            // console.log(`[Auth Role] Ensured Firestore document for ${user.email} with role ${roleToSet} from source: ${roleSource}`);
           }
+        }
+      } catch (error) {
+        console.error("[Auth Role] Error determining role:", error);
+        if (user.email?.toLowerCase() === ADMIN_EMAIL) {
+          roleToSet = "Admin";
+          roleSource = "Admin Email (Error Fallback)";
         } else {
-           // console.log(`[Auth Role] Dev tool role active: ${effectiveUserRole}. Not changing based on Firestore/email.`);
+          roleToSet = "Customer";
+          roleSource = "Default (Error Fallback)";
         }
       }
+
+      if (effectiveUserRole !== roleToSet) {
+        // console.log(`[Auth Role] Setting effective role to: ${roleToSet} (Source: ${roleSource})`);
+        setEffectiveUserRole(roleToSet);
+      }
       setIsLoadingRole(false);
+      isDeterminingRoleRef.current = false;
     };
 
-    if (!loading) { 
-        determineRole();
-    }
-  }, [user, loading, router, isRoleFromDevTool, effectiveUserRole]); // Keep effectiveUserRole for now, as the check `effectiveUserRole !== roleToSet` handles it.
+    determineRoleLogic();
+
+  // Dependencies:
+  // - user, loading: Primary triggers from auth state.
+  // - isRoleFromDevTool: If admin toggles their view.
+  // - effectiveUserRole: Read when isRoleFromDevTool is true, and used in the comparison `effectiveUserRole !== roleToSet`.
+  //   The `isDeterminingRoleRef` and the `if (effectiveUserRole !== roleToSet)` guard are crucial to prevent loops if this is a dependency.
+  // - router: For navigation.
+  }, [user, loading, isRoleFromDevTool, effectiveUserRole, router]);
+
 
   const handleLogout = async () => {
     try {
       await signOut(auth);
       toast({ title: 'Logged Out', description: 'You have been successfully logged out.' });
-      setIsRoleFromDevTool(false); 
-      setEffectiveUserRole("Customer"); 
+      setIsRoleFromDevTool(false);
+      setEffectiveUserRole("Customer");
       router.push('/login');
     } catch (error) {
       console.error("Logout error:", error);
@@ -155,23 +180,23 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const handleRoleSwitch = (newRole: UserRole) => {
     setEffectiveUserRole(newRole);
-    setIsRoleFromDevTool(true); 
+    setIsRoleFromDevTool(true);
     toast({ title: 'Dev Tool: Role Switched', description: `Viewing as ${newRole}. (Session only)`});
   };
 
   if (loading || isLoadingRole || (!user && pathname !== '/login' && pathname !== '/signup')) {
-    return null; 
+    return null;
   }
-  
+
   const userDisplayName = user?.displayName || user?.email?.split('@')[0] || "User";
   const userEmail = user?.email || "No email";
-  
+
   const userRoleDisplay = effectiveUserRole;
 
-  const visibleNavItems = allNavItems.filter(item => 
+  const visibleNavItems = allNavItems.filter(item =>
     item.allowedRoles.includes(effectiveUserRole)
   );
-  
+
   const isDesignatedAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
 
   return (
@@ -254,8 +279,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                       <DropdownMenuPortal>
                         <RadixDropdownMenuSubContent>
                           {(["Admin", "Manager", "Departmental", "Customer"] as UserRole[]).map((role) => (
-                            <DropdownMenuItem 
-                              key={role} 
+                            <DropdownMenuItem
+                              key={role}
                               onClick={() => handleRoleSwitch(role)}
                               className={cn("cursor-pointer", effectiveUserRole === role && "bg-accent font-semibold")}
                             >
