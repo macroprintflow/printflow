@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, type FormEvent, type ChangeEvent } from "react";
+import { useState, useEffect, type FormEvent } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { updateProfile, EmailAuthProvider, reauthenticateWithCredential, updateEmail, updatePassword } from "firebase/auth";
 import { auth } from "@/lib/firebase/clientApp";
@@ -19,7 +19,6 @@ export default function ProfilePage() {
   const { toast } = useToast();
 
   const [displayName, setDisplayName] = useState("");
-  const [photoURL, setPhotoURL] = useState("");
   const [currentEmail, setCurrentEmail] = useState(""); // For display primarily
 
   const [isSavingProfile, setIsSavingProfile] = useState(false);
@@ -41,7 +40,6 @@ export default function ProfilePage() {
   useEffect(() => {
     if (user) {
       setDisplayName(user.displayName || "");
-      setPhotoURL(user.photoURL || "");
       setCurrentEmail(user.email || "Not available");
     }
   }, [user]);
@@ -57,16 +55,17 @@ export default function ProfilePage() {
     try {
       await updateProfile(auth.currentUser, {
         displayName: displayName,
-        photoURL: photoURL, // Photo URL from text input
+        // photoURL is no longer updated here
       });
 
       if (setUser) {
-        setUser(prevUser => prevUser ? { ...prevUser, displayName, photoURL } : null);
+        // Update local user state; photoURL remains as is from Firebase (or null)
+        setUser(prevUser => prevUser ? { ...prevUser, displayName: displayName } : null);
       }
       
       toast({
         title: "Profile Updated",
-        description: "Your display name and photo URL have been updated.",
+        description: "Your display name has been updated.",
       });
     } catch (error: any) {
       console.error("Profile update error:", error);
@@ -214,7 +213,7 @@ export default function ProfilePage() {
         <CardContent className="space-y-6">
           <div className="flex items-center space-x-4">
             <Avatar className="h-20 w-20 border-2 border-primary">
-              <AvatarImage src={photoURL || `https://placehold.co/100x100.png?text=${userInitial}`} alt={displayName || "User"} data-ai-hint="user avatar" />
+              {/* AvatarImage is removed, only AvatarFallback will be used */}
               <AvatarFallback>{userInitial}</AvatarFallback>
             </Avatar>
             <div>
@@ -235,17 +234,7 @@ export default function ProfilePage() {
                 className="font-body"
               />
             </div>
-            <div>
-              <Label htmlFor="photoURL" className="font-body">Photo URL</Label>
-              <Input
-                id="photoURL"
-                type="url"
-                value={photoURL}
-                onChange={(e) => setPhotoURL(e.target.value)}
-                placeholder="https://example.com/your-photo.jpg"
-                className="font-body"
-              />
-            </div>
+            {/* Photo URL input field is removed */}
             <Button type="submit" className="font-body" disabled={isSavingProfile}>
               {isSavingProfile ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
               {isSavingProfile ? "Saving..." : "Save Profile Changes"}
@@ -387,5 +376,4 @@ export default function ProfilePage() {
     </div>
   );
 }
-
     
