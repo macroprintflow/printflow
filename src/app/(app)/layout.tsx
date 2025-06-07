@@ -60,6 +60,7 @@ const allNavItems: NavItem[] = [
 ];
 
 const ADMIN_EMAIL = "kuvam@macroprinters.com".toLowerCase();
+const MANAGER_EMAIL = "niharikasehgal0512@gmail.com".toLowerCase();
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -80,7 +81,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     const determineRoleLogic = async () => {
       if (isDeterminingRoleRef.current) return;
       if (loading) {
-        setIsLoadingRole(false);
+        // If auth is still loading, don't determine role yet, wait for user object
         return;
       }
 
@@ -88,7 +89,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       setIsLoadingRole(true);
 
       if (!user) {
-        if (!loading) {
+        if (!loading && pathname !== '/login' && pathname !== '/signup') { // Ensure we are not on login/signup page already
           router.push('/login');
         }
         setIsLoadingRole(false);
@@ -108,9 +109,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       // Simplified role determination (no Firestore fetch)
       if (user.email?.toLowerCase() === ADMIN_EMAIL) {
         roleToSet = "Admin";
+      } else if (user.email?.toLowerCase() === MANAGER_EMAIL) {
+        roleToSet = "Manager";
       } else {
         // In a more complex app, you might have other rules or default roles
-        // For now, non-admin users are Customers
+        // For now, non-admin/manager users are Customers
         roleToSet = "Customer";
       }
       
@@ -125,7 +128,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     };
 
     determineRoleLogic();
-  }, [user, loading, isRoleFromDevTool, router, effectiveUserRole]); // effectiveUserRole added back as it's compared
+  }, [user, loading, isRoleFromDevTool, router, effectiveUserRole, pathname]);
 
 
   const handleLogout = async () => {
@@ -148,8 +151,32 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   };
 
   if (loading || isLoadingRole || (!user && pathname !== '/login' && pathname !== '/signup')) {
-    return null;
+     // While loading or if no user and not on auth pages, render nothing or a loader
+     // This prevents rendering the layout before role determination or if user is not authenticated
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-background">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
   }
+
+  if (!user && (pathname !== '/login' && pathname !== '/signup')) {
+    // This case should ideally be caught by the loading condition or the effect redirecting.
+    // But as a fallback, if not loading and no user, and not on auth pages, show loader.
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-background">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
+  
+  // If user is not authenticated and trying to access protected routes,
+  // the useEffect hook would have redirected to '/login'.
+  // If on '/login' or '/signup' page itself, children will be login/signup pages.
+  if (!user && (pathname === '/login' || pathname === '/signup')) {
+     return <ClientOnlyWrapper>{children}</ClientOnlyWrapper>;
+  }
+
 
   const userDisplayName = user?.displayName || user?.email?.split('@')[0] || "User";
   const userEmail = user?.email || "No email";
