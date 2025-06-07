@@ -203,7 +203,7 @@ export default function LoginPage() {
                   <Input
                     id="email"
                     type="email"
-                    placeholder="kuvamsharma@printflow.app"
+                    placeholder="you@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
@@ -296,7 +296,7 @@ export default function LoginPage() {
             </Link>
             <div className="text-xs text-center">
               <p>For demo, use credentials set up in Firebase.</p>
-              <p>(e.g., kuvamsharma@printflow.app / @Baymax1)</p>
+              <p>(e.g., you@example.com / password123)</p>
             </div>
         </CardFooter>
       </Card>
