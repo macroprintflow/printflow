@@ -2,157 +2,222 @@
 'use server';
 import type { UserData, UserRole } from '@/lib/definitions';
 import { revalidatePath } from 'next/cache';
-import { createUserWithEmailAndPassword, updateProfile, type User as FirebaseUser } from 'firebase/auth';
-import { auth } from '@/lib/firebase/clientApp'; // Assuming clientApp is correctly configured
+import { createUserWithEmailAndPassword, updateProfile, type User as FirebaseUser, deleteUser as deleteFirebaseAuthUser } from 'firebase/auth';
+import { auth, db } from '@/lib/firebase/clientApp';
+import { doc, setDoc, getDoc, updateDoc, collection, getDocs, deleteDoc, writeBatch } from "firebase/firestore";
 
-// --- Mock User Store ---
-// IMPORTANT: This is a mock in-memory store for demonstration purposes.
-// Real user management requires Firebase Admin SDK on a backend.
-// Do NOT use this approach for production systems.
+const ADMIN_EMAIL_FOR_FIRESTORE = "kuvam@macroprinters.com".toLowerCase();
 
-declare global {
-  var __usersStore__: UserData[] | undefined;
-  var __userCounter__: number | undefined;
-}
+// Helper to ensure user document exists in Firestore, creating it if not.
+// Returns the user's role.
+async function ensureUserDocumentAndGetRole(firebaseUser: FirebaseUser): Promise<UserRole> {
+  const userRef = doc(db, "users", firebaseUser.uid);
+  const userSnap = await getDoc(userRef);
 
-const ADMIN_EMAIL_FOR_MOCK_USERS = "kuvam@macroprinters.com".toLowerCase();
-
-if (global.__usersStore__ === undefined) {
-  console.log('[MockUserActions] Initializing global mock users store.');
-  global.__usersStore__ = [
-    { id: 'user-admin-001', email: ADMIN_EMAIL_FOR_MOCK_USERS, displayName: 'Kuvam Sharma (Admin)', role: 'Admin' },
-    { id: 'user-customer-002', email: 'customer1@example.com', displayName: 'Test Customer One', role: 'Customer' },
-    { id: 'user-dept-003', email: 'depthead@example.com', displayName: 'Printing Dept Head', role: 'Departmental' },
-  ];
-}
-if (global.__userCounter__ === undefined) {
-  global.__userCounter__ = global.__usersStore__!.length + 1;
-}
-// --- End Mock User Store ---
-
-
-export async function getAllUsersMock(): Promise<UserData[]> {
-  console.log('[MockUserActions] getAllUsersMock called.');
-  return [...(global.__usersStore__ || [])];
-}
-
-export async function updateUserRoleMock(userId: string, newRole: UserRole): Promise<{ success: boolean; message?: string; user?: UserData }> {
-  console.log(`[UserActions] Attempting to update role for userId: ${userId} to newRole: ${newRole}`);
-  
-  // Simulate writing to Firestore for a Cloud Function to pick up
-  console.log(`[UserActions] SIMULATING Firestore write: userRoleChanges/${userId} => { role: "${newRole}", requestedBy: "admin@example.com" }`);
-  // In a real app, this would be an actual Firestore write.
-  // The Cloud Function would then set custom claims.
-
-  // For this prototype, we'll still update the local mock store so the UI reflects the *intended* change.
-  const userIndex = global.__usersStore__!.findIndex(u => u.id === userId);
-  if (userIndex === -1) {
-    return { success: false, message: "User not found in mock store." };
+  if (userSnap.exists()) {
+    return userSnap.data()?.role as UserRole || "Customer";
+  } else {
+    // User document doesn't exist, create it.
+    // This can happen for users who signed up before this Firestore role system was in place.
+    const defaultRole: UserRole = firebaseUser.email?.toLowerCase() === ADMIN_EMAIL_FOR_FIRESTORE ? "Admin" : "Customer";
+    const newUserDoc: UserData = {
+      id: firebaseUser.uid,
+      email: firebaseUser.email || "",
+      displayName: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || "New User",
+      role: defaultRole,
+    };
+    try {
+      await setDoc(userRef, newUserDoc);
+      console.log(`[FirestoreUserActions] Created missing Firestore document for user ${firebaseUser.uid} with role ${defaultRole}.`);
+      return defaultRole;
+    } catch (error) {
+      console.error("[FirestoreUserActions] Error creating missing Firestore document:", error);
+      return "Customer"; // Fallback role on error
+    }
   }
-  if (global.__usersStore__![userIndex].email.toLowerCase() === ADMIN_EMAIL_FOR_MOCK_USERS && newRole !== 'Admin') {
-      // Allow changing if newRole is Admin, just in case it was changed by mistake.
-  }
-
-  global.__usersStore__![userIndex].role = newRole;
-  revalidatePath('/settings'); 
-  
-  // Note: The client will need to refresh its ID token to see actual custom claims if they were set by a real backend.
-  // For this simulation, the UI on the settings page updates, but the user's actual session role (if they are logged in)
-  // would only change if custom claims were truly updated and their token refreshed.
-  // The admin's "Switch Role (Dev)" tool is for immediate UI testing.
-  return { 
-    success: true, 
-    message: `Mock role for ${global.__usersStore__![userIndex].displayName} set to ${newRole}. (Simulated Firestore write for backend processing).`,
-    user: global.__usersStore__![userIndex] 
-  };
 }
 
-export async function createNewUserMock(
+
+export async function getUsersFromFirestore(): Promise<UserData[]> {
+  console.log('[FirestoreUserActions] getUsersFromFirestore called.');
+  try {
+    const usersCollectionRef = collection(db, "users");
+    const querySnapshot = await getDocs(usersCollectionRef);
+    const users: UserData[] = [];
+    querySnapshot.forEach((docSnap) => {
+      users.push(docSnap.data() as UserData);
+    });
+    return users.sort((a, b) => (a.displayName || a.email).localeCompare(b.displayName || b.email));
+  } catch (error) {
+    console.error("[FirestoreUserActions] Error fetching users from Firestore:", error);
+    return [];
+  }
+}
+
+export async function updateUserRoleInFirestore(userId: string, newRole: UserRole): Promise<{ success: boolean; message?: string; user?: UserData }> {
+  console.log(`[FirestoreUserActions] Attempting to update role for userId: ${userId} to newRole: ${newRole} in Firestore.`);
+  const userRef = doc(db, "users", userId);
+  try {
+    const userSnap = await getDoc(userRef);
+    if (!userSnap.exists()) {
+      return { success: false, message: "User document not found in Firestore." };
+    }
+    const userData = userSnap.data() as UserData;
+
+    // Prevent changing the primary admin's role away from Admin, unless it's to re-affirm Admin.
+    if (userData.email.toLowerCase() === ADMIN_EMAIL_FOR_FIRESTORE && newRole !== 'Admin') {
+      // return { success: false, message: "Cannot change the primary admin's role from 'Admin'." };
+      // For prototype, allow changing, but this would be a security rule in production.
+      console.warn(`[FirestoreUserActions] WARNING: Primary admin role is being changed from Admin for ${ADMIN_EMAIL_FOR_FIRESTORE}. This is generally not advised.`);
+    }
+
+    await updateDoc(userRef, { role: newRole });
+    const updatedUser: UserData = { ...userData, role: newRole };
+    revalidatePath('/settings');
+    // IMPORTANT: This client-side role update does NOT set Firebase Custom Claims.
+    // Custom Claims are the secure way to manage roles and require Firebase Admin SDK on a backend.
+    // This Firestore 'role' field is for UI/prototyping and client-side logic.
+    console.log(`[FirestoreUserActions] Role for ${updatedUser.displayName} updated to ${newRole} in Firestore.`);
+    return {
+      success: true,
+      message: `Role for ${updatedUser.displayName} updated to ${newRole} in Firestore.`,
+      user: updatedUser
+    };
+  } catch (error) {
+    console.error("[FirestoreUserActions] Error updating user role in Firestore:", error);
+    return { success: false, message: `Failed to update role: ${error instanceof Error ? error.message : "Unknown error"}` };
+  }
+}
+
+export async function createNewUserWithFirestoreRecord(
   userData: Omit<UserData, 'id'> & { password?: string }
 ): Promise<{ success: boolean; message?: string; user?: UserData }> {
-  console.log('[UserActions] Attempting to create new user with email:', userData.email);
-  
-  const existingMockUser = global.__usersStore__!.find(u => u.email.toLowerCase() === userData.email.toLowerCase());
-  if (existingMockUser) {
-    // If user exists in mock store, simulate updating their role if different
-    if (existingMockUser.role !== userData.role) {
-        console.log(`[UserActions] User ${userData.email} exists in mock store. Simulating role update to ${userData.role}.`);
-        console.log(`[UserActions] SIMULATING Firestore write: userRoleChanges/${existingMockUser.id} => { role: "${userData.role}", requestedBy: "admin@example.com" }`);
-        existingMockUser.role = userData.role;
-        existingMockUser.displayName = userData.displayName;
-    }
-    revalidatePath('/settings');
-    return { success: false, message: "User with this email already exists in the mock store. Role potentially updated in mock." };
-  }
+  console.log('[FirestoreUserActions] Attempting to create new user (Auth + Firestore) with email:', userData.email);
 
   if (!userData.password) {
     return { success: false, message: "Password is required to create an authentication user." };
   }
 
   try {
+    // 1. Create Firebase Auth user
     const userCredential = await createUserWithEmailAndPassword(auth, userData.email, userData.password);
     const firebaseUser = userCredential.user;
+    console.log(`[FirestoreUserActions] Firebase Auth user created: ${firebaseUser.uid}`);
 
     if (userData.displayName && userData.displayName.trim() !== '') {
       await updateProfile(firebaseUser as FirebaseUser, { displayName: userData.displayName.trim() });
+      console.log(`[FirestoreUserActions] Firebase Auth profile updated for user: ${firebaseUser.uid}`);
     }
 
-    // Simulate writing initial role to Firestore for Cloud Function
-    console.log(`[UserActions] SIMULATING Firestore write for initial role: userRoleChanges/${firebaseUser.uid} => { role: "${userData.role}", requestedBy: "admin@example.com" }`);
-
-    const newUser: UserData = {
+    // 2. Create Firestore document for the user
+    const newUserDoc: UserData = {
       id: firebaseUser.uid,
       email: userData.email,
-      displayName: userData.displayName,
-      role: userData.role, 
+      displayName: userData.displayName || firebaseUser.email?.split('@')[0] || "New User",
+      role: userData.role, // Use the role specified during creation
     };
-    global.__usersStore__!.push(newUser);
+    const userRef = doc(db, "users", firebaseUser.uid);
+    await setDoc(userRef, newUserDoc);
+    console.log(`[FirestoreUserActions] Firestore document created for user ${firebaseUser.uid} with role ${userData.role}.`);
+
     revalidatePath('/settings');
-    return { success: true, message: "User created in Firebase Auth & mock store. Simulated Firestore write for role.", user: newUser };
+    return { success: true, message: "User created in Firebase Auth & Firestore document created.", user: newUserDoc };
 
   } catch (error: any) {
-    console.error("[UserActions] Firebase Auth user creation error:", error);
-    let errorMessage = "Failed to create user in Firebase Auth. ";
+    console.error("[FirestoreUserActions] Error creating user (Auth or Firestore):", error);
+    let errorMessage = "Failed to create user. ";
     if (error.code === 'auth/email-already-in-use') {
-      errorMessage += "This email is already registered in Firebase. Try logging in or use a different email.";
-      const userInMock = global.__usersStore__!.find(u => u.email.toLowerCase() === userData.email.toLowerCase());
-      if (userInMock) {
-        userInMock.role = userData.role;
-        userInMock.displayName = userData.displayName;
-         revalidatePath('/settings');
-        return { success: true, message: "User already exists in Firebase. Mock store entry updated. Simulated Firestore write for role.", user: userInMock };
+      errorMessage += "This email is already registered in Firebase Auth. User not created.";
+      // Check if Firestore doc exists, if not, offer to create it.
+      const userRef = doc(db, "users", error.customData?.uid || `failed-${Date.now()}`); // Use UID if available from error, else a dummy
+      const userSnap = await getDoc(userRef);
+      if(!userSnap.exists() && error.customData?.uid) {
+         // Try to create a Firestore doc if auth user exists but doc doesn't
+         // This situation is less likely if signup flow is consistent
       }
     } else if (error.code === 'auth/weak-password') {
       errorMessage += "The password is too weak (at least 6 characters).";
-    } else {
+    } else if (error.message && error.message.includes("firestore")) {
+      errorMessage += "Error during Firestore document creation: " + error.message;
+    }
+    else {
       errorMessage += error.message || "Please check the details and try again.";
     }
     return { success: false, message: errorMessage };
   }
 }
 
-export async function deleteUserMock(userId: string): Promise<{ success: boolean; message?: string }> {
-  console.log(`[UserActions] deleteUserMock called for userId: ${userId}`);
-  
-  const userToDelete = global.__usersStore__!.find(u => u.id === userId);
-  if (!userToDelete) {
-    return { success: false, message: "User not found in mock store." };
-  }
+export async function deleteUserAndFirestoreRecord(userId: string): Promise<{ success: boolean; message?: string }> {
+  console.log(`[FirestoreUserActions] Attempting to delete Firestore record for userId: ${userId}`);
 
-  if (userToDelete.email.toLowerCase() === ADMIN_EMAIL_FOR_MOCK_USERS) {
-    return { success: false, message: "Cannot delete the primary admin user in this mock setup." };
-  }
+  const userRef = doc(db, "users", userId);
+  try {
+    const userSnap = await getDoc(userRef);
+    if (!userSnap.exists()) {
+      return { success: false, message: "User document not found in Firestore." };
+    }
+    const userData = userSnap.data() as UserData;
+    if (userData.email.toLowerCase() === ADMIN_EMAIL_FOR_FIRESTORE) {
+      return { success: false, message: "Cannot delete the primary admin user's Firestore record." };
+    }
 
-  // Simulate write to Firestore for user deletion/role removal if needed by a backend process
-  console.log(`[UserActions] SIMULATING Firestore write or backend call to handle deletion/role removal for user: ${userId}`);
-
-  const initialLength = global.__usersStore__!.length;
-  global.__usersStore__ = global.__usersStore__!.filter(u => u.id !== userId);
-  
-  if (global.__usersStore__!.length < initialLength) {
+    await deleteDoc(userRef);
+    console.log(`[FirestoreUserActions] Firestore document deleted for user ${userId}.`);
+    
+    // IMPORTANT: Deleting Firebase Auth users from the client-side is highly discouraged
+    // and often disabled by default due to security risks. This action typically requires
+    // the Firebase Admin SDK on a backend.
+    // For this prototype, we are ONLY deleting the Firestore record.
+    // The Firebase Auth user account will remain.
+    
     revalidatePath('/settings');
-    return { success: true, message: "Mock user removed from list. (Actual Firebase user NOT deleted by this action. Simulated backend trigger for full deletion/cleanup)." };
-  } else {
-    return { success: false, message: "User not found or could not be removed from mock list." };
+    return { success: true, message: `Firestore record for ${userData.displayName || userData.email} deleted. (Firebase Auth user account NOT deleted).` };
+  } catch (error) {
+    console.error("[FirestoreUserActions] Error deleting user document from Firestore:", error);
+    return { success: false, message: `Failed to delete Firestore record: ${error instanceof Error ? error.message : "Unknown error"}` };
   }
 }
+
+// Function to get user role from Firestore (used in layout)
+export async function getUserRoleFromFirestore(userId: string): Promise<UserRole | null> {
+  const userRef = doc(db, "users", userId);
+  try {
+    const userSnap = await getDoc(userRef);
+    if (userSnap.exists()) {
+      return (userSnap.data()?.role as UserRole) || null;
+    }
+    return null; // No document, so no role from Firestore
+  } catch (error) {
+    console.error(`[FirestoreUserActions] Error fetching role for user ${userId}:`, error);
+    return null; // Error fetching, assume no role
+  }
+}
+
+// Function to create a user document in Firestore if it doesn't exist
+export async function createUserDocumentInFirestore(user: FirebaseUser, roleOverride?: UserRole): Promise<UserData | null> {
+  const userRef = doc(db, "users", user.uid);
+  try {
+    const userSnap = await getDoc(userRef);
+    if (userSnap.exists()) {
+      console.log(`[FirestoreUserActions] Document for user ${user.uid} already exists.`);
+      return userSnap.data() as UserData;
+    }
+
+    const defaultRole: UserRole = roleOverride ?? (user.email?.toLowerCase() === ADMIN_EMAIL_FOR_FIRESTORE ? "Admin" : "Customer");
+    
+    const newUserDocData: UserData = {
+      id: user.uid,
+      email: user.email || "",
+      displayName: user.displayName || user.email?.split('@')[0] || "User",
+      role: defaultRole,
+    };
+    await setDoc(userRef, newUserDocData);
+    console.log(`[FirestoreUserActions] Created Firestore document for new user ${user.uid} with role ${defaultRole}.`);
+    return newUserDocData;
+  } catch (error) {
+    console.error(`[FirestoreUserActions] Error ensuring/creating Firestore document for user ${user.uid}:`, error);
+    return null;
+  }
+}
+
+    

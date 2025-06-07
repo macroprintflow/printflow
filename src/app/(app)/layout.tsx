@@ -42,6 +42,7 @@ import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase/clientApp';
 import { useToast } from '@/hooks/use-toast';
 import type { UserRole } from '@/lib/definitions';
+import { getUserRoleFromFirestore, createUserDocumentInFirestore } from '@/lib/actions/userActions'; // Import Firestore actions
 
 interface NavItem {
   href: string;
@@ -71,6 +72,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [isClient, setIsClient] = React.useState(false);
   const [effectiveUserRole, setEffectiveUserRole] = React.useState<UserRole>("Customer"); 
   const [isRoleFromDevTool, setIsRoleFromDevTool] = React.useState(false);
+  const [isLoadingRole, setIsLoadingRole] = React.useState(true);
 
 
   React.useEffect(() => {
@@ -79,56 +81,55 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     const determineRole = async () => {
+      setIsLoadingRole(true);
       if (!loading && !user) {
         router.push('/login');
+        setIsLoadingRole(false);
         return;
       }
 
       if (user && user.email) {
         let roleToSet: UserRole = "Customer"; // Default
-        let roleSource = "Default";
+        let roleSource = "Default (Customer)";
 
-        // 1. Attempt to read from custom claims (simulated concept)
-        // In a real app with backend-set claims, this would be the primary source.
-        try {
-          const idTokenResult = await user.getIdTokenResult(true); // Force refresh for latest claims
-          const customClaimRole = idTokenResult.claims.role as UserRole;
-          if (customClaimRole && ["Admin", "Manager", "Departmental", "Customer"].includes(customClaimRole)) {
-            roleToSet = customClaimRole;
-            roleSource = "Custom Claims";
-          }
-        } catch (error) {
-          console.warn("Could not get custom claims for user role:", error);
-        }
-        
-        // 2. Fallback/Override for designated admin email
-        if (user.email.toLowerCase() === ADMIN_EMAIL) {
-          if (roleSource !== "Custom Claims" || roleToSet !== "Admin") {
-            // If claims didn't set Admin, or no claims, but email matches, set to Admin
+        // 1. Attempt to read role from Firestore
+        const firestoreRole = await getUserRoleFromFirestore(user.uid);
+        if (firestoreRole) {
+          roleToSet = firestoreRole;
+          roleSource = "Firestore";
+        } else {
+          // If no Firestore role, check if it's the admin email
+          if (user.email.toLowerCase() === ADMIN_EMAIL) {
             roleToSet = "Admin";
-            roleSource = "Admin Email";
+            roleSource = "Admin Email (Fallback)";
           }
+          // Ensure Firestore document exists for this user
+          await createUserDocumentInFirestore(user, roleToSet);
+          console.log(`[Auth Role] Ensured Firestore document for ${user.email} with role ${roleToSet}`);
         }
         
         // 3. Apply Dev Tool Override if it has been used
-        // Only set if the dev tool hasn't already set a role, OR if the user has changed.
         if (!isRoleFromDevTool) {
           console.log(`[Auth Role] Setting effective role to: ${roleToSet} (Source: ${roleSource})`);
           setEffectiveUserRole(roleToSet);
         } else {
-           console.log(`[Auth Role] Dev tool role active: ${effectiveUserRole}. Not changing based on claims/email.`);
+           console.log(`[Auth Role] Dev tool role active: ${effectiveUserRole}. Not changing based on Firestore/email.`);
         }
       }
+      setIsLoadingRole(false);
     };
 
-    determineRole();
-  }, [user, loading, router, isRoleFromDevTool, effectiveUserRole]); // effectiveUserRole added to re-evaluate if changed by dev tool
+    if (!loading) { // Only run if Firebase Auth loading is complete
+        determineRole();
+    }
+  }, [user, loading, router, isRoleFromDevTool, effectiveUserRole]);
 
   const handleLogout = async () => {
     try {
       await signOut(auth);
       toast({ title: 'Logged Out', description: 'You have been successfully logged out.' });
-      setIsRoleFromDevTool(false); // Reset dev tool flag on logout
+      setIsRoleFromDevTool(false); 
+      setEffectiveUserRole("Customer"); // Reset effective role on logout
       router.push('/login');
     } catch (error) {
       console.error("Logout error:", error);
@@ -138,11 +139,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const handleRoleSwitch = (newRole: UserRole) => {
     setEffectiveUserRole(newRole);
-    setIsRoleFromDevTool(true); // Indicate that the role was set by the dev tool
+    setIsRoleFromDevTool(true); 
     toast({ title: 'Dev Tool: Role Switched', description: `Viewing as ${newRole}. (Session only)`});
   };
 
-  if (loading || (!user && pathname !== '/login' && pathname !== '/signup')) {
+  if (loading || isLoadingRole || (!user && pathname !== '/login' && pathname !== '/signup')) {
+    // You might want a more sophisticated loading screen here
     return null; 
   }
   
@@ -270,3 +272,5 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     </ClientOnlyWrapper>
   );
 }
+
+    

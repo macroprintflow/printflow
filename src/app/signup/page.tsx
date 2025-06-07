@@ -17,6 +17,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { useToast } from '@/hooks/use-toast';
 import { UserPlus, Loader2, Eye, EyeOff } from 'lucide-react';
 import AppLogo from '@/components/AppLogo';
+import { createUserDocumentInFirestore } from '@/lib/actions/userActions'; // Import action
 
 export default function SignupPage() {
   const [displayName, setDisplayName] = useState('');
@@ -33,10 +34,11 @@ export default function SignupPage() {
     setIsLoading(true);
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const firebaseUser = userCredential.user;
       
-      if (userCredential.user && displayName.trim() !== '') {
+      if (firebaseUser && displayName.trim() !== '') {
         try {
-          await updateProfile(userCredential.user as User, { displayName: displayName.trim() });
+          await updateProfile(firebaseUser as User, { displayName: displayName.trim() });
         } catch (profileError: any) {
             console.error("Profile update error:", profileError);
             toast({
@@ -47,7 +49,12 @@ export default function SignupPage() {
         }
       }
 
-      toast({ title: 'Signup Successful', description: 'Your account has been created with email!' });
+      // After successful Auth creation, create Firestore user document with default "Customer" role
+      if (firebaseUser) {
+        await createUserDocumentInFirestore(firebaseUser, "Customer");
+      }
+
+      toast({ title: 'Signup Successful', description: 'Your account has been created!' });
       router.push('/dashboard'); 
     } catch (error: any) {
       console.error("Email Signup error:", error);
@@ -150,3 +157,5 @@ export default function SignupPage() {
     </div>
   );
 }
+
+    

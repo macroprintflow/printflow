@@ -11,7 +11,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect, type FormEvent } from "react";
 import type { UserData, UserRole } from "@/lib/definitions"; 
-import { getAllUsersMock, updateUserRoleMock, createNewUserMock, deleteUserMock } from "@/lib/actions/userActions"; 
+// Updated to use Firestore-backed actions
+import { getUsersFromFirestore, updateUserRoleInFirestore, createNewUserWithFirestoreRecord, deleteUserAndFirestoreRecord } from "@/lib/actions/userActions"; 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export default function SettingsPage() {
@@ -38,10 +39,10 @@ export default function SettingsPage() {
   const fetchUsers = async () => {
     setIsLoadingUsers(true);
     try {
-      const fetchedUsers = await getAllUsersMock();
+      const fetchedUsers = await getUsersFromFirestore(); // Use Firestore action
       setUsers(fetchedUsers);
     } catch (error) {
-      toast({ title: "Error", description: "Could not load users.", variant: "destructive" });
+      toast({ title: "Error", description: "Could not load users from Firestore.", variant: "destructive" });
     } finally {
       setIsLoadingUsers(false);
     }
@@ -59,7 +60,8 @@ export default function SettingsPage() {
       return;
     }
     setIsCreatingUser(true);
-    const result = await createNewUserMock({ 
+    // Use Firestore action
+    const result = await createNewUserWithFirestoreRecord({ 
       displayName: newUserName, 
       email: newUserEmail, 
       password: newUserPassword, 
@@ -88,11 +90,12 @@ export default function SettingsPage() {
   const handleUpdateRole = async () => {
     if (!selectedUserForEdit) return;
     setIsUpdatingRole(true);
-    const result = await updateUserRoleMock(selectedUserForEdit.id, selectedNewRole);
+    // Use Firestore action
+    const result = await updateUserRoleInFirestore(selectedUserForEdit.id, selectedNewRole);
     setIsUpdatingRole(false);
     if (result.success) {
-      toast({ title: "Role Update Triggered", description: result.message });
-      fetchUsers(); // Re-fetch to show updated role in the mock list
+      toast({ title: "Role Update", description: result.message });
+      fetchUsers(); 
       setIsEditRoleOpen(false);
     } else {
       toast({ title: "Update Failed", description: result.message, variant: "destructive" });
@@ -107,7 +110,8 @@ export default function SettingsPage() {
   const handleDeleteUser = async () => {
     if (!selectedUserForDelete) return;
     setIsDeletingUser(true);
-    const result = await deleteUserMock(selectedUserForDelete.id);
+    // Use Firestore action
+    const result = await deleteUserAndFirestoreRecord(selectedUserForDelete.id);
     setIsDeletingUser(false);
     if (result.success) {
       toast({ title: "User Action", description: result.message });
@@ -142,10 +146,10 @@ export default function SettingsPage() {
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle className="font-headline flex items-center">
-              <Users className="mr-2 h-6 w-6 text-primary" /> User Management (Simulated Backend)
+              <Users className="mr-2 h-6 w-6 text-primary" /> User Management (Firestore Roles)
             </CardTitle>
             <CardDescription className="font-body">
-              Create Firebase Auth users and simulate role changes. Actual roles require backend setup.
+              Create Firebase Auth users and manage their roles stored in Firestore.
             </CardDescription>
           </div>
           <Dialog open={isCreateUserOpen} onOpenChange={setIsCreateUserOpen}>
@@ -158,7 +162,7 @@ export default function SettingsPage() {
               <DialogHeader>
                 <DialogTitle className="font-headline">Create New User</DialogTitle>
                  <DialogDescription className="font-body">
-                  Creates a Firebase Auth user and adds to list. Role change simulates a backend trigger.
+                  Creates a Firebase Auth user and a corresponding Firestore document for their role.
                 </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleCreateUser} className="space-y-4 py-2">
@@ -175,7 +179,7 @@ export default function SettingsPage() {
                   <Input id="newUserPassword" type="password" value={newUserPassword} onChange={(e) => setNewUserPassword(e.target.value)} placeholder="Min. 6 characters" />
                 </div>
                 <div>
-                  <Label htmlFor="newUserRole">Intended Role</Label>
+                  <Label htmlFor="newUserRole">Assign Role (in Firestore)</Label>
                   <Select value={newUserRole} onValueChange={(value) => setNewUserRole(value as UserRole)}>
                     <SelectTrigger id="newUserRole">
                       <SelectValue placeholder="Select role" />
@@ -201,11 +205,12 @@ export default function SettingsPage() {
         <CardContent>
           <Alert variant="default" className="mb-6 bg-blue-50 border-blue-300 dark:bg-blue-900/30 dark:border-blue-700">
             <AlertTriangle className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-            <AlertTitle className="font-headline text-blue-700 dark:text-blue-300">Simulated Role Management</AlertTitle>
+            <AlertTitle className="font-headline text-blue-700 dark:text-blue-300">Firestore-Based Role Management</AlertTitle>
             <AlertDescription className="text-blue-600 dark:text-blue-400 font-body">
               <ul>
-                <li className="mt-1">- Changing a role here **simulates a request** (e.g., to Firestore) that a backend Cloud Function would process to set actual Firebase Custom Claims.</li>
-                <li>- The user's role in this list will update. However, their actual permissions upon their next login depend on whether a real backend function processed the role change and updated their Firebase Auth custom claims.</li>
+                <li className="mt-1">- User roles are stored in a Firestore 'users' collection.</li>
+                <li>- Changing a role here updates the Firestore document. The app reads this role on user login/session refresh.</li>
+                <li>- **Important:** This is a client-side role management for prototyping. For production, secure Firebase Custom Claims (set via Admin SDK on a backend) are recommended. These Firestore roles are not directly visible in the Firebase Auth console.</li>
                 <li>- The "Switch Role (Dev)" tool in your profile menu provides immediate UI testing for different roles during your admin session.</li>
               </ul>
             </AlertDescription>
@@ -214,7 +219,7 @@ export default function SettingsPage() {
           {isLoadingUsers ? (
             <div className="flex justify-center items-center py-10">
               <Loader2 className="mr-2 h-8 w-8 animate-spin text-primary" />
-              <p className="font-body text-muted-foreground">Loading users...</p>
+              <p className="font-body text-muted-foreground">Loading users from Firestore...</p>
             </div>
           ) : users.length > 0 ? (
             <Table>
@@ -222,7 +227,7 @@ export default function SettingsPage() {
                 <TableRow>
                   <TableHead className="font-headline">Display Name</TableHead>
                   <TableHead className="font-headline">Email</TableHead>
-                  <TableHead className="font-headline">Simulated Role</TableHead>
+                  <TableHead className="font-headline">Role (from Firestore)</TableHead>
                   <TableHead className="font-headline text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -233,10 +238,10 @@ export default function SettingsPage() {
                     <TableCell className="font-body text-sm">{user.email}</TableCell>
                     <TableCell className="font-body"><span className="px-2 py-1 text-xs font-semibold rounded-full bg-secondary text-secondary-foreground">{user.role}</span></TableCell>
                     <TableCell className="text-right space-x-1">
-                      <Button variant="outline" size="sm" onClick={() => openEditRoleDialog(user)} title="Edit Role">
-                        <Edit3 className="mr-1 h-4 w-4" /> Edit Simulated Role
+                      <Button variant="outline" size="sm" onClick={() => openEditRoleDialog(user)} title="Edit Role in Firestore">
+                        <Edit3 className="mr-1 h-4 w-4" /> Edit Role
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => openDeleteUserDialog(user)} title="Delete User from Mock List" className="text-destructive hover:text-destructive">
+                      <Button variant="ghost" size="icon" onClick={() => openDeleteUserDialog(user)} title="Delete User Firestore Record" className="text-destructive hover:text-destructive">
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </TableCell>
@@ -245,7 +250,7 @@ export default function SettingsPage() {
               </TableBody>
             </Table>
           ) : (
-            <p className="text-muted-foreground font-body text-center py-4">No mock users found. Create one to get started.</p>
+            <p className="text-muted-foreground font-body text-center py-4">No users found in Firestore. Create one to get started.</p>
           )}
         </CardContent>
       </Card>
@@ -254,13 +259,13 @@ export default function SettingsPage() {
       <Dialog open={isEditRoleOpen} onOpenChange={setIsEditRoleOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle className="font-headline">Edit Simulated Role for {selectedUserForEdit?.displayName}</DialogTitle>
+            <DialogTitle className="font-headline">Edit Role for {selectedUserForEdit?.displayName}</DialogTitle>
              <DialogDescription className="font-body">
-              This simulates a request to change the user's role. A backend process would handle the actual Firebase custom claim update.
+              This will update the user's role in their Firestore document.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
-            <Label htmlFor="editUserRole">New Simulated Role</Label>
+            <Label htmlFor="editUserRole">New Role</Label>
             <Select value={selectedNewRole} onValueChange={(value) => setSelectedNewRole(value as UserRole)}>
               <SelectTrigger id="editUserRole">
                 <SelectValue placeholder="Select new role" />
@@ -276,7 +281,7 @@ export default function SettingsPage() {
             <DialogClose asChild><Button type="button" variant="outline" disabled={isUpdatingRole}>Cancel</Button></DialogClose>
             <Button onClick={handleUpdateRole} disabled={isUpdatingRole}>
               {isUpdatingRole ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-              Update Simulated Role
+              Update Role
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -286,16 +291,16 @@ export default function SettingsPage() {
       <Dialog open={isDeleteUserOpen} onOpenChange={setIsDeleteUserOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle className="font-headline">Remove User from List: {selectedUserForDelete?.displayName}?</DialogTitle>
+            <DialogTitle className="font-headline">Delete Firestore Record for {selectedUserForDelete?.displayName}?</DialogTitle>
             <DialogDescription className="font-body">
-              Are you sure you want to remove "{selectedUserForDelete?.email}" from this list? This action only affects the mock display and simulates a backend trigger for actual user data changes. It does not delete their Firebase Auth account.
+              Are you sure you want to delete the Firestore document for "{selectedUserForDelete?.email}"? This action does NOT delete their Firebase Authentication account.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <DialogClose asChild><Button variant="outline" disabled={isDeletingUser}>Cancel</Button></DialogClose>
             <Button variant="destructive" onClick={handleDeleteUser} disabled={isDeletingUser}>
               {isDeletingUser ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
-              Remove from List
+              Delete Firestore Record
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -304,3 +309,5 @@ export default function SettingsPage() {
     </div>
   );
 }
+
+    
