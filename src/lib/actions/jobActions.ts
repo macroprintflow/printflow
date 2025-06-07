@@ -17,10 +17,17 @@ declare global {
   var __adjustmentCounter__: number | undefined;
   var __designSubmissionsStore__: DesignSubmission[] | undefined;
   var __designSubmissionCounter__: number | undefined;
+  var __jobSeriesLetter__: string | undefined;
+  var __jobSeriesCounter__: number | undefined;
 }
 
 if (global.__jobCards__ === undefined) global.__jobCards__ = [];
 if (global.__jobCounter__ === undefined) global.__jobCounter__ = 1;
+
+// For new series-based job card numbering
+if (global.__jobSeriesLetter__ === undefined) global.__jobSeriesLetter__ = 'A';
+if (global.__jobSeriesCounter__ === undefined) global.__jobSeriesCounter__ = 1;
+
 
 const initialJobTemplates: JobTemplateData[] = [
     { id: 'template1', name: 'Golden Tray (Predefined)', kindOfJob: 'METPET', coating: 'VARNISH_GLOSS', hotFoilStamping: 'GOLDEN', paperQuality: 'GOLDEN_SHEET', predefinedWorkflow: [] },
@@ -51,21 +58,26 @@ if (global.__designSubmissionCounter__ === undefined) global.__designSubmissionC
 
 
 function generateJobCardNumber(): string {
-  const now = new Date();
-  const year = now.getFullYear().toString().slice(-2);
-  const month = (now.getMonth() + 1).toString().padStart(2, '0');
-  const day = now.getDate().toString().padStart(2, '0');
-  const randomNumber = Math.floor(1000 + Math.random() * 9000);
-  return `JC-${year}${month}${day}-${randomNumber}`;
+  if (global.__jobSeriesCounter__! > 999) {
+    global.__jobSeriesLetter__ = String.fromCharCode(global.__jobSeriesLetter__!.charCodeAt(0) + 1);
+    global.__jobSeriesCounter__ = 1;
+  }
+
+  const sequentialNumber = global.__jobSeriesCounter__!.toString().padStart(3, '0');
+  const jobCardNumber = `JC-${global.__jobSeriesLetter__}-${sequentialNumber}`;
+  
+  global.__jobSeriesCounter__!++; // Increment for the next call
+
+  return jobCardNumber;
 }
 
 export async function createJobCard(data: JobCardFormValues): Promise<{ success: boolean; message: string; jobCard?: JobCardData }> {
   try {
-    const currentJobCounter = global.__jobCounter__!;
+    const currentJobCounter = global.__jobCounter__!; // For internal unique ID
     const newJobCard: JobCardData = {
       ...data,
-      id: currentJobCounter.toString(),
-      jobCardNumber: generateJobCardNumber(),
+      id: currentJobCounter.toString(), // Internal unique ID
+      jobCardNumber: generateJobCardNumber(), // New series-based number
       date: new Date().toISOString().split('T')[0], 
       cuttingLayoutDescription: data.cuttingLayoutDescription,
       sheetsPerMasterSheet: data.sheetsPerMasterSheet,
@@ -78,10 +90,10 @@ export async function createJobCard(data: JobCardFormValues): Promise<{ success:
       updatedAt: new Date().toISOString(),
       status: 'Pending Planning', 
       workflowSteps: data.workflowSteps || [],
-      pdfDataUri: data.pdfDataUri, // Save the PDF URI
+      pdfDataUri: data.pdfDataUri,
     };
     global.__jobCards__!.push(newJobCard);
-    global.__jobCounter__ = currentJobCounter + 1;
+    global.__jobCounter__ = currentJobCounter + 1; // Increment internal unique ID counter
 
     if (data.sourceInventoryItemId && data.totalMasterSheetsNeeded && data.totalMasterSheetsNeeded > 0) {
       const itemExists = global.__inventoryItemsStore__!.some(item => item.id === data.sourceInventoryItemId);
@@ -107,7 +119,7 @@ export async function createJobCard(data: JobCardFormValues): Promise<{ success:
     revalidatePath('/jobs/new');
     revalidatePath('/inventory');
     revalidatePath('/planning');
-    revalidatePath('/customer/my-jobs'); // Revalidate customer portal
+    revalidatePath('/customer/my-jobs');
     return { success: true, message: 'Job card created successfully!', jobCard: newJobCard };
   } catch (error) {
     console.error('[JobActions Error] Error creating job card:', error);
@@ -133,7 +145,7 @@ export async function getInventoryOptimizationSuggestions(
     paperQuality: PaperQualityType;
     jobSizeWidth: number;
     jobSizeHeight: number;
-    quantityToProduce: number; // Changed from netQuantity
+    quantityToProduce: number;
   }
 ): Promise<OptimizeInventoryOutput | { error: string }> {
   console.log('[JobActions TS Calc] === Get Inventory Optimization Suggestions START ===');
@@ -154,7 +166,7 @@ export async function getInventoryOptimizationSuggestions(
         console.log('[JobActions TS Calc] Invalid target thickness for mm-based quality. Returning empty suggestions.');
         return { suggestions: [], optimalSuggestion: undefined };
     }
-    if (jobInput.jobSizeWidth <= 0 || jobInput.jobSizeHeight <= 0 || jobInput.quantityToProduce <=0) { // Use quantityToProduce
+    if (jobInput.jobSizeWidth <= 0 || jobInput.jobSizeHeight <= 0 || jobInput.quantityToProduce <=0) {
         console.log('[JobActions TS Calc] Invalid job dimensions or quantity to produce. Returning empty suggestions.');
         return { suggestions: [], optimalSuggestion: undefined };
     }
@@ -219,7 +231,7 @@ export async function getInventoryOptimizationSuggestions(
             wastagePercentage = 100 - (usedArea / sheetArea) * 100;
         }
 
-        const totalMasterSheetsNeeded = Math.ceil(jobInput.quantityToProduce / layoutInfo.ups); // Use quantityToProduce
+        const totalMasterSheetsNeeded = Math.ceil(jobInput.quantityToProduce / layoutInfo.ups);
 
         const suggestion: InventorySuggestion = {
           sourceInventoryItemId: sheet.id,
