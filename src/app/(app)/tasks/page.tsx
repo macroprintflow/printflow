@@ -1,20 +1,23 @@
 
+"use client"; // Ensure this is a client component for onClick handlers
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { 
   FileCheck2, 
   Scissors, 
   Printer, 
-  Palette, // Changed from Wand2
+  Palette,
   Film, 
-  Focus, // Changed from Crop
+  Focus,
   Sparkles, 
-  Layers, // Changed from ClipboardPaste
+  Layers,
   Box, 
   Package,
   FileSpreadsheet,
   Workflow,
-  CheckSquare
+  CheckSquare,
+  QrCode // Added QrCode icon
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -41,16 +44,26 @@ const departmentSteps: DepartmentTaskStep[] = [
 
 export default function TasksPage() {
 
+  const handleScanQrCode = () => {
+    console.log("Scan QR Code button clicked. Functionality to be implemented.");
+    // Future implementation would involve camera access and QR code reading logic.
+  };
+
   return (
     <div className="space-y-6">
       <Card className="shadow-xl">
-        <CardHeader>
-          <CardTitle className="font-headline flex items-center text-2xl">
-            <Workflow className="mr-3 h-8 w-8 text-primary" /> Departmental Task Queues
-          </CardTitle>
-          <CardDescription className="font-body">
-            View tasks assigned to each department. Click on a department to see specific jobs and mark them as complete.
-          </CardDescription>
+        <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <CardTitle className="font-headline flex items-center text-2xl">
+              <Workflow className="mr-3 h-8 w-8 text-primary" /> Departmental Task Queues
+            </CardTitle>
+            <CardDescription className="font-body">
+              View tasks assigned to each department. Click on a department to see specific jobs and mark them as complete.
+            </CardDescription>
+          </div>
+          <Button onClick={handleScanQrCode} className="font-body w-full sm:w-auto">
+            <QrCode className="mr-2 h-5 w-5" /> Scan QR Code
+          </Button>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
