@@ -62,6 +62,7 @@ export default function LoginPage() {
   const recaptchaContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // Ensure window.recaptchaVerifier is cleared on unmount if it exists
     return () => {
       if (window.recaptchaVerifier) {
         try {
@@ -87,35 +88,41 @@ export default function LoginPage() {
       return null;
     }
 
+    // Clear any existing verifier first (Firebase might manage its own internal instances too)
+    if (window.recaptchaVerifier) {
+        console.log("LoginPage: Clearing existing window.recaptchaVerifier instance.");
+        window.recaptchaVerifier.clear();
+    }
+    
     try {
-      if (window.recaptchaVerifier) {
-        console.log("LoginPage: Clearing existing RecaptchaVerifier instance before creating a new one.");
-        window.recaptchaVerifier.clear(); 
-      }
       console.log("LoginPage: Attempting to create new RecaptchaVerifier instance for element:", recaptchaContainerRef.current);
-      window.recaptchaVerifier = new RecaptchaVerifier(auth, recaptchaContainerRef.current, {
+      const verifier = new RecaptchaVerifier(auth, recaptchaContainerRef.current, {
         size: 'invisible',
-        callback: (response: any) => { // Changed from 'callback'
+        callback: (response: any) => {
           console.log("LoginPage: reCAPTCHA solved (callback). Response:", response);
+          // This callback is usually for when reCAPTCHA is solved, often automatically for invisible.
+          // The main action is triggered by signInWithPhoneNumber.
         },
         'expired-callback': () => {
           console.warn("LoginPage: reCAPTCHA expired (expired-callback).");
           toast({ title: "reCAPTCHA Expired", description: "Please try sending OTP again.", variant: "destructive" });
+          // Optionally, you might want to re-render or ask the user to try again.
         }
       });
-      console.log("LoginPage: RecaptchaVerifier instance CREATED successfully.");
-      return window.recaptchaVerifier;
+      console.log("LoginPage: New RecaptchaVerifier instance CREATED successfully.");
+      window.recaptchaVerifier = verifier; // Store on window if needed for other potential flows or debugging.
+      return verifier; // Return the instance directly.
     } catch (error: any) {
         console.error("LoginPage: CRITICAL ERROR during new RecaptchaVerifier():", error);
-        let userMessage = `Failed to initialize reCAPTCHA (Code: ${error.code || 'N/A'}). Please ensure your exact hosting domain is authorized in Google Cloud for the reCAPTCHA key and your Firebase project has billing enabled for Phone Auth. Common issues include network errors, misconfigured API keys, or unauthorized domains. Check the browser console for more details. Original Error: ${error.message}`;
+        let userMessage = `Failed to initialize reCAPTCHA (Code: ${error.code || 'N/A'}). Ensure your domain is authorized in Google Cloud for the reCAPTCHA key and your Firebase project has billing enabled (Blaze plan) for Phone Auth. Original Error: ${error.message}`;
         if (error.code === 'auth/network-request-failed') {
             userMessage = "Network error during reCAPTCHA setup. Check internet connection and Firebase/Google Cloud domain whitelisting.";
         } else if (error.code === 'auth/internal-error' && error.message?.includes("reCAPTCHA")) {
-            userMessage = "reCAPTCHA internal error. Ensure your exact hosting domain (e.g. your-project.web.app or custom domain) is authorized in Google Cloud Console for the reCAPTCHA key. Also, check if your Firebase project has billing enabled (Blaze plan), as Phone Auth requires it.";
+            userMessage = "reCAPTCHA internal error. Ensure your exact hosting domain is authorized in Google Cloud Console for the reCAPTCHA key, and your Firebase project has billing enabled (Blaze plan).";
         } else if (error.code === 'auth/argument-error') {
             userMessage = "reCAPTCHA setup argument error. This might be an issue with the container element or auth instance."
         } else if (error.code === 'auth/captcha-check-failed') {
-            userMessage = `reCAPTCHA check failed. Error: ${error.message}. This usually means the domain your app is running on (check browser URL bar) is not whitelisted in your reCAPTCHA key settings in Google Cloud Console.`;
+             userMessage = `reCAPTCHA check failed (Hostname match not found). Error: ${error.message}. The domain your app is running on (check browser URL bar) is NOT whitelisted for the reCAPTCHA key in Google Cloud Console.`;
         }
         toast({ title: "reCAPTCHA Setup Error", description: userMessage, variant: "destructive", duration: 15000 });
         return null;
@@ -129,7 +136,7 @@ export default function LoginPage() {
       await signInWithEmailAndPassword(auth, email, password);
       toast({ title: 'Login Successful', description: 'Welcome back!' });
       router.push('/dashboard');
-    } catch (error: any) {
+    } catch (error: any)      {
       console.error("Email Login error:", error);
       toast({
         title: 'Login Failed',
@@ -148,8 +155,8 @@ export default function LoginPage() {
 
     if (!otpSent) { 
       console.log("LoginPage: OTP not sent yet, proceeding to send OTP.");
-      const recaptchaVerifier = setupRecaptcha();
-      if (!recaptchaVerifier) {
+      const appVerifier = setupRecaptcha(); // Use the directly returned instance
+      if (!appVerifier) {
           console.error("LoginPage: OTP Send - reCAPTCHA verifier setup failed or returned null. Aborting OTP send.");
           setIsLoading(false);
           return;
@@ -169,11 +176,11 @@ export default function LoginPage() {
         return;
       }
 
-      console.log(`LoginPage: Attempting signInWithPhoneNumber with ${fullPhoneNumber} and appVerifier:`, recaptchaVerifier);
+      console.log(`LoginPage: Attempting signInWithPhoneNumber with ${fullPhoneNumber} and appVerifier from setupRecaptcha.`);
       try {
-        window.loginConfirmationResult = await signInWithPhoneNumber(auth, fullPhoneNumber, recaptchaVerifier);
+        window.loginConfirmationResult = await signInWithPhoneNumber(auth, fullPhoneNumber, appVerifier);
         setOtpSent(true);
-        toast({ title: 'OTP sent', description: `An OTP has been sent to ${fullPhoneNumber}.` });
+        toast({ title: 'OTP Sent', description: `An OTP has been sent to ${fullPhoneNumber}.` });
         console.log("LoginPage: OTP Sent, loginConfirmationResult stored:", window.loginConfirmationResult);
       } catch (error: any) {
         console.error(`LoginPage: Error during signInWithPhoneNumber for ${fullPhoneNumber}:`, error);
@@ -182,18 +189,19 @@ export default function LoginPage() {
             errorDesc = "The phone number provided is not valid.";
         } else if (error.code === 'auth/too-many-requests') {
             errorDesc = "Too many requests for this number. Please try again later.";
-        } else if (error.code === 'auth/captcha-check-failed' || error.message?.includes("reCAPTCHA") || error.message?.includes("domain")) {
-            errorDesc = `reCAPTCHA verification failed. Error: ${error.message}. Ensure your exact hosting domain (e.g., your-project.web.app, localhost if testing locally with custom keys, or your App Hosting domain) is authorized in Google Cloud Console for the reCAPTCHA key. Also, check that 'Identity Toolkit API' and 'Firebase Installations API' are enabled in Google Cloud, and that your Firebase project has billing enabled (Blaze plan).`;
+        } else if (error.code === 'auth/captcha-check-failed') {
+            errorDesc = `reCAPTCHA verification failed (Error: ${error.message}). Ensure your exact hosting domain (e.g., your-project.web.app, localhost, or App Hosting domain) is whitelisted in Google Cloud Console for the reCAPTCHA key. Also check Firebase project billing (Blaze plan) and enabled APIs.`;
         } else if (error.code === 'auth/missing-phone-number') {
             errorDesc = "Phone number is missing. Please enter your phone number.";
         } else if (error.message?.toLowerCase().includes("missing or insufficient permissions") || error.message?.toLowerCase().includes("billing")) {
-            errorDesc = "Failed to send OTP. This might be due to project billing not being enabled or insufficient permissions. Please check your Firebase project settings (Blaze plan required) and enabled APIs (Identity Toolkit, Firebase Installations).";
+            errorDesc = "Failed to send OTP. Check project billing (Blaze plan required) and enabled APIs (Identity Toolkit, Firebase Installations).";
         } else if (error.code === 'auth/network-request-failed') {
             errorDesc = "Network error while trying to send OTP. Please check your internet connection.";
         }
         toast({ title: 'Failed to Send OTP', description: errorDesc, variant: 'destructive', duration: 15000 });
-        if (window.recaptchaVerifier) {
-            try { window.recaptchaVerifier.clear(); console.log("LoginPage: RecaptchaVerifier cleared after signInWithPhoneNumber error."); } catch(e) { console.warn("LoginPage: Error clearing verifier post signInWithPhoneNumber error", e); }
+        // Attempt to clear the verifier if it was successfully created but signInWithPhoneNumber failed
+        if (appVerifier) {
+            try { appVerifier.clear(); console.log("LoginPage: appVerifier cleared after signInWithPhoneNumber error."); } catch(e) { console.warn("LoginPage: Error clearing appVerifier post signInWithPhoneNumber error", e); }
         }
       } finally {
         setIsLoading(false);
