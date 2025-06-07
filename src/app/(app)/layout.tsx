@@ -62,7 +62,7 @@ const allNavItems: NavItem[] = [
   { href: '/customer/my-jobs', label: 'My Jobs', icon: ShoppingBag, allowedRoles: ['Customer'] },
 ];
 
-const ADMIN_EMAIL = "kuvam@macroprinters.com"; 
+const ADMIN_EMAIL = "kuvam@macroprinters.com".toLowerCase(); 
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -82,7 +82,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       router.push('/login'); 
     } else if (user && user.email) { 
       let actualRole: UserRole;
-      if (user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+      if (user.email.toLowerCase() === ADMIN_EMAIL) {
         actualRole = "Admin";
       } else {
         actualRole = "Customer"; // Default non-admin to Customer
@@ -90,14 +90,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       // Only set effectiveUserRole if it hasn't been set by the dev tool already
       // This check ensures that if the user switches role, it persists through re-renders
       // unless the underlying user (auth state) changes.
-      if (effectiveUserRole === "Customer" || user.email.toLowerCase() !== ADMIN_EMAIL.toLowerCase()){
+      if (effectiveUserRole === "Customer" || user.email.toLowerCase() !== ADMIN_EMAIL){
          setEffectiveUserRole(actualRole);
-      } else if (user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase() && effectiveUserRole !== "Admin" && effectiveUserRole !== "Manager" && effectiveUserRole !== "Departmental") {
+      } else if (user.email.toLowerCase() === ADMIN_EMAIL && effectiveUserRole !== "Admin" && effectiveUserRole !== "Manager" && effectiveUserRole !== "Departmental") {
          // If admin logs in and dev tool role was 'Customer', reset to Admin
          setEffectiveUserRole("Admin");
       }
     }
-  }, [user, loading, router]); // Removed effectiveUserRole from deps to avoid loop with setEffectiveUserRole
+  }, [user, loading, router, effectiveUserRole]); // effectiveUserRole added to deps to re-evaluate if it changes
 
   const handleLogout = async () => {
     try {
@@ -123,7 +123,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     item.allowedRoles.includes(effectiveUserRole)
   );
   
-  const isDesignatedAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+  const isDesignatedAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
 
   return (
     <ClientOnlyWrapper>
@@ -165,8 +165,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                       <AvatarFallback>{userDisplayName.charAt(0).toUpperCase()}</AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col items-start group-data-[collapsible=icon]:hidden">
-                      <span className="text-sm font-medium text-sidebar-foreground">{userDisplayName}</span>
-                      <span className="text-xs text-sidebar-foreground/70">{userRoleDisplay}</span>
+                      <span className="text-sm font-medium text-white">{userDisplayName}</span> {/* Changed to text-white */}
+                      <span className="text-xs text-white/70">{userRoleDisplay}</span> {/* Changed to text-white/70 */}
                     </div>
                 </Button>
               </DropdownMenuTrigger>
@@ -238,3 +238,4 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     </ClientOnlyWrapper>
   );
 }
+
