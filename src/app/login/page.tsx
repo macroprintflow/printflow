@@ -105,15 +105,15 @@ export default function LoginPage() {
       return window.recaptchaVerifier;
     } catch (error: any) {
         console.error("Login Page: Critical Error initializing RecaptchaVerifier:", error);
-        let userMessage = "Failed to initialize reCAPTCHA. Please ensure your domain is authorized in Google Cloud for the reCAPTCHA key and your Firebase project has billing enabled for Phone Auth. Common issues include network errors, misconfigured API keys, or unauthorized domains.";
+        let userMessage = `Failed to initialize reCAPTCHA (Code: ${error.code || 'N/A'}). Please ensure your exact hosting domain is authorized in Google Cloud for the reCAPTCHA key and your Firebase project has billing enabled for Phone Auth. Common issues include network errors, misconfigured API keys, or unauthorized domains. Check the browser console for more details.`;
         if (error.code === 'auth/network-request-failed') {
             userMessage = "Network error during reCAPTCHA setup. Check internet connection and Firebase/Google Cloud domain whitelisting.";
         } else if (error.code === 'auth/internal-error' && error.message?.includes("reCAPTCHA")) {
-            userMessage = "reCAPTCHA internal error. Ensure your domain is authorized in Google Cloud Console for the reCAPTCHA key. Also, check if your Firebase project has billing enabled, as Phone Auth requires it.";
+            userMessage = "reCAPTCHA internal error. Ensure your exact hosting domain (e.g. your-project.web.app or custom domain) is authorized in Google Cloud Console for the reCAPTCHA key. Also, check if your Firebase project has billing enabled (Blaze plan), as Phone Auth requires it.";
         } else if (error.code === 'auth/argument-error') {
             userMessage = "reCAPTCHA setup argument error. This might be an issue with the container element or auth instance."
         }
-        toast({ title: "reCAPTCHA Setup Error", description: userMessage, variant: "destructive", duration: 10000 });
+        toast({ title: "reCAPTCHA Setup Error", description: userMessage, variant: "destructive", duration: 12000 });
         return null;
     }
   };
@@ -162,27 +162,29 @@ export default function LoginPage() {
         return;
       }
 
-      console.log(`Attempting to send OTP to ${fullPhoneNumber} (Login Page)`);
+      console.log(`Login Page: Attempting to send OTP to ${fullPhoneNumber}`);
       try {
         window.loginConfirmationResult = await signInWithPhoneNumber(auth, fullPhoneNumber, recaptchaVerifier);
         setOtpSent(true);
         toast({ title: 'OTP Sent', description: `An OTP has been sent to ${fullPhoneNumber}.` });
-        console.log("OTP sent (Login Page)");
+        console.log("Login Page: OTP Sent, loginConfirmationResult stored.");
       } catch (error: any) {
-        console.error("Error during signInWithPhoneNumber (Login Page)", error);
-        let errorDesc = "Could not send OTP. " + (error.message || "Please try again.");
-         if (error.code === 'auth/invalid-phone-number') {
+        console.error("Login Page: Error sending OTP:", error);
+        let errorDesc = `Could not send OTP. Error: ${error.code || 'UNKNOWN_ERROR'}. ${error.message || "Please try again."}`;
+        if (error.code === 'auth/invalid-phone-number') {
             errorDesc = "The phone number provided is not valid.";
         } else if (error.code === 'auth/too-many-requests') {
-            errorDesc = "Too many requests. Please try again later.";
-        } else if (error.code === 'auth/captcha-check-failed' || error.message?.includes("reCAPTCHA")) {
-            errorDesc = "reCAPTCHA verification failed. Ensure your domain is authorized for reCAPTCHA in Google Cloud Console and Firebase project billing is active.";
+            errorDesc = "Too many requests for this number. Please try again later.";
+        } else if (error.code === 'auth/captcha-check-failed' || error.message?.includes("reCAPTCHA") || error.message?.includes("domain")) {
+            errorDesc = "reCAPTCHA verification failed. Ensure your exact hosting domain (e.g., your-project.web.app, localhost if testing locally with custom keys, or your App Hosting domain) is authorized in Google Cloud Console for the reCAPTCHA key. Also, check that 'Identity Toolkit API' and 'Firebase Installations API' are enabled in Google Cloud, and that your Firebase project has billing enabled (Blaze plan).";
         } else if (error.code === 'auth/missing-phone-number') {
             errorDesc = "Phone number is missing. Please enter your phone number.";
         } else if (error.message?.toLowerCase().includes("missing or insufficient permissions") || error.message?.toLowerCase().includes("billing")) {
-            errorDesc = "Failed to send OTP. This might be due to project billing not being enabled or insufficient permissions. Please check your Firebase project settings.";
+            errorDesc = "Failed to send OTP. This might be due to project billing not being enabled or insufficient permissions. Please check your Firebase project settings (Blaze plan required) and enabled APIs (Identity Toolkit, Firebase Installations).";
+        } else if (error.code === 'auth/network-request-failed') {
+            errorDesc = "Network error while trying to send OTP. Please check your internet connection.";
         }
-        toast({ title: 'Failed to Send OTP', description: errorDesc, variant: 'destructive', duration: 8000 });
+        toast({ title: 'Failed to Send OTP', description: errorDesc, variant: 'destructive', duration: 12000 });
         if (window.recaptchaVerifier) window.recaptchaVerifier.clear();
       } finally {
         setIsLoading(false);
@@ -201,12 +203,12 @@ export default function LoginPage() {
       console.log("Login Page: Attempting to verify OTP " + otp);
       try {
         const result = await window.loginConfirmationResult.confirm(otp);
-        console.log("User signed in (Login Page)", result.user);
+        console.log("Login Page: User signed in.", result.user);
         toast({ title: 'Phone Login Successful', description: 'Welcome back!' });
         router.push('/dashboard');
       } catch (error: any) {
-        console.error("Invalid OTP (Login Page)", error);
-        let errorDesc = "Could not verify OTP. " + (error.message || "Incorrect OTP or an error occurred.");
+        console.error("Login Page: Invalid OTP or error during confirmation:", error);
+        let errorDesc = `Could not verify OTP. Error: ${error.code || 'UNKNOWN_ERROR'}. ${error.message || "Incorrect OTP or an error occurred."}`;
         if (error.code === 'auth/invalid-verification-code') {
             errorDesc = "The OTP entered is incorrect. Please try again.";
         } else if (error.code === 'auth/code-expired') {
@@ -228,7 +230,7 @@ export default function LoginPage() {
       router.push('/dashboard');
     } catch (error: any) {
       console.error("Google Sign-In error:", error);
-      let errorMessage = 'Could not sign in with Google. Please try again.';
+      let errorMessage = `Could not sign in with Google. Error: ${error.code || 'UNKNOWN_ERROR'}. ${error.message || "Please try again."}`;
       if (error.code === 'auth/account-exists-with-different-credential') {
         errorMessage = 'An account already exists with the same email address but different sign-in credentials. Try signing in using the original method.';
       } else if (error.code === 'auth/popup-closed-by-user') {
