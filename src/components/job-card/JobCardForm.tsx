@@ -186,7 +186,7 @@ export function JobCardForm({ initialJobName, initialCustomerName }: JobCardForm
         const jobs = await getJobsByCustomerName(customerName);
         setJobsForCustomer(jobs);
       } catch (error) {
-        toast({ title: "Error", description: \`Could not fetch jobs for \${customerName}.\`, variant: "destructive" });
+        toast({ title: "Error", description: `Could not fetch jobs for ${customerName}.`, variant: "destructive" });
         setJobsForCustomer([]);
       } finally {
         setIsLoadingJobsForCustomer(false);
@@ -215,7 +215,7 @@ export function JobCardForm({ initialJobName, initialCustomerName }: JobCardForm
   };
 
   const handleJobSuggestionClick = (job: JobCardData) => {
-    setJobInputValue(\`\${job.jobName} (\${job.jobCardNumber || job.id})\`);
+    setJobInputValue(`${job.jobName} (${job.jobCardNumber || job.id})`);
     setSelectedPastJobId(job.id!);
     setIsJobPopoverOpen(false);
 
@@ -223,7 +223,7 @@ export function JobCardForm({ initialJobName, initialCustomerName }: JobCardForm
     const pastJobUnit = getPaperQualityUnit(pastJobPaperQuality as PaperQualityType);
 
     form.reset({ 
-      jobName: \`Repeat - \${job.jobName}\`, 
+      jobName: `Repeat - ${job.jobName}`, 
       customerName: job.customerName,
       jobSizeWidth: job.jobSizeWidth,
       jobSizeHeight: job.jobSizeHeight,
@@ -315,34 +315,34 @@ export function JobCardForm({ initialJobName, initialCustomerName }: JobCardForm
         .sort((a, b) => a.order - b.order)
         .map(step => {
           const stepDef = PRODUCTION_PROCESS_STEPS.find(s => s.slug === step.stepSlug);
-          return \`<li>\${step.order}. \${stepDef ? stepDef.name : step.stepSlug}</li>\`;
+          return `<li>${step.order}. ${stepDef ? stepDef.name : step.stepSlug}</li>`;
         })
         .join('');
     };
   
     const getPaperSpecDisplay = (jc: JobCardData) => {
-        let spec = \`\${getPaperQualityLabel(jc.paperQuality as PaperQualityType)}\`;
+        let spec = `${getPaperQualityLabel(jc.paperQuality as PaperQualityType)}`;
         const unit = getPaperQualityUnit(jc.paperQuality as PaperQualityType);
-        if (unit === 'gsm' && jc.paperGsm) spec += \` \${jc.paperGsm} GSM\`;
-        if (unit === 'mm' && jc.targetPaperThicknessMm) spec += \` \${jc.targetPaperThicknessMm}mm\`;
+        if (unit === 'gsm' && jc.paperGsm) spec += ` ${jc.paperGsm} GSM`;
+        if (unit === 'mm' && jc.targetPaperThicknessMm) spec += ` ${jc.targetPaperThicknessMm}mm`;
         return spec;
     };
 
     const getSelectedMasterPaperSpecDisplay = (jc: JobCardData) => {
         if (!jc.selectedMasterSheetQuality) return 'N/A';
-        let spec = \`\${getPaperQualityLabel(jc.selectedMasterSheetQuality as PaperQualityType)}\`;
+        let spec = `${getPaperQualityLabel(jc.selectedMasterSheetQuality as PaperQualityType)}`;
         const unit = getPaperQualityUnit(jc.selectedMasterSheetQuality as PaperQualityType);
-        if (unit === 'gsm' && jc.selectedMasterSheetGsm) spec += \` \${jc.selectedMasterSheetGsm} GSM\`;
-        if (unit === 'mm' && jc.selectedMasterSheetThicknessMm) spec += \` \${jc.selectedMasterSheetThicknessMm}mm\`;
+        if (unit === 'gsm' && jc.selectedMasterSheetGsm) spec += ` ${jc.selectedMasterSheetGsm} GSM`;
+        if (unit === 'mm' && jc.selectedMasterSheetThicknessMm) spec += ` ${jc.selectedMasterSheetThicknessMm}mm`;
         return spec;
     };
   
     const printWindow = window.open('', '_blank', 'height=800,width=800');
     if (printWindow) {
-      printWindow.document.write(\`
+      printWindow.document.write(`
         <html>
           <head>
-            <title>Job Card - \${jobCard.jobCardNumber || 'New Job'}</title>
+            <title>Job Card - ${jobCard.jobCardNumber || 'New Job'}</title>
             <style>
               body { font-family: Arial, sans-serif; margin: 20px; color: #333; font-size: 12px; }
               .print-container { width: 100%; max-width: 750px; margin: auto; }
@@ -373,63 +373,63 @@ export function JobCardForm({ initialJobName, initialCustomerName }: JobCardForm
           <body>
             <div class="print-container">
               <div class="header">
-                <img src="\${logoUrl}" alt="Company Logo" />
+                <img src="${logoUrl}" alt="Company Logo" />
                 <h1>Job Card</h1>
               </div>
   
               <div class="job-details">
                 <div class="section-title">Job Information</div>
                 <table>
-                  <tr><th style="width:150px;">Job Card No.</th><td>\${jobCard.jobCardNumber || 'N/A'}</td><th style="width:100px;">Date</th><td>\${new Date(jobCard.date).toLocaleDateString()}</td></tr>
-                  <tr><th>Job Name</th><td colspan="3">\${jobCard.jobName}</td></tr>
-                  <tr><th>Customer Name</th><td colspan="3">\${jobCard.customerName}</td></tr>
-                  <tr><th>Dispatch Date</th><td colspan="3">\${jobCard.dispatchDate ? new Date(jobCard.dispatchDate).toLocaleDateString() : 'N/A'}</td></tr>
+                  <tr><th style="width:150px;">Job Card No.</th><td>${jobCard.jobCardNumber || 'N/A'}</td><th style="width:100px;">Date</th><td>${new Date(jobCard.date).toLocaleDateString()}</td></tr>
+                  <tr><th>Job Name</th><td colspan="3">${jobCard.jobName}</td></tr>
+                  <tr><th>Customer Name</th><td colspan="3">${jobCard.customerName}</td></tr>
+                  <tr><th>Dispatch Date</th><td colspan="3">${jobCard.dispatchDate ? new Date(jobCard.dispatchDate).toLocaleDateString() : 'N/A'}</td></tr>
                 </table>
               </div>
   
               <div class="paper-details">
                 <div class="section-title">Paper & Quantity</div>
                 <table>
-                  <tr><th style="width:150px;">Target Paper</th><td>\${getPaperSpecDisplay(jobCard)}</td><th style="width:100px;">Net Qty</th><td>\${jobCard.netQuantity.toLocaleString()}</td></tr>
-                  <tr><th>Job Size (WxH)</th><td>\${jobCard.jobSizeWidth}in x \${jobCard.jobSizeHeight}in</td><th>Gross Qty</th><td>\${jobCard.grossQuantity.toLocaleString()} sheets</td></tr>
+                  <tr><th style="width:150px;">Target Paper</th><td>${getPaperSpecDisplay(jobCard)}</td><th style="width:100px;">Net Qty</th><td>${jobCard.netQuantity.toLocaleString()}</td></tr>
+                  <tr><th>Job Size (WxH)</th><td>${jobCard.jobSizeWidth}in x ${jobCard.jobSizeHeight}in</td><th>Gross Qty</th><td>${jobCard.grossQuantity.toLocaleString()} sheets</td></tr>
                   <tr><th colspan="4" style="text-align:center; background-color:#e0e0e0;">Selected Master Sheet Details (from Inventory)</th></tr>
-                  <tr><th>Master Sheet</th><td>\${jobCard.masterSheetSizeWidth?.toFixed(2) || 'N/A'}in x \${jobCard.masterSheetSizeHeight?.toFixed(2) || 'N/A'}in</td><th>Ups / Master</th><td>\${jobCard.sheetsPerMasterSheet || 'N/A'}</td></tr>
-                  <tr><th>Master Paper</th><td>\${getSelectedMasterPaperSpecDisplay(jobCard)}</td><th>Wastage</th><td>\${jobCard.wastagePercentage?.toFixed(2) || 'N/A'}%</td></tr>
-                  <tr><th>Cutting Layout</th><td colspan="3">\${jobCard.cuttingLayoutDescription || 'N/A'}</td></tr>
+                  <tr><th>Master Sheet</th><td>${jobCard.masterSheetSizeWidth?.toFixed(2) || 'N/A'}in x ${jobCard.masterSheetSizeHeight?.toFixed(2) || 'N/A'}in</td><th>Ups / Master</th><td>${jobCard.sheetsPerMasterSheet || 'N/A'}</td></tr>
+                  <tr><th>Master Paper</th><td>${getSelectedMasterPaperSpecDisplay(jobCard)}</td><th>Wastage</th><td>${jobCard.wastagePercentage?.toFixed(2) || 'N/A'}%</td></tr>
+                  <tr><th>Cutting Layout</th><td colspan="3">${jobCard.cuttingLayoutDescription || 'N/A'}</td></tr>
                 </table>
               </div>
               
               <div class="workflow-details">
                 <div class="section-title">Job Workflow</div>
-                <ul>\${formatWorkflowSteps(jobCard.workflowSteps)}</ul>
+                <ul>${formatWorkflowSteps(jobCard.workflowSteps)}</ul>
               </div>
   
               <div class="process-details">
                 <div class="section-title">Process Specifications</div>
                 <table>
-                  \${jobCard.kindOfJob ? \`<tr><th style="width:150px;">Kind of Job</th><td>\${KINDS_OF_JOB_OPTIONS.find(o=>o.value === jobCard.kindOfJob)?.label || jobCard.kindOfJob}</td></tr>\` : ''}
-                  \${jobCard.printingFront ? \`<tr><th>Printing Front</th><td>\${PRINTING_MACHINE_OPTIONS.find(o=>o.value === jobCard.printingFront)?.label || jobCard.printingFront}</td></tr>\` : ''}
-                  \${jobCard.printingBack ? \`<tr><th>Printing Back</th><td>\${PRINTING_MACHINE_OPTIONS.find(o=>o.value === jobCard.printingBack)?.label || jobCard.printingBack}</td></tr>\` : ''}
-                  \${jobCard.coating ? \`<tr><th>Coating</th><td>\${COATING_OPTIONS.find(o=>o.value === jobCard.coating)?.label || jobCard.coating}</td></tr>\` : ''}
-                  \${jobCard.specialInks ? \`<tr><th>Special Inks</th><td>\${jobCard.specialInks}</td></tr>\` : ''}
-                  \${jobCard.die ? \`<tr><th>Die</th><td>\${DIE_OPTIONS.find(o=>o.value === jobCard.die)?.label || jobCard.die}</td></tr>\` : ''}
-                  \${jobCard.assignedDieMachine ? \`<tr><th>Assigned Die Machine</th><td>\${DIE_MACHINE_OPTIONS.find(o=>o.value === jobCard.assignedDieMachine)?.label || jobCard.assignedDieMachine}</td></tr>\` : ''}
-                  \${jobCard.hotFoilStamping ? \`<tr><th>Hot Foil Stamping</th><td>\${HOT_FOIL_OPTIONS.find(o=>o.value === jobCard.hotFoilStamping)?.label || jobCard.hotFoilStamping}</td></tr>\` : ''}
-                  \${jobCard.emboss ? \`<tr><th>Emboss</th><td>\${YES_NO_OPTIONS.find(o=>o.value === jobCard.emboss)?.label || jobCard.emboss}</td></tr>\` : ''}
-                  \${jobCard.pasting ? \`<tr><th>Pasting</th><td>\${YES_NO_OPTIONS.find(o=>o.value === jobCard.pasting)?.label || jobCard.pasting}</td></tr>\` : ''}
-                  \${jobCard.boxMaking ? \`<tr><th>Box Making</th><td>\${BOX_MAKING_OPTIONS.find(o=>o.value === jobCard.boxMaking)?.label || jobCard.boxMaking}</td></tr>\` : ''}
+                  ${jobCard.kindOfJob ? `<tr><th style="width:150px;">Kind of Job</th><td>${KINDS_OF_JOB_OPTIONS.find(o=>o.value === jobCard.kindOfJob)?.label || jobCard.kindOfJob}</td></tr>` : ''}
+                  ${jobCard.printingFront ? `<tr><th>Printing Front</th><td>${PRINTING_MACHINE_OPTIONS.find(o=>o.value === jobCard.printingFront)?.label || jobCard.printingFront}</td></tr>` : ''}
+                  ${jobCard.printingBack ? `<tr><th>Printing Back</th><td>${PRINTING_MACHINE_OPTIONS.find(o=>o.value === jobCard.printingBack)?.label || jobCard.printingBack}</td></tr>` : ''}
+                  ${jobCard.coating ? `<tr><th>Coating</th><td>${COATING_OPTIONS.find(o=>o.value === jobCard.coating)?.label || jobCard.coating}</td></tr>` : ''}
+                  ${jobCard.specialInks ? `<tr><th>Special Inks</th><td>${jobCard.specialInks}</td></tr>` : ''}
+                  ${jobCard.die ? `<tr><th>Die</th><td>${DIE_OPTIONS.find(o=>o.value === jobCard.die)?.label || jobCard.die}</td></tr>` : ''}
+                  ${jobCard.assignedDieMachine ? `<tr><th>Assigned Die Machine</th><td>${DIE_MACHINE_OPTIONS.find(o=>o.value === jobCard.assignedDieMachine)?.label || jobCard.assignedDieMachine}</td></tr>` : ''}
+                  ${jobCard.hotFoilStamping ? `<tr><th>Hot Foil Stamping</th><td>${HOT_FOIL_OPTIONS.find(o=>o.value === jobCard.hotFoilStamping)?.label || jobCard.hotFoilStamping}</td></tr>` : ''}
+                  ${jobCard.emboss ? `<tr><th>Emboss</th><td>${YES_NO_OPTIONS.find(o=>o.value === jobCard.emboss)?.label || jobCard.emboss}</td></tr>` : ''}
+                  ${jobCard.pasting ? `<tr><th>Pasting</th><td>${YES_NO_OPTIONS.find(o=>o.value === jobCard.pasting)?.label || jobCard.pasting}</td></tr>` : ''}
+                  ${jobCard.boxMaking ? `<tr><th>Box Making</th><td>${BOX_MAKING_OPTIONS.find(o=>o.value === jobCard.boxMaking)?.label || jobCard.boxMaking}</td></tr>` : ''}
                 </table>
               </div>
   
               <div class="remarks-details">
                 <div class="section-title">Remarks</div>
-                <div class="remarks-text">\${jobCard.remarks || 'No remarks.'}</div>
+                <div class="remarks-text">${jobCard.remarks || 'No remarks.'}</div>
               </div>
   
             </div>
           </body>
         </html>
-      \`);
+      `);
       printWindow.document.close();
       printWindow.focus();
       setTimeout(() => {
@@ -501,7 +501,7 @@ export function JobCardForm({ initialJobName, initialCustomerName }: JobCardForm
       setJobInputValue("");
       setSelectedPastJobId("");
       setJobsForCustomer([]); // Clear jobs list for the previous customer
-      router.push(\`/jobs\`);
+      router.push(`/jobs`);
     } else {
       toast({
         title: "Error",
@@ -886,7 +886,7 @@ export function JobCardForm({ initialJobName, initialCustomerName }: JobCardForm
                           {selectedStep.order}
                         </span>
                        )}
-                       <step.icon className={\`mr-1.5 h-4 w-4 \${selectedStep ? 'text-primary' : 'text-muted-foreground'}\`} />
+                       <step.icon className={`mr-1.5 h-4 w-4 ${selectedStep ? 'text-primary' : 'text-muted-foreground'}`} />
                        {step.name}
                     </div>
                   </Button>
@@ -932,7 +932,7 @@ export function JobCardForm({ initialJobName, initialCustomerName }: JobCardForm
                   <FormItem>
                     <FormLabel>{item.label}</FormLabel>
                     <Select onValueChange={field.onChange} value={String(field.value || "")}>
-                      <FormControl><SelectTrigger className="font-body"><SelectValue placeholder={\`Select \${item.label.toLowerCase()}\`} /></SelectTrigger></FormControl>
+                      <FormControl><SelectTrigger className="font-body"><SelectValue placeholder={`Select ${item.label.toLowerCase()}`} /></SelectTrigger></FormControl>
                       <SelectContent>
                         {item.options.filter(opt => opt.value !== "").map(option => (
                           <SelectItem key={option.value} value={option.value} className="font-body">{option.label}</SelectItem>
