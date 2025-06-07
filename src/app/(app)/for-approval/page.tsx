@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { UploadCloud, FileText, CheckCircle, Send, Loader2, AlertTriangle } from "lucide-react";
+import { UploadCloud, FileText, CheckCircle, Send, Loader2, AlertTriangle, Eye } from "lucide-react"; // Added Eye icon
 import { useState, type FormEvent, type ChangeEvent, useEffect, useCallback } from "react";
 import type { DesignSubmission, SubmitDesignInput, SubmitDesignOutput } from "@/lib/definitions";
 import { submitDesignForApproval } from "@/ai/flows/design-submission-flow";
@@ -226,16 +226,29 @@ export default function ForApprovalPage() {
                       </p>
                     </div>
                   </div>
-                  {design.status === 'pending' && (
-                    <div className="flex gap-2 mt-2 sm:mt-0 flex-shrink-0">
-                      <Button variant="outline" size="sm" onClick={() => handleApproval(design.id, true)} className="font-body">
-                        <CheckCircle className="mr-1 h-4 w-4 text-green-500" /> Approve
+                  <div className="flex gap-2 mt-2 sm:mt-0 flex-shrink-0 items-center">
+                    {design.pdfDataUri && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(design.pdfDataUri!, '_blank')}
+                        className="font-body"
+                        title="View PDF"
+                      >
+                        <Eye className="mr-1 h-4 w-4" /> View PDF
                       </Button>
-                      <Button variant="outline" size="sm" onClick={() => handleApproval(design.id, false)} className="font-body text-red-600 border-red-600 hover:bg-red-50">
-                         <AlertTriangle className="mr-1 h-4 w-4" /> Reject
-                      </Button>
-                    </div>
-                  )}
+                    )}
+                    {design.status === 'pending' && (
+                      <>
+                        <Button variant="outline" size="sm" onClick={() => handleApproval(design.id, true)} className="font-body">
+                          <CheckCircle className="mr-1 h-4 w-4 text-green-500" /> Approve
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => handleApproval(design.id, false)} className="font-body text-red-600 border-red-600 hover:bg-red-50">
+                           <AlertTriangle className="mr-1 h-4 w-4" /> Reject
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </li>
               ))}
             </ul>
