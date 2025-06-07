@@ -30,10 +30,7 @@ export default function ForApprovalPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const [designs, setDesigns] = useState<DesignSubmission[]>([
-    { id: "pdf1", pdfName: "Marketing Brochure Q3.pdf", jobName: "Q3 Brochure", customerName: "Client Corp", uploader: "Designer Alice", date: "2024-07-28", status: "pending" },
-    { id: "pdf2", pdfName: "New Product Packaging_v2.pdf", jobName: "Super Product Box", customerName: "Retail Giant", uploader: "Designer Bob", date: "2024-07-29", status: "approved" },
-  ]);
+  const [designs, setDesigns] = useState<DesignSubmission[]>([]); // Initialized with empty array
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -229,5 +226,3 @@ export default function ForApprovalPage() {
     </div>
   );
 }
-
-    
