@@ -23,7 +23,6 @@ import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
 
 
-// Top-level component definitions to avoid re-creation on parent render
 const CurrentItemPaperFields = ({ form, onFormChange }: { form: UseFormReturn<Partial<InventoryItemFormValues>>, onFormChange: () => void }) => {
   const watchedPaperQuality = form.watch("paperQuality");
   const paperUnit = getPaperQualityUnit(watchedPaperQuality as PaperQualityType);
@@ -39,14 +38,18 @@ const CurrentItemPaperFields = ({ form, onFormChange }: { form: UseFormReturn<Pa
         <FormField control={form.control} name="paperMasterSheetSizeWidth" render={({ field }) => (
           <FormItem>
             <FormLabel>Paper Width (in)</FormLabel>
-            <FormControl><Input type="number" placeholder="e.g., 27.56" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="font-body"/></FormControl>
+            <FormControl>
+              <Input type="number" placeholder="e.g., 27.56" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="font-body"/>
+            </FormControl>
             <FormMessage />
           </FormItem>
         )} />
         <FormField control={form.control} name="paperMasterSheetSizeHeight" render={({ field }) => (
           <FormItem>
             <FormLabel>Paper Height (in)</FormLabel>
-            <FormControl><Input type="number" placeholder="e.g., 39.37" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="font-body"/></FormControl>
+            <FormControl>
+              <Input type="number" placeholder="e.g., 39.37" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="font-body"/>
+            </FormControl>
             <FormMessage />
           </FormItem>
         )} />
@@ -60,7 +63,9 @@ const CurrentItemPaperFields = ({ form, onFormChange }: { form: UseFormReturn<Pa
             form.setValue("paperThicknessMm", undefined);
           }} value={field.value || ""}>
             <FormControl>
-                <SelectTrigger className="font-body"><SelectValue placeholder="Select paper quality" /></SelectTrigger>
+                <SelectTrigger className="font-body">
+                  <SelectValue placeholder="Select paper quality" />
+                </SelectTrigger>
             </FormControl>
             <SelectContent>{PAPER_QUALITY_OPTIONS.map(opt => (<SelectItem key={opt.value} value={opt.value} className="font-body">{opt.label}</SelectItem>))}</SelectContent>
           </Select>
@@ -71,7 +76,9 @@ const CurrentItemPaperFields = ({ form, onFormChange }: { form: UseFormReturn<Pa
         <FormField control={form.control} name="paperGsm" render={({ field }) => (
           <FormItem>
             <FormLabel>Paper GSM</FormLabel>
-            <FormControl><Input type="number" placeholder="e.g., 300" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="font-body"/></FormControl>
+            <FormControl>
+              <Input type="number" placeholder="e.g., 300" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="font-body"/>
+            </FormControl>
             <FormMessage />
           </FormItem>
         )} />
@@ -80,7 +87,9 @@ const CurrentItemPaperFields = ({ form, onFormChange }: { form: UseFormReturn<Pa
          <FormField control={form.control} name="paperThicknessMm" render={({ field }) => (
           <FormItem>
             <FormLabel>Paper Thickness (mm)</FormLabel>
-            <FormControl><Input type="number" step="0.1" placeholder="e.g., 1.2" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="font-body"/></FormControl>
+            <FormControl>
+              <Input type="number" step="0.1" placeholder="e.g., 1.2" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="font-body"/>
+            </FormControl>
             <FormMessage />
           </FormItem>
         )} />
@@ -100,14 +109,18 @@ const CurrentItemInkFields = ({ form, onFormChange }: { form: UseFormReturn<Part
      <FormField control={form.control} name="inkName" render={({ field }) => (
          <FormItem>
              <FormLabel>Ink Name/Type</FormLabel>
-             <FormControl><Input placeholder="e.g., Process Black, Pantone 185C" {...field} value={field.value ?? ''} className="font-body"/></FormControl>
+             <FormControl>
+              <Input placeholder="e.g., Process Black, Pantone 185C" {...field} value={field.value ?? ''} className="font-body"/>
+            </FormControl>
              <FormMessage />
          </FormItem>
      )} />
      <FormField control={form.control} name="inkSpecification" render={({ field }) => (
          <FormItem>
              <FormLabel>Ink Specification/Color</FormLabel>
-             <FormControl><Input placeholder="e.g., Oil-based, Red" {...field} value={field.value ?? ''}  className="font-body"/></FormControl>
+             <FormControl>
+              <Input placeholder="e.g., Oil-based, Red" {...field} value={field.value ?? ''}  className="font-body"/>
+            </FormControl>
              <FormMessage />
          </FormItem>
      )} />
@@ -125,14 +138,18 @@ const CurrentItemOtherCategoryFields = ({ form, categoryLabel, onFormChange }: {
     <FormField control={form.control} name="itemName" render={({ field }) => (
       <FormItem>
         <FormLabel>Item Name</FormLabel>
-        <FormControl><Input placeholder={`e.g., ${categoryLabel} Model X`} {...field} value={field.value ?? ''} className="font-body"/></FormControl>
+        <FormControl>
+          <Input placeholder={`e.g., ${categoryLabel} Model X`} {...field} value={field.value ?? ''} className="font-body"/>
+        </FormControl>
         <FormMessage />
       </FormItem>
     )} />
     <FormField control={form.control} name="itemSpecification" render={({ field }) => (
       <FormItem>
         <FormLabel>Specification</FormLabel>
-        <FormControl><Input placeholder="e.g., Size, Material, Color" {...field} value={field.value ?? ''} className="font-body"/></FormControl>
+        <FormControl>
+          <Input placeholder="e.g., Size, Material, Color" {...field} value={field.value ?? ''} className="font-body"/>
+        </FormControl>
         <FormMessage />
       </FormItem>
     )} />
@@ -151,7 +168,9 @@ const CurrentItemCommonFields = ({ form, onFormChange }: { form: UseFormReturn<P
         <FormField control={form.control} name="quantity" render={({ field }) => (
             <FormItem>
               <FormLabel>Quantity for this Item</FormLabel> 
-              <FormControl> <Input type="number" placeholder="e.g., 1000" {...field} value={field.value ?? 0} onChange={e => field.onChange(e.target.value === '' ? 0 : parseFloat(e.target.value))} className="font-body"/> </FormControl>
+              <FormControl>
+                <Input type="number" placeholder="e.g., 1000" {...field} value={field.value ?? 0} onChange={e => field.onChange(e.target.value === '' ? 0 : parseFloat(e.target.value))} className="font-body"/>
+              </FormControl>
               <FormMessage />
             </FormItem>
           )} />
@@ -160,7 +179,9 @@ const CurrentItemCommonFields = ({ form, onFormChange }: { form: UseFormReturn<P
             <FormLabel>Unit</FormLabel>
             <Select onValueChange={field.onChange} value={field.value || "sheets" as UnitValue}>
               <FormControl>
-                <SelectTrigger className="font-body"><SelectValue placeholder="Select unit" /></SelectTrigger>
+                <SelectTrigger className="font-body">
+                  <SelectValue placeholder="Select unit" />
+                </SelectTrigger>
               </FormControl>
               <SelectContent>{UNIT_OPTIONS.map(opt => (<SelectItem key={opt.value} value={opt.value} className="font-body">{opt.label}</SelectItem>))}</SelectContent>
             </Select>
@@ -171,7 +192,9 @@ const CurrentItemCommonFields = ({ form, onFormChange }: { form: UseFormReturn<P
       <FormField control={form.control} name="reorderPoint" render={({ field }) => (
         <FormItem>
           <FormLabel>Reorder Point (Optional)</FormLabel>
-          <FormControl><Input type="number" placeholder="e.g., 100" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="font-body"/></FormControl>
+          <FormControl>
+            <Input type="number" placeholder="e.g., 100" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="font-body"/>
+          </FormControl>
           <FormMessage />
         </FormItem>
       )} />
@@ -282,7 +305,7 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
         paperThicknessMm: currentItemValues.paperThicknessMm,
         inkName: currentItemValues.inkName,
         inkSpecification: currentItemValues.inkSpecification,
-        itemName: currentItemValues.itemName || derivedName, // Use explicit itemName if provided, else derived
+        itemName: currentItemValues.itemName || derivedName, 
         itemSpecification: currentItemValues.itemSpecification,
         quantity: currentItemValues.quantity || 0,
         unit: currentItemValues.unit || 'units',
@@ -310,7 +333,7 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
         reorderPoint: undefined, 
       });
       setCurrentItemCategory(newCategory || null);
-      setDerivedCurrentItemName(""); // Reset derived name for next item
+      setDerivedCurrentItemName(""); 
     });
   };
 
@@ -509,7 +532,9 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
                           handleCurrentItemFormChange(); 
                         }} value={field.value || ""}>
                         <FormControl>
-                          <SelectTrigger className="font-body"><SelectValue placeholder="Select item category" /></SelectTrigger>
+                          <SelectTrigger className="font-body">
+                            <SelectValue placeholder="Select item category" />
+                          </SelectTrigger>
                         </FormControl>
                         <SelectContent>{INVENTORY_CATEGORIES.map(cat => (<SelectItem key={cat.value} value={cat.value} className="font-body">{cat.label}</SelectItem>))}</SelectContent>
                       </Select>
@@ -583,3 +608,4 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
   );
 }
 
+    
