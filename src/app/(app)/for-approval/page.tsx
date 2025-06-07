@@ -6,10 +6,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { UploadCloud, FileText, CheckCircle, Send, Loader2 } from "lucide-react";
-import { useState, type FormEvent, type ChangeEvent } from "react";
-import type { DesignSubmission, SubmitDesignInput, SubmitDesignOutput } from "@/lib/definitions"; // Updated import path
+import { UploadCloud, FileText, CheckCircle, Send, Loader2, AlertTriangle } from "lucide-react";
+import { useState, type FormEvent, type ChangeEvent, useEffect, useCallback } from "react";
+import type { DesignSubmission, SubmitDesignInput, SubmitDesignOutput } from "@/lib/definitions";
 import { submitDesignForApproval } from "@/ai/flows/design-submission-flow";
+import { getDesignSubmissions, updateDesignSubmissionStatus } from "@/lib/actions/jobActions";
 
 
 // Helper function to convert file to Data URI
@@ -29,8 +30,27 @@ export default function ForApprovalPage() {
   const [customerName, setCustomerName] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingDesigns, setIsLoadingDesigns] = useState(true);
   
-  const [designs, setDesigns] = useState<DesignSubmission[]>([]); // Initialized with empty array
+  const [displayedDesigns, setDisplayedDesigns] = useState<DesignSubmission[]>([]);
+
+  const fetchAndSetDesigns = useCallback(async () => {
+    setIsLoadingDesigns(true);
+    try {
+      const designsFromServer = await getDesignSubmissions();
+      setDisplayedDesigns(designsFromServer.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+    } catch (error) {
+      console.error("Failed to fetch designs:", error);
+      toast({ title: "Error", description: "Could not load designs.", variant: "destructive" });
+    } finally {
+      setIsLoadingDesigns(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    fetchAndSetDesigns();
+  }, [fetchAndSetDesigns]);
+
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -72,24 +92,14 @@ export default function ForApprovalPage() {
       };
 
       const backendResponse: SubmitDesignOutput = await submitDesignForApproval(submissionInput);
-
-      const newSubmission: DesignSubmission = {
-        id: backendResponse.submissionId || `local-${Date.now()}`, // Use backend ID if available
-        backendSubmissionId: backendResponse.submissionId,
-        pdfName: selectedFile.name,
-        jobName,
-        customerName,
-        uploader: "Current User", // Placeholder, ideally from auth
-        date: new Date().toISOString().split("T")[0],
-        status: backendResponse.status as "pending" || "pending",
-        // pdfDataUri: pdfDataUri, // Optionally store for local display if needed, but can be large
-      };
-      setDesigns(prev => [newSubmission, ...prev]);
       
       toast({
         title: "Design Submitted",
         description: `${selectedFile.name} has been submitted for approval. ${backendResponse.message || ''}`,
       });
+
+      // Re-fetch designs to include the new one
+      await fetchAndSetDesigns();
 
       // Reset form
       setJobName("");
@@ -110,16 +120,24 @@ export default function ForApprovalPage() {
     }
   };
 
-  const handleApproval = (id: string, approve: boolean) => {
-    setDesigns(prevDesigns =>
-      prevDesigns.map(design =>
-        design.id === id ? { ...design, status: approve ? "approved" : "rejected" } : design
-      )
-    );
-    toast({
-      title: approve ? "Design Approved" : "Design Rejected",
-      description: `The design status has been updated to ${approve ? "approved" : "rejected"}.`,
-    });
+  const handleApproval = async (id: string, approve: boolean) => {
+    const newStatus = approve ? "approved" : "rejected";
+    const result = await updateDesignSubmissionStatus(id, newStatus);
+
+    if (result.success && result.submission) {
+      toast({
+        title: approve ? "Design Approved" : "Design Rejected",
+        description: `The design status for "${result.submission.pdfName}" has been updated.`,
+      });
+      // Re-fetch designs to reflect the change
+      await fetchAndSetDesigns();
+    } else {
+      toast({
+        title: "Update Failed",
+        description: result.message || "Could not update design status.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -180,9 +198,14 @@ export default function ForApprovalPage() {
           <CardTitle className="font-headline">Designs Awaiting Action</CardTitle>
         </CardHeader>
         <CardContent>
-          {designs.length > 0 ? (
+          {isLoadingDesigns ? (
+            <div className="flex justify-center items-center py-10">
+              <Loader2 className="mr-2 h-8 w-8 animate-spin text-primary" />
+              <p className="font-body text-muted-foreground">Loading designs...</p>
+            </div>
+          ) : displayedDesigns.length > 0 ? (
             <ul className="space-y-3">
-              {designs.map(design => (
+              {displayedDesigns.map(design => (
                 <li key={design.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border rounded-md bg-card hover:shadow-sm gap-3">
                   <div className="flex items-center">
                     <FileText className="mr-3 h-6 w-6 text-muted-foreground flex-shrink-0" />
@@ -192,7 +215,7 @@ export default function ForApprovalPage() {
                         Job: {design.jobName} | Customer: {design.customerName}
                       </p>
                       <p className="text-xs text-muted-foreground font-body">
-                        Uploaded by {design.uploader} on {design.date} - Status: 
+                        Uploaded by {design.uploader} on {new Date(design.date).toLocaleDateString()} - Status: 
                         <span className={`ml-1 font-semibold ${
                           design.status === 'approved' ? 'text-green-600' :
                           design.status === 'rejected' ? 'text-red-600' :
@@ -209,7 +232,7 @@ export default function ForApprovalPage() {
                         <CheckCircle className="mr-1 h-4 w-4 text-green-500" /> Approve
                       </Button>
                       <Button variant="outline" size="sm" onClick={() => handleApproval(design.id, false)} className="font-body text-red-600 border-red-600 hover:bg-red-50">
-                        Reject
+                         <AlertTriangle className="mr-1 h-4 w-4" /> Reject
                       </Button>
                     </div>
                   )}

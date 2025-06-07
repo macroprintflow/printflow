@@ -9,6 +9,7 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit'; // z is used by ai.definePrompt for inline schema definition
 import { SubmitDesignInputSchema, type SubmitDesignInput, SubmitDesignOutputSchema, type SubmitDesignOutput } from '@/lib/definitions';
+import { addDesignSubmissionInternal } from '@/lib/actions/jobActions';
 
 
 export async function submitDesignForApproval(input: SubmitDesignInput): Promise<SubmitDesignOutput> {
@@ -19,7 +20,7 @@ const submitDesignPrompt = ai.definePrompt({
   name: 'submitDesignPrompt',
   input: {schema: SubmitDesignInputSchema}, // Uses imported schema
   output: {
-    schema: z.object({ // Simplified output from LLM for this step, defined inline, not exported
+    schema: z.object({ // Simplified output from LLM for this step
         confirmationMessage: z.string().describe("A brief confirmation message acknowledging the submission details.")
     })
   },
@@ -44,13 +45,15 @@ const submitDesignFlow = ai.defineFlow(
   async (input) => {
     console.log('[DesignSubmission AI Flow] Received design submission:', input.pdfName, input.jobName);
 
-    // In a real application, you would save the PDF (e.g., to Firebase Storage)
-    // and store submission details in a database (e.g., Firestore).
-    // For this prototype, we'll generate a unique ID and simulate processing.
-
-    const submissionId = `ds-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    // Persist the submission to our mock database
+    const persistedSubmission = await addDesignSubmissionInternal({
+      pdfName: input.pdfName,
+      jobName: input.jobName,
+      customerName: input.customerName,
+      pdfDataUri: input.pdfDataUri, // Pass it along if needed by the action, though not strictly stored by default now
+    });
     
-    // Call the LLM to generate a confirmation message (optional, can be static)
+    // Call the LLM to generate a confirmation message
     let llmConfirmationMessage = `Design '${input.pdfName}' for job '${input.jobName}' received and is pending approval.`;
     try {
         const {output: promptOutput} = await submitDesignPrompt(input);
@@ -62,19 +65,17 @@ const submitDesignFlow = ai.defineFlow(
         // Proceed with a default message
     }
 
-
     const result: SubmitDesignOutput = {
-      submissionId,
-      pdfName: input.pdfName,
-      jobName: input.jobName,
-      customerName: input.customerName,
-      status: "pending",
+      submissionId: persistedSubmission.id, // Use the ID from our mock DB
+      pdfName: persistedSubmission.pdfName,
+      jobName: persistedSubmission.jobName,
+      customerName: persistedSubmission.customerName,
+      status: persistedSubmission.status, // Will be "pending" from addDesignSubmissionInternal
       message: llmConfirmationMessage,
     };
     
-    console.log('[DesignSubmission AI Flow] Processed submission:', result);
+    console.log('[DesignSubmission AI Flow] Processed submission and stored in mock DB:', result);
     return result;
   }
 );
-
     

@@ -1,7 +1,7 @@
 
 'use server';
 
-import type { JobCardFormValues, JobCardData, JobTemplateData, JobTemplateFormValues, InventoryItem, PaperQualityType, InventorySuggestion, InventoryItemFormValues, InventoryItemType, ItemGroupType, UnitValue, OptimizeInventoryOutput, InventoryAdjustment, InventoryAdjustmentReasonValue, WorkflowStep, InventoryAdjustmentItemFormValues } from '@/lib/definitions';
+import type { JobCardFormValues, JobCardData, JobTemplateData, JobTemplateFormValues, InventoryItem, PaperQualityType, InventorySuggestion, InventoryItemFormValues, InventoryItemType, ItemGroupType, UnitValue, OptimizeInventoryOutput, InventoryAdjustment, InventoryAdjustmentReasonValue, WorkflowStep, InventoryAdjustmentItemFormValues, DesignSubmission, SubmitDesignInput } from '@/lib/definitions';
 import { PAPER_QUALITY_OPTIONS, getPaperQualityLabel, INVENTORY_ADJUSTMENT_REASONS, KAPPA_MDF_QUALITIES, getPaperQualityUnit } from '@/lib/definitions';
 import { calculateUps } from '@/lib/calculateUps';
 import { revalidatePath } from 'next/cache';
@@ -15,6 +15,8 @@ declare global {
   var __inventoryCounter__: number | undefined;
   var __inventoryAdjustmentsStore__: InventoryAdjustment[] | undefined;
   var __adjustmentCounter__: number | undefined;
+  var __designSubmissionsStore__: DesignSubmission[] | undefined;
+  var __designSubmissionCounter__: number | undefined;
 }
 
 if (global.__jobCards__ === undefined) global.__jobCards__ = [];
@@ -43,6 +45,9 @@ if (global.__inventoryAdjustmentsStore__ === undefined) {
 if (global.__adjustmentCounter__ === undefined) {
   global.__adjustmentCounter__ = 1;
 }
+
+if (global.__designSubmissionsStore__ === undefined) global.__designSubmissionsStore__ = [];
+if (global.__designSubmissionCounter__ === undefined) global.__designSubmissionCounter__ = 1;
 
 
 function generateJobCardNumber(): string {
@@ -566,4 +571,49 @@ export async function applyInventoryAdjustments(
 
   revalidatePath('/inventory', 'layout'); // Revalidate all inventory paths
   return { success: true, message: `${adjustments.length} inventory adjustment(s) applied successfully.` };
+}
+
+
+// Design Submission Actions
+export async function addDesignSubmissionInternal(
+  submissionDetails: Omit<DesignSubmission, 'id' | 'status' | 'date' | 'uploader'> & { pdfDataUri?: string }
+): Promise<DesignSubmission> {
+  const newId = `ds-${global.__designSubmissionCounter__!++}`;
+  const newSubmission: DesignSubmission = {
+    ...submissionDetails,
+    id: newId,
+    status: "pending",
+    date: new Date().toISOString(),
+    uploader: "Current User", // Or derive from auth if available
+  };
+  global.__designSubmissionsStore__!.push(newSubmission);
+  console.log('[JobActions] Added design submission:', newSubmission.id, newSubmission.pdfName);
+  revalidatePath('/for-approval');
+  revalidatePath('/jobs/new'); // In case approved designs list needs update
+  return newSubmission;
+}
+
+export async function updateDesignSubmissionStatus(
+  id: string,
+  status: "approved" | "rejected"
+): Promise<{ success: boolean; submission?: DesignSubmission, message?: string }> {
+  const submissionIndex = global.__designSubmissionsStore__!.findIndex(s => s.id === id);
+  if (submissionIndex === -1) {
+    return { success: false, message: "Submission not found." };
+  }
+  global.__designSubmissionsStore__![submissionIndex].status = status;
+  global.__designSubmissionsStore__![submissionIndex].date = new Date().toISOString(); // Update date on status change
+  
+  console.log('[JobActions] Updated design submission status:', id, status);
+  revalidatePath('/for-approval');
+  revalidatePath('/jobs/new');
+  return { success: true, submission: global.__designSubmissionsStore__![submissionIndex] };
+}
+
+export async function getDesignSubmissions(): Promise<DesignSubmission[]> {
+  return [...(global.__designSubmissionsStore__ || [])];
+}
+
+export async function getApprovedDesigns(): Promise<DesignSubmission[]> {
+  return (global.__designSubmissionsStore__ || []).filter(s => s.status === 'approved');
 }

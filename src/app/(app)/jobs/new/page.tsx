@@ -5,10 +5,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { LayoutList, FilePlus2, FileCheck2, Sparkles } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import { getApprovedDesigns } from "@/lib/actions/jobActions";
+import type { DesignSubmission } from "@/lib/definitions";
 
-export default function NewJobPage() {
-  // Placeholder for approved designs - now an empty array
-  const approvedDesigns: { id: string; name: string; thumbnail: string; jobName: string; customerName: string; }[] = [];
+export default async function NewJobPage() {
+  const approvedDesigns: DesignSubmission[] = await getApprovedDesigns();
 
   return (
     <div className="space-y-8">
@@ -39,17 +40,18 @@ export default function NewJobPage() {
               {approvedDesigns.map(design => (
                 <Card key={design.id} className="overflow-hidden hover:shadow-xl transition-shadow duration-300 group">
                   <div className="relative h-40 w-full">
+                    {/* For now, using a placeholder as actual PDF thumbnail generation is complex */}
                     <Image 
-                        src={design.thumbnail} 
-                        alt={design.name} 
+                        src={`https://placehold.co/600x400.png?text=${encodeURIComponent(design.pdfName)}`}
+                        alt={design.pdfName} 
                         layout="fill" 
                         objectFit="cover"
-                        data-ai-hint="product packaging design"
+                        data-ai-hint="document preview"
                     />
                   </div>
                   <CardHeader className="p-4">
                     <CardTitle className="font-body text-md font-semibold truncate group-hover:text-primary transition-colors">
-                        {design.name}
+                        {design.pdfName}
                     </CardTitle>
                      <CardDescription className="text-xs font-body">
                         Job: {design.jobName} | Cust: {design.customerName}
