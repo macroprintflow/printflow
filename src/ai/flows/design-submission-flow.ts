@@ -4,34 +4,11 @@
  * @fileOverview A Genkit flow to handle design submissions for approval.
  *
  * - submitDesignForApproval - A function that processes a new design submission.
- * - SubmitDesignInput - The input type for the submitDesignForApproval function.
- * - SubmitDesignOutput - The return type for the submitDesignForApproval function.
  */
 
 import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
-
-export const SubmitDesignInputSchema = z.object({
-  pdfName: z.string().describe("The original name of the PDF file."),
-  jobName: z.string().describe("The name of the job this design is for."),
-  customerName: z.string().describe("The name of the customer for this job."),
-  pdfDataUri: z
-    .string()
-    .describe(
-      "The PDF file content as a data URI. Expected format: 'data:application/pdf;base64,<encoded_data>'."
-    ),
-});
-export type SubmitDesignInput = z.infer<typeof SubmitDesignInputSchema>;
-
-export const SubmitDesignOutputSchema = z.object({
-  submissionId: z.string().describe("A unique identifier for this design submission."),
-  pdfName: z.string().describe("The name of the PDF file."),
-  jobName: z.string().describe("The job name."),
-  customerName: z.string().describe("The customer name."),
-  status: z.string().describe("The initial status of the submission (e.g., 'pending')."),
-  message: z.string().optional().describe("A confirmation or status message."),
-});
-export type SubmitDesignOutput = z.infer<typeof SubmitDesignOutputSchema>;
+import {z} from 'genkit'; // z is used by ai.definePrompt for inline schema definition
+import { SubmitDesignInputSchema, type SubmitDesignInput, SubmitDesignOutputSchema, type SubmitDesignOutput } from '@/lib/definitions';
 
 
 export async function submitDesignForApproval(input: SubmitDesignInput): Promise<SubmitDesignOutput> {
@@ -40,9 +17,9 @@ export async function submitDesignForApproval(input: SubmitDesignInput): Promise
 
 const submitDesignPrompt = ai.definePrompt({
   name: 'submitDesignPrompt',
-  input: {schema: SubmitDesignInputSchema},
+  input: {schema: SubmitDesignInputSchema}, // Uses imported schema
   output: {
-    schema: z.object({ // Simplified output from LLM for this step
+    schema: z.object({ // Simplified output from LLM for this step, defined inline, not exported
         confirmationMessage: z.string().describe("A brief confirmation message acknowledging the submission details.")
     })
   },
@@ -61,8 +38,8 @@ Example confirmation: "Design '{{pdfName}}' for job '{{jobName}}' received and i
 const submitDesignFlow = ai.defineFlow(
   {
     name: 'submitDesignFlow',
-    inputSchema: SubmitDesignInputSchema,
-    outputSchema: SubmitDesignOutputSchema,
+    inputSchema: SubmitDesignInputSchema, // Uses imported schema
+    outputSchema: SubmitDesignOutputSchema, // Uses imported schema
   },
   async (input) => {
     console.log('[DesignSubmission AI Flow] Received design submission:', input.pdfName, input.jobName);

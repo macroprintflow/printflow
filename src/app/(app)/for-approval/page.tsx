@@ -8,8 +8,8 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { UploadCloud, FileText, CheckCircle, Send, Loader2 } from "lucide-react";
 import { useState, type FormEvent, type ChangeEvent } from "react";
-import type { DesignSubmission } from "@/lib/definitions";
-import { submitDesignForApproval, type SubmitDesignInput, type SubmitDesignOutput } from "@/ai/flows/design-submission-flow";
+import type { DesignSubmission, SubmitDesignInput, SubmitDesignOutput } from "@/lib/definitions"; // Updated import path
+import { submitDesignForApproval } from "@/ai/flows/design-submission-flow";
 
 
 // Helper function to convert file to Data URI
@@ -77,15 +77,15 @@ export default function ForApprovalPage() {
       const backendResponse: SubmitDesignOutput = await submitDesignForApproval(submissionInput);
 
       const newSubmission: DesignSubmission = {
-        id: backendResponse.submissionId || `local-${Date.now()}`,
+        id: backendResponse.submissionId || `local-${Date.now()}`, // Use backend ID if available
         backendSubmissionId: backendResponse.submissionId,
         pdfName: selectedFile.name,
         jobName,
         customerName,
         uploader: "Current User", // Placeholder, ideally from auth
         date: new Date().toISOString().split("T")[0],
-        status: backendResponse.status as "pending" || "pending", // Assuming flow returns 'pending'
-        pdfDataUri: pdfDataUri, // Optionally store for local display if needed
+        status: backendResponse.status as "pending" || "pending",
+        // pdfDataUri: pdfDataUri, // Optionally store for local display if needed, but can be large
       };
       setDesigns(prev => [newSubmission, ...prev]);
       

@@ -566,16 +566,39 @@ export const PAPER_SUB_CATEGORIES: PaperSubCategory[] = [
   },
 ];
 
-export interface DesignSubmission {
-  id: string;
+// Design Submission Schemas and Types
+export const SubmitDesignInputSchema = z.object({
+  pdfName: z.string().describe("The original name of the PDF file."),
+  jobName: z.string().describe("The name of the job this design is for."),
+  customerName: z.string().describe("The name of the customer for this job."),
+  pdfDataUri: z
+    .string()
+    .describe(
+      "The PDF file content as a data URI. Expected format: 'data:application/pdf;base64,<encoded_data>'."
+    ),
+});
+export type SubmitDesignInput = z.infer<typeof SubmitDesignInputSchema>;
+
+export const SubmitDesignOutputSchema = z.object({
+  submissionId: z.string().describe("A unique identifier for this design submission."),
+  pdfName: z.string().describe("The name of the PDF file."),
+  jobName: z.string().describe("The job name."),
+  customerName: z.string().describe("The customer name."),
+  status: z.string().describe("The initial status of the submission (e.g., 'pending')."),
+  message: z.string().optional().describe("A confirmation or status message."),
+});
+export type SubmitDesignOutput = z.infer<typeof SubmitDesignOutputSchema>;
+
+
+export interface DesignSubmission { // This type is used on the frontend page
+  id: string; // Can be local (frontend-generated) or backend-generated
+  backendSubmissionId?: string; // Explicitly for the ID from the AI flow
   pdfName: string;
   jobName: string;
   customerName: string;
-  uploader: string;
-  date: string;
+  uploader: string; // Or user ID/details
+  date: string; // Submission date
   status: "pending" | "approved" | "rejected";
-  pdfDataUri?: string; // For holding the base64 PDF data
-  backendSubmissionId?: string; // ID from the backend flow
+  pdfDataUri?: string; // Optional: if we want to store/re-display the PDF from frontend state
 }
-
     
