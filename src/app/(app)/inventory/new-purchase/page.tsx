@@ -171,7 +171,14 @@ const CurrentItemCommonFields = ({ form, onFormChange }: { form: UseFormReturn<P
             <FormItem>
               <FormLabel>Quantity for this Item</FormLabel> 
               <FormControl>
-                <Input type="number" placeholder="e.g., 1000" {...field} value={field.value ?? 0} onChange={e => field.onChange(e.target.value === '' ? 0 : parseFloat(e.target.value))} className="font-body"/>
+                <Input 
+                    type="number" 
+                    placeholder="e.g., 1000" 
+                    {...field} 
+                    value={field.value ?? ''} 
+                    onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} 
+                    className="font-body"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -256,7 +263,7 @@ export default function NewPurchasePage() {
     resolver: zodResolver(InventoryItemFormSchema.innerType().partial()),
     defaultValues: {
       category: undefined,
-      quantity: 0,
+      quantity: undefined,
       unit: "sheets" as UnitValue,
       paperMasterSheetSizeWidth: undefined,
       paperMasterSheetSizeHeight: undefined,
@@ -286,7 +293,7 @@ export default function NewPurchasePage() {
          toast({ title: "Category Missing", description: "Please select a category for the current item.", variant: "destructive" });
         return;
       }
-       if (!currentItemValues.quantity || currentItemValues.quantity <= 0) {
+       if (currentItemValues.quantity === undefined || currentItemValues.quantity <= 0) {
         currentItemForm.setError("quantity", { type: "manual", message: "Quantity must be > 0" });
         toast({ title: "Invalid Quantity", description: "Please enter a quantity greater than 0 for the item.", variant: "destructive" });
         return;
@@ -325,7 +332,7 @@ export default function NewPurchasePage() {
       
       currentItemForm.reset({
         category: newCategory, 
-        quantity: 0, 
+        quantity: undefined, 
         unit: defaultUnit as UnitValue,
         paperMasterSheetSizeWidth: newCategory === 'PAPER' ? currentItemValues.paperMasterSheetSizeWidth : undefined,
         paperMasterSheetSizeHeight: newCategory === 'PAPER' ? currentItemValues.paperMasterSheetSizeHeight : undefined,
@@ -361,7 +368,7 @@ export default function NewPurchasePage() {
 
     currentItemForm.reset({ 
         category: undefined, 
-        quantity: 0, 
+        quantity: undefined, 
         unit: "sheets" as UnitValue,
         paperMasterSheetSizeWidth: undefined,
         paperMasterSheetSizeHeight: undefined,
@@ -533,6 +540,7 @@ export default function NewPurchasePage() {
                           let autoItemName = "";
                           if (value === 'PAPER') autoItemName = "Paper Stock Item";
                           else if (value === 'INKS') autoItemName = "Ink Item";
+                          else autoItemName = ""; 
                           
                           currentItemForm.reset({
                             category: value as InventoryCategory, 
@@ -545,7 +553,7 @@ export default function NewPurchasePage() {
                             inkSpecification: "",
                             itemName: autoItemName, 
                             itemSpecification: "",
-                            quantity: 0, 
+                            quantity: undefined, 
                             unit: defaultUnit as UnitValue, 
                             reorderPoint: undefined,
                           });
