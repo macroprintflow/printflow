@@ -18,13 +18,13 @@ import {
   Workflow,
   CheckSquare,
   QrCode,
-  Video, // Added Video icon
-  XCircle // Added XCircle icon
+  Video, 
+  XCircle 
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useState, useEffect, useRef } from "react"; // Added useEffect, useRef, useState
-import { useToast } from "@/hooks/use-toast"; // Added useToast
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; // Added Alert components
+import { useState, useEffect, useRef } from "react";
+import { useToast } from "@/hooks/use-toast";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface DepartmentTaskStep {
   name: string;
@@ -54,34 +54,27 @@ export default function TasksPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    const getCameraPermission = async () => {
-      if (!isCameraOpen) {
-        // If camera view is closed, ensure any existing streams are stopped
-        if (videoRef.current && videoRef.current.srcObject) {
-          const stream = videoRef.current.srcObject as MediaStream;
-          stream.getTracks().forEach(track => track.stop());
-          videoRef.current.srcObject = null;
-        }
-        return;
-      }
+    let streamInstance: MediaStream | null = null;
 
-      // Request camera permission only when isCameraOpen is true
+    const requestAndSetupCamera = async () => {
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         try {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+          streamInstance = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
           setHasCameraPermission(true);
           if (videoRef.current) {
-            videoRef.current.srcObject = stream;
+            videoRef.current.srcObject = streamInstance;
           }
         } catch (error) {
           console.error('Error accessing camera:', error);
-          setHasCameraPermission(false);
-          toast({
+          setHasCameraPermission(false); // Set permission status
+          toast({ // Inform user
             variant: 'destructive',
             title: 'Camera Access Denied',
             description: 'Please enable camera permissions in your browser settings to use this feature.',
           });
-          setIsCameraOpen(false); // Close camera view if permission is denied
+          // IMPORTANT: Do not call setIsCameraOpen(false) here.
+          // This prevents a potential loop if errors persist.
+          // User must explicitly close the camera view via the button.
         }
       } else {
         setHasCameraPermission(false);
@@ -90,23 +83,40 @@ export default function TasksPage() {
           title: 'Camera Not Supported',
           description: 'Your browser does not support camera access or it is not available on this device.',
         });
-        setIsCameraOpen(false);
+        // IMPORTANT: Do not call setIsCameraOpen(false) here.
       }
     };
 
-    getCameraPermission();
+    if (isCameraOpen) {
+      // Reset permission state before requesting, so it always tries if 'isCameraOpen' is true
+      // and permission isn't already 'true'.
+      if (hasCameraPermission !== true) {
+         setHasCameraPermission(null); // Indicate we are about to request/re-request
+      }
+      requestAndSetupCamera();
+    }
 
-    // Cleanup function to stop the camera stream when the component unmounts or isCameraOpen changes to false
+    // Cleanup function: This runs when isCameraOpen changes or component unmounts.
     return () => {
-      if (videoRef.current && videoRef.current.srcObject) {
-        const stream = videoRef.current.srcObject as MediaStream;
-        stream.getTracks().forEach(track => track.stop());
+      if (streamInstance) {
+        streamInstance.getTracks().forEach(track => track.stop());
       }
+      if (videoRef.current) {
+        videoRef.current.srcObject = null; // Clear the video source
+      }
+      // When camera is explicitly closed (isCameraOpen becomes false),
+      // we might want to reset hasCameraPermission to null if we want it to re-prompt every time.
+      // For now, keeping it as is, so if permission was denied, it stays denied until browser settings change.
     };
-  }, [isCameraOpen, toast]);
+  }, [isCameraOpen, toast]); // Only re-run if isCameraOpen or toast changes.
 
   const handleScanQrCode = () => {
-    setIsCameraOpen(prev => !prev); // Toggle camera view
+    setIsCameraOpen(prev => !prev);
+    // If we are opening the camera, reset hasCameraPermission to null
+    // to ensure the effect attempts to get permission.
+    if (!isCameraOpen) {
+      setHasCameraPermission(null);
+    }
   };
 
   return (
@@ -135,22 +145,26 @@ export default function TasksPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col items-center">
+                {/* Video tag is always rendered if isCameraOpen is true, 
+                    but srcObject is set by useEffect.
+                    This avoids hydration issues with conditional rendering based on async permission. */}
                 <video ref={videoRef} className="w-full max-w-md aspect-video rounded-md bg-muted border" autoPlay playsInline muted />
-                {hasCameraPermission === false && (
-                  <Alert variant="destructive" className="mt-4 w-full max-w-md">
-                    <AlertTitle>Camera Access Required</AlertTitle>
+                
+                {hasCameraPermission === null && (
+                  <Alert variant="default" className="mt-4 w-full max-w-md">
+                    <AlertTitle>Requesting Camera</AlertTitle>
                     <AlertDescription>
-                      Camera permission was denied or is not available. Please enable it in your browser settings and try again.
+                      Please allow camera access when prompted by your browser. If no prompt appears, check your browser's site settings for camera permissions.
                     </AlertDescription>
                   </Alert>
                 )}
-                {hasCameraPermission === null && (
-                    <Alert variant="default" className="mt-4 w-full max-w-md">
-                        <AlertTitle>Requesting Camera</AlertTitle>
-                        <AlertDescription>
-                        Please allow camera access when prompted by your browser.
-                        </AlertDescription>
-                    </Alert>
+                {hasCameraPermission === false && (
+                  <Alert variant="destructive" className="mt-4 w-full max-w-md">
+                    <AlertTitle>Camera Access Denied or Unavailable</AlertTitle>
+                    <AlertDescription>
+                      Camera permission was denied, or no camera is available. Please enable it in your browser settings or connect a camera and try again.
+                    </AlertDescription>
+                  </Alert>
                 )}
                  <p className="text-sm text-muted-foreground mt-2 font-body">Point the camera at a Job QR Code.</p>
                  {/* QR Code detection logic and result display would go here */}
