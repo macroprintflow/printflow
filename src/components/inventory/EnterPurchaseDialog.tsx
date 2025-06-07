@@ -22,6 +22,7 @@ import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
 
+
 // Top-level component definitions to avoid re-creation on parent render
 const CurrentItemPaperFields = ({ form, onFormChange }: { form: UseFormReturn<Partial<InventoryItemFormValues>>, onFormChange: () => void }) => {
   const watchedPaperQuality = form.watch("paperQuality");
@@ -203,7 +204,11 @@ const deriveItemNameInternal = (values: Partial<InventoryItemFormValues>): strin
   } else if (values.category === 'INKS') {
       return values.inkName || `Ink (define name)`;
   } else {
-      return values.itemName || `${categoryLabel} (define name)`;
+      const baseItemName = values.itemName || `${categoryLabel}`;
+      if (baseItemName.toLowerCase().includes(categoryLabel.toLowerCase())) {
+          return values.itemName || `${categoryLabel} (define name)`;
+      }
+      return values.itemName ? `${values.itemName} (${categoryLabel})` : `${categoryLabel} (define name)`;
   }
 };
 
@@ -265,9 +270,10 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
         return;
       }
 
+      const derivedName = deriveItemNameInternal(currentItemValues);
       const newItemForList: PurchaseListItem = {
         displayId: nextDisplayId,
-        displayName: deriveItemNameInternal(currentItemValues),
+        displayName: derivedName,
         category: currentItemCategory,
         paperMasterSheetSizeWidth: currentItemValues.paperMasterSheetSizeWidth,
         paperMasterSheetSizeHeight: currentItemValues.paperMasterSheetSizeHeight,
@@ -276,7 +282,7 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
         paperThicknessMm: currentItemValues.paperThicknessMm,
         inkName: currentItemValues.inkName,
         inkSpecification: currentItemValues.inkSpecification,
-        itemName: currentItemValues.itemName || deriveItemNameInternal(currentItemValues),
+        itemName: currentItemValues.itemName || derivedName, // Use explicit itemName if provided, else derived
         itemSpecification: currentItemValues.itemSpecification,
         quantity: currentItemValues.quantity || 0,
         unit: currentItemValues.unit || 'units',
@@ -285,14 +291,13 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
       setItemsInPurchaseList(prev => [...prev, newItemForList]);
       setNextDisplayId(prev => prev + 1);
       
-      const newCategory = currentItemForm.getValues().category; // Keep the category if user wants to add more of same type
+      const newCategory = currentItemForm.getValues().category; 
       const defaultUnit = newCategory === 'PAPER' ? 'sheets' : newCategory === 'INKS' ? 'kg' : 'pieces';
       
       currentItemForm.reset({
-        category: newCategory, // Keep current category
-        quantity: 0, // Reset quantity for new item
+        category: newCategory, 
+        quantity: 0, 
         unit: defaultUnit as UnitValue,
-        // Reset other fields unless you want them to persist for same-category items
         paperMasterSheetSizeWidth: newCategory === 'PAPER' ? currentItemValues.paperMasterSheetSizeWidth : undefined,
         paperMasterSheetSizeHeight: newCategory === 'PAPER' ? currentItemValues.paperMasterSheetSizeHeight : undefined,
         paperQuality: newCategory === 'PAPER' ? currentItemValues.paperQuality : "",
@@ -300,12 +305,12 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
         paperThicknessMm: newCategory === 'PAPER' ? currentItemValues.paperThicknessMm : undefined,
         inkName: newCategory === 'INKS' ? currentItemValues.inkName : "",
         inkSpecification: newCategory === 'INKS' ? currentItemValues.inkSpecification : "",
-        itemName: "", // Always reset item name for non-paper/ink, or if different from derived
+        itemName: "", 
         itemSpecification: "",
-        reorderPoint: undefined, // Typically reset reorder point
+        reorderPoint: undefined, 
       });
       setCurrentItemCategory(newCategory || null);
-      setDerivedCurrentItemName("");
+      setDerivedCurrentItemName(""); // Reset derived name for next item
     });
   };
 
@@ -363,19 +368,19 @@ export function EnterPurchaseDialog({ isOpen, setIsOpen, onItemAdded }: { isOpen
 
     setIsSubmittingPurchase(true);
 
-    const itemPromises = itemsInPurchaseList.map(item => {
-      const itemDataForAction: InventoryItemFormValues = {
-        ...item,
-        purchaseBillNo: purchaseBillNo,
-        dateOfEntry: purchaseDate.toISOString(),
-        vendorName: purchaseVendor,
-        otherVendorName: purchaseVendor === 'OTHER' ? otherPurchaseVendor : "",
-        itemName: item.itemName || item.displayName, 
-      };
-      return addInventoryItem(itemDataForAction);
-    });
-
-    const results = await Promise.all(itemPromises);
+    const results = await Promise.all(
+      itemsInPurchaseList.map(item => {
+        const itemDataForAction: InventoryItemFormValues = {
+          ...item,
+          purchaseBillNo: purchaseBillNo,
+          dateOfEntry: purchaseDate.toISOString(),
+          vendorName: purchaseVendor,
+          otherVendorName: purchaseVendor === 'OTHER' ? otherPurchaseVendor : "",
+          itemName: item.itemName || item.displayName, 
+        };
+        return addInventoryItem(itemDataForAction);
+      })
+    );
     
     const errorMessages: string[] = [];
     results.forEach((result, index) => {
