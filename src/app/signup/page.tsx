@@ -346,7 +346,7 @@ export default function SignupPage() {
                       onValueChange={setSelectedCountryDialCode}
                       disabled={otpSent}
                     >
-                      <SelectTrigger className="w-[120px] font-body">
+                      <SelectTrigger className="w-[150px] font-body">
                         <SelectValue placeholder="Country" />
                       </SelectTrigger>
                       <SelectContent>
