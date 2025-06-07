@@ -44,7 +44,6 @@ interface NavItem {
   allowedRoles: UserRole[];
 }
 
-// Manager has all access like Admin for now. Departmental has limited access.
 const allNavItems: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, allowedRoles: ['Admin', 'Manager'] },
   { href: '/jobs', label: 'All Jobs', icon: Briefcase, allowedRoles: ['Admin', 'Manager'] },
@@ -56,7 +55,7 @@ const allNavItems: NavItem[] = [
   { href: '/customer/my-jobs', label: 'My Jobs', icon: ShoppingBag, allowedRoles: ['Customer'] },
 ];
 
-const ADMIN_EMAIL = "kuvamsharma@printflow.app"; 
+const ADMIN_EMAIL = "kuvamsharma@printflow.app".toLowerCase(); 
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -73,17 +72,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     if (!loading && !user) {
       router.push('/login'); 
-    } else if (user) {
+    } else if (user && user.email) { // Ensure user.email is not null
       let actualRole: UserRole;
-      if (user.email === ADMIN_EMAIL) {
+      if (user.email.toLowerCase() === ADMIN_EMAIL) {
         actualRole = "Admin";
       } else {
         // This is where you'd typically fetch a role from your database or custom claims
         // For now, defaulting non-admin users to "Customer" for portal access.
-        // Could be "Departmental" if there was a specific signup or assignment for that.
         actualRole = "Customer"; 
       }
-      setEffectiveUserRole(actualRole); // Set initial effective role based on actual user
+      setEffectiveUserRole(actualRole); 
     }
   }, [user, loading, router]);
 
@@ -105,15 +103,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const userDisplayName = user?.displayName || user?.email?.split('@')[0] || "User";
   const userEmail = user?.email || "No email";
   
-  // The userRoleDisplay now reflects the effective role
   const userRoleDisplay = effectiveUserRole;
 
   const visibleNavItems = allNavItems.filter(item => 
     item.allowedRoles.includes(effectiveUserRole)
   );
   
-  // Determine if the current user is the designated admin for showing the role switcher
-  const isDesignatedAdmin = user?.email === ADMIN_EMAIL;
+  const isDesignatedAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
 
   return (
     <ClientOnlyWrapper>
