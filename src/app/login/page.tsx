@@ -36,10 +36,9 @@ const GoogleIcon = () => (
   </svg>
 );
 
-
 declare global {
   interface Window {
-    recaptchaVerifier?: RecaptchaVerifier;
+    recaptchaVerifier?: RecaptchaVerifier | null; // Allow null
     loginConfirmationResult?: ConfirmationResult; 
   }
 }
@@ -62,20 +61,21 @@ export default function LoginPage() {
   const recaptchaContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Ensure window.recaptchaVerifier is cleared on unmount if it exists
+    // Cleanup on unmount
     return () => {
       if (window.recaptchaVerifier) {
         try {
             window.recaptchaVerifier.clear();
-            console.log("LoginPage: RecaptchaVerifier cleared on unmount.");
+            console.log("LoginPage: RecaptchaVerifier cleared on component unmount.");
         } catch (error) {
             console.error("LoginPage: Error clearing RecaptchaVerifier on unmount:", error);
         }
+        window.recaptchaVerifier = null; // Nullify the reference
       }
     };
   }, []);
 
-  const setupRecaptcha = () => {
+  const setupRecaptcha = (): RecaptchaVerifier | null => {
     console.log("LoginPage: setupRecaptcha called.");
     if (!auth) {
         console.error("LoginPage: Firebase auth object is not available for reCAPTCHA setup.");
@@ -88,30 +88,43 @@ export default function LoginPage() {
       return null;
     }
 
-    // Clear any existing verifier first (Firebase might manage its own internal instances too)
     if (window.recaptchaVerifier) {
-        console.log("LoginPage: Clearing existing window.recaptchaVerifier instance.");
-        window.recaptchaVerifier.clear();
+        console.log("LoginPage: Clearing existing window.recaptchaVerifier instance before creating a new one.");
+        try {
+            window.recaptchaVerifier.clear();
+        } catch (clearError) {
+            console.warn("LoginPage: Error clearing previous reCAPTCHA instance:", clearError);
+        }
     }
     
     try {
       console.log("LoginPage: Attempting to create new RecaptchaVerifier instance for element:", recaptchaContainerRef.current);
       const verifier = new RecaptchaVerifier(auth, recaptchaContainerRef.current, {
         size: 'invisible',
-        callback: (response: any) => {
+        callback: (response: any) => { // Firebase types might expect 'any' here or specific response type
           console.log("LoginPage: reCAPTCHA solved (callback). Response:", response);
-          // This callback is usually for when reCAPTCHA is solved, often automatically for invisible.
-          // The main action is triggered by signInWithPhoneNumber.
         },
         'expired-callback': () => {
           console.warn("LoginPage: reCAPTCHA expired (expired-callback).");
           toast({ title: "reCAPTCHA Expired", description: "Please try sending OTP again.", variant: "destructive" });
-          // Optionally, you might want to re-render or ask the user to try again.
         }
       });
       console.log("LoginPage: New RecaptchaVerifier instance CREATED successfully.");
-      window.recaptchaVerifier = verifier; // Store on window if needed for other potential flows or debugging.
-      return verifier; // Return the instance directly.
+      window.recaptchaVerifier = verifier;
+
+      // Attempt to render the verifier
+      verifier.render().then((widgetId) => {
+          console.log("LoginPage: reCAPTCHA rendered successfully. Widget ID:", widgetId);
+      }).catch((renderError) => {
+          console.error("LoginPage: CRITICAL ERROR during verifier.render():", renderError);
+          toast({ title: "reCAPTCHA Render Error", description: `Failed to render reCAPTCHA: ${renderError.message}`, variant: "destructive", duration: 10000 });
+          if (window.recaptchaVerifier) {
+              window.recaptchaVerifier.clear();
+              window.recaptchaVerifier = null;
+          }
+          // Potentially return null or throw to stop the process if render fails critically
+      });
+      return verifier;
     } catch (error: any) {
         console.error("LoginPage: CRITICAL ERROR during new RecaptchaVerifier():", error);
         let userMessage = `Failed to initialize reCAPTCHA (Code: ${error.code || 'N/A'}). Ensure your domain is authorized in Google Cloud for the reCAPTCHA key and your Firebase project has billing enabled (Blaze plan) for Phone Auth. Original Error: ${error.message}`;
@@ -155,7 +168,7 @@ export default function LoginPage() {
 
     if (!otpSent) { 
       console.log("LoginPage: OTP not sent yet, proceeding to send OTP.");
-      const appVerifier = setupRecaptcha(); // Use the directly returned instance
+      const appVerifier = setupRecaptcha(); 
       if (!appVerifier) {
           console.error("LoginPage: OTP Send - reCAPTCHA verifier setup failed or returned null. Aborting OTP send.");
           setIsLoading(false);
@@ -199,10 +212,6 @@ export default function LoginPage() {
             errorDesc = "Network error while trying to send OTP. Please check your internet connection.";
         }
         toast({ title: 'Failed to Send OTP', description: errorDesc, variant: 'destructive', duration: 15000 });
-        // Attempt to clear the verifier if it was successfully created but signInWithPhoneNumber failed
-        if (appVerifier) {
-            try { appVerifier.clear(); console.log("LoginPage: appVerifier cleared after signInWithPhoneNumber error."); } catch(e) { console.warn("LoginPage: Error clearing appVerifier post signInWithPhoneNumber error", e); }
-        }
       } finally {
         setIsLoading(false);
       }
@@ -392,11 +401,17 @@ export default function LoginPage() {
                 </Button>
                 {otpSent && (
                     <Button variant="link" onClick={() => { 
+                        if (window.recaptchaVerifier) {
+                            try {
+                                window.recaptchaVerifier.clear();
+                                console.log("LoginPage: RecaptchaVerifier explicitly cleared on resend/change number request.");
+                            } catch (e) {
+                                console.warn("LoginPage: Error clearing verifier on resend/change number:", e);
+                            }
+                            window.recaptchaVerifier = null; // Nullify to force re-setup
+                        }
                         setOtpSent(false); 
                         setOtp(''); 
-                        if (window.recaptchaVerifier) { 
-                            try { window.recaptchaVerifier.clear(); console.log("LoginPage: RecaptchaVerifier cleared on change number/resend request."); } catch (e) { console.warn("LoginPage: Error clearing verifier on change number/resend:", e); } 
-                        } 
                     }} disabled={isLoading || isGoogleLoading} className="w-full text-sm font-body">
                         Change Phone Number or Resend OTP
                     </Button>
