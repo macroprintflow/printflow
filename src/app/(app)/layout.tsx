@@ -14,7 +14,7 @@ import {
   SidebarMenuButton,
   SidebarInset,
   SidebarTrigger,
-  SidebarMenuSub, // Import Sub components
+  SidebarMenuSub, 
   SidebarMenuSubTrigger,
   SidebarMenuSubContent,
 } from '@/components/ui/sidebar';
@@ -30,7 +30,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuSub as RadixDropdownMenuSub, // Alias Radix sub components
+  DropdownMenuSub as RadixDropdownMenuSub, 
   DropdownMenuSubTrigger as RadixDropdownMenuSubTrigger,
   DropdownMenuSubContent as RadixDropdownMenuSubContent,
   DropdownMenuPortal,
@@ -41,8 +41,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase/clientApp';
 import { useToast } from '@/hooks/use-toast';
-
-export type UserRole = "Admin" | "Manager" | "Departmental" | "Customer";
+import type { UserRole } from '@/lib/definitions';
 
 interface NavItem {
   href: string;
@@ -70,44 +69,77 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth(); 
   const { toast } = useToast();
   const [isClient, setIsClient] = React.useState(false);
-  // Store the effectiveUserRole in component state to allow dynamic changes for the dev tool
-  const [effectiveUserRole, setEffectiveUserRole] = React.useState<UserRole>("Customer"); // Default to least privileged
+  const [effectiveUserRole, setEffectiveUserRole] = React.useState<UserRole>("Customer"); 
+  const [isRoleFromDevTool, setIsRoleFromDevTool] = React.useState(false);
+
 
   React.useEffect(() => {
     setIsClient(true);
   }, []);
 
   React.useEffect(() => {
-    if (!loading && !user) {
-      router.push('/login'); 
-    } else if (user && user.email) { 
-      let actualRole: UserRole;
-      if (user.email.toLowerCase() === ADMIN_EMAIL) {
-        actualRole = "Admin";
-      } else {
-        actualRole = "Customer"; // Default non-admin to Customer
+    const determineRole = async () => {
+      if (!loading && !user) {
+        router.push('/login');
+        return;
       }
-      // Only set effectiveUserRole if it hasn't been set by the dev tool already
-      // This check ensures that if the user switches role, it persists through re-renders
-      // unless the underlying user (auth state) changes.
-      if (effectiveUserRole === "Customer" || user.email.toLowerCase() !== ADMIN_EMAIL){
-         setEffectiveUserRole(actualRole);
-      } else if (user.email.toLowerCase() === ADMIN_EMAIL && effectiveUserRole !== "Admin" && effectiveUserRole !== "Manager" && effectiveUserRole !== "Departmental") {
-         // If admin logs in and dev tool role was 'Customer', reset to Admin
-         setEffectiveUserRole("Admin");
+
+      if (user && user.email) {
+        let roleToSet: UserRole = "Customer"; // Default
+        let roleSource = "Default";
+
+        // 1. Attempt to read from custom claims (simulated concept)
+        // In a real app with backend-set claims, this would be the primary source.
+        try {
+          const idTokenResult = await user.getIdTokenResult(true); // Force refresh for latest claims
+          const customClaimRole = idTokenResult.claims.role as UserRole;
+          if (customClaimRole && ["Admin", "Manager", "Departmental", "Customer"].includes(customClaimRole)) {
+            roleToSet = customClaimRole;
+            roleSource = "Custom Claims";
+          }
+        } catch (error) {
+          console.warn("Could not get custom claims for user role:", error);
+        }
+        
+        // 2. Fallback/Override for designated admin email
+        if (user.email.toLowerCase() === ADMIN_EMAIL) {
+          if (roleSource !== "Custom Claims" || roleToSet !== "Admin") {
+            // If claims didn't set Admin, or no claims, but email matches, set to Admin
+            roleToSet = "Admin";
+            roleSource = "Admin Email";
+          }
+        }
+        
+        // 3. Apply Dev Tool Override if it has been used
+        // Only set if the dev tool hasn't already set a role, OR if the user has changed.
+        if (!isRoleFromDevTool) {
+          console.log(`[Auth Role] Setting effective role to: ${roleToSet} (Source: ${roleSource})`);
+          setEffectiveUserRole(roleToSet);
+        } else {
+           console.log(`[Auth Role] Dev tool role active: ${effectiveUserRole}. Not changing based on claims/email.`);
+        }
       }
-    }
-  }, [user, loading, router, effectiveUserRole]); // effectiveUserRole added to deps to re-evaluate if it changes
+    };
+
+    determineRole();
+  }, [user, loading, router, isRoleFromDevTool, effectiveUserRole]); // effectiveUserRole added to re-evaluate if changed by dev tool
 
   const handleLogout = async () => {
     try {
       await signOut(auth);
       toast({ title: 'Logged Out', description: 'You have been successfully logged out.' });
+      setIsRoleFromDevTool(false); // Reset dev tool flag on logout
       router.push('/login');
     } catch (error) {
       console.error("Logout error:", error);
       toast({ title: 'Logout Failed', description: 'Could not log you out. Please try again.', variant: 'destructive' });
     }
+  };
+
+  const handleRoleSwitch = (newRole: UserRole) => {
+    setEffectiveUserRole(newRole);
+    setIsRoleFromDevTool(true); // Indicate that the role was set by the dev tool
+    toast({ title: 'Dev Tool: Role Switched', description: `Viewing as ${newRole}. (Session only)`});
   };
 
   if (loading || (!user && pathname !== '/login' && pathname !== '/signup')) {
@@ -165,8 +197,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                       <AvatarFallback>{userDisplayName.charAt(0).toUpperCase()}</AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col items-start group-data-[collapsible=icon]:hidden">
-                      <span className="text-sm font-medium text-white">{userDisplayName}</span> {/* Changed to text-white */}
-                      <span className="text-xs text-white/70">{userRoleDisplay}</span> {/* Changed to text-white/70 */}
+                      <span className="text-sm font-medium text-white">{userDisplayName}</span>
+                      <span className="text-xs text-white/70">{userRoleDisplay}</span>
                     </div>
                 </Button>
               </DropdownMenuTrigger>
@@ -207,7 +239,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                           {(["Admin", "Manager", "Departmental", "Customer"] as UserRole[]).map((role) => (
                             <DropdownMenuItem 
                               key={role} 
-                              onClick={() => setEffectiveUserRole(role)}
+                              onClick={() => handleRoleSwitch(role)}
                               className={cn("cursor-pointer", effectiveUserRole === role && "bg-accent font-semibold")}
                             >
                               {role}
@@ -238,4 +270,3 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     </ClientOnlyWrapper>
   );
 }
-

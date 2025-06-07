@@ -91,8 +91,8 @@ export default function SettingsPage() {
     const result = await updateUserRoleMock(selectedUserForEdit.id, selectedNewRole);
     setIsUpdatingRole(false);
     if (result.success) {
-      toast({ title: "Role Updated", description: `Mock role for ${selectedUserForEdit.displayName} updated to ${selectedNewRole}. This is a visual update in this mock list.` });
-      fetchUsers();
+      toast({ title: "Role Update Triggered", description: result.message });
+      fetchUsers(); // Re-fetch to show updated role in the mock list
       setIsEditRoleOpen(false);
     } else {
       toast({ title: "Update Failed", description: result.message, variant: "destructive" });
@@ -142,10 +142,10 @@ export default function SettingsPage() {
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle className="font-headline flex items-center">
-              <Users className="mr-2 h-6 w-6 text-primary" /> User Management (Prototype Simulation)
+              <Users className="mr-2 h-6 w-6 text-primary" /> User Management (Simulated Backend)
             </CardTitle>
             <CardDescription className="font-body">
-              View, create (for login), and manage user roles for testing purposes.
+              Create Firebase Auth users and simulate role changes. Actual roles require backend setup.
             </CardDescription>
           </div>
           <Dialog open={isCreateUserOpen} onOpenChange={setIsCreateUserOpen}>
@@ -158,8 +158,7 @@ export default function SettingsPage() {
               <DialogHeader>
                 <DialogTitle className="font-headline">Create New User</DialogTitle>
                  <DialogDescription className="font-body">
-                  This creates a real Firebase Auth user (so they can log in) and adds them to the mock list below.
-                  The role assigned here is for this mock list only.
+                  Creates a Firebase Auth user and adds to list. Role change simulates a backend trigger.
                 </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleCreateUser} className="space-y-4 py-2">
@@ -176,7 +175,7 @@ export default function SettingsPage() {
                   <Input id="newUserPassword" type="password" value={newUserPassword} onChange={(e) => setNewUserPassword(e.target.value)} placeholder="Min. 6 characters" />
                 </div>
                 <div>
-                  <Label htmlFor="newUserRole">Role (for Mock List)</Label>
+                  <Label htmlFor="newUserRole">Intended Role</Label>
                   <Select value={newUserRole} onValueChange={(value) => setNewUserRole(value as UserRole)}>
                     <SelectTrigger id="newUserRole">
                       <SelectValue placeholder="Select role" />
@@ -202,13 +201,12 @@ export default function SettingsPage() {
         <CardContent>
           <Alert variant="default" className="mb-6 bg-blue-50 border-blue-300 dark:bg-blue-900/30 dark:border-blue-700">
             <AlertTriangle className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-            <AlertTitle className="font-headline text-blue-700 dark:text-blue-300">Important Note on User Roles</AlertTitle>
+            <AlertTitle className="font-headline text-blue-700 dark:text-blue-300">Simulated Role Management</AlertTitle>
             <AlertDescription className="text-blue-600 dark:text-blue-400 font-body">
-              The user list and role assignments below are part of a **prototype simulation**.
               <ul>
-                <li className="mt-1">- Changing a role here updates the user's entry in this mock list for visual testing.</li>
-                <li>- It **does not** set actual Firebase custom claims or change what a user sees when they log in themselves (unless they are the current Admin using the "Switch Role" dev tool).</li>
-                <li>- Real, persistent role management requires backend integration with Firebase Admin SDK.</li>
+                <li className="mt-1">- Changing a role here **simulates a request** (e.g., to Firestore) that a backend Cloud Function would process to set actual Firebase Custom Claims.</li>
+                <li>- The user's role in this list will update. However, their actual permissions upon their next login depend on whether a real backend function processed the role change and updated their Firebase Auth custom claims.</li>
+                <li>- The "Switch Role (Dev)" tool in your profile menu provides immediate UI testing for different roles during your admin session.</li>
               </ul>
             </AlertDescription>
           </Alert>
@@ -224,7 +222,7 @@ export default function SettingsPage() {
                 <TableRow>
                   <TableHead className="font-headline">Display Name</TableHead>
                   <TableHead className="font-headline">Email</TableHead>
-                  <TableHead className="font-headline">Mock Role</TableHead>
+                  <TableHead className="font-headline">Simulated Role</TableHead>
                   <TableHead className="font-headline text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -236,7 +234,7 @@ export default function SettingsPage() {
                     <TableCell className="font-body"><span className="px-2 py-1 text-xs font-semibold rounded-full bg-secondary text-secondary-foreground">{user.role}</span></TableCell>
                     <TableCell className="text-right space-x-1">
                       <Button variant="outline" size="sm" onClick={() => openEditRoleDialog(user)} title="Edit Role">
-                        <Edit3 className="mr-1 h-4 w-4" /> Edit Mock Role
+                        <Edit3 className="mr-1 h-4 w-4" /> Edit Simulated Role
                       </Button>
                       <Button variant="ghost" size="icon" onClick={() => openDeleteUserDialog(user)} title="Delete User from Mock List" className="text-destructive hover:text-destructive">
                         <Trash2 className="h-4 w-4" />
@@ -256,13 +254,13 @@ export default function SettingsPage() {
       <Dialog open={isEditRoleOpen} onOpenChange={setIsEditRoleOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle className="font-headline">Edit Mock Role for {selectedUserForEdit?.displayName}</DialogTitle>
+            <DialogTitle className="font-headline">Edit Simulated Role for {selectedUserForEdit?.displayName}</DialogTitle>
              <DialogDescription className="font-body">
-              This changes the role in the mock list for visual/testing purposes only.
+              This simulates a request to change the user's role. A backend process would handle the actual Firebase custom claim update.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
-            <Label htmlFor="editUserRole">New Mock Role</Label>
+            <Label htmlFor="editUserRole">New Simulated Role</Label>
             <Select value={selectedNewRole} onValueChange={(value) => setSelectedNewRole(value as UserRole)}>
               <SelectTrigger id="editUserRole">
                 <SelectValue placeholder="Select new role" />
@@ -278,7 +276,7 @@ export default function SettingsPage() {
             <DialogClose asChild><Button type="button" variant="outline" disabled={isUpdatingRole}>Cancel</Button></DialogClose>
             <Button onClick={handleUpdateRole} disabled={isUpdatingRole}>
               {isUpdatingRole ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-              Update Mock Role
+              Update Simulated Role
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -288,9 +286,9 @@ export default function SettingsPage() {
       <Dialog open={isDeleteUserOpen} onOpenChange={setIsDeleteUserOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle className="font-headline">Delete User: {selectedUserForDelete?.displayName}?</DialogTitle>
+            <DialogTitle className="font-headline">Remove User from List: {selectedUserForDelete?.displayName}?</DialogTitle>
             <DialogDescription className="font-body">
-              Are you sure you want to remove "{selectedUserForDelete?.email}" from the mock list? This does not delete their Firebase Auth account.
+              Are you sure you want to remove "{selectedUserForDelete?.email}" from this list? This action only affects the mock display and simulates a backend trigger for actual user data changes. It does not delete their Firebase Auth account.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -306,5 +304,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-
-    
