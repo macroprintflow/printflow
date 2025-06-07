@@ -14,7 +14,8 @@ import { useState, type FormEvent, type ChangeEvent, useEffect, useCallback, use
 import type { DesignSubmission, SubmitDesignInput, SubmitDesignOutput, PlateTypeValue, ColorProfileValue } from "@/lib/definitions";
 import { PLATE_TYPES, COLOR_PROFILES } from "@/lib/definitions";
 import { submitDesignForApproval } from "@/ai/flows/design-submission-flow";
-import { getDesignSubmissions, updateDesignSubmissionStatus } from "@/lib/actions/jobActions";
+import { getDesignSubmissions, updateDesignSubmissionStatus, getJobCardById } from "@/lib/actions/jobActions"; // Added getJobCardById
+import { sendPlateEmail, type SendPlateEmailInput as SendPlateEmailFlowInput } from "@/ai/flows/send-plate-email-flow"; // Updated import
 
 
 // Helper function to convert file to Data URI
@@ -178,12 +179,41 @@ export default function ForApprovalPage() {
     }
   };
   
-  const handleSendEmailToPlateManufacturer = (design: DesignSubmission) => {
-    toast({
-      title: "Action Required",
-      description: `Email sending for "${design.pdfName}" (Color: ${design.colorProfile || 'N/A'}) not implemented yet.`,
-    });
-    console.log("Send email for plate manufacturing:", design);
+  const handleSendEmailToPlateManufacturer = async (design: DesignSubmission) => {
+    if (!design.pdfDataUri) {
+        toast({ title: "Error", description: "No PDF found for this design to email.", variant: "destructive" });
+        return;
+    }
+
+    // Note: A design submission is not directly linked to a job card *number* at this stage.
+    // The job card is typically created *from* an approved design.
+    // We will pass the jobName and customerName from the design submission itself.
+    // If a more specific jobCardNumber is needed, the data model or workflow might need adjustment.
+    const emailInput: SendPlateEmailFlowInput = {
+      jobName: design.jobName,
+      customerName: design.customerName,
+      pdfName: design.pdfName,
+      pdfDataUri: design.pdfDataUri,
+      colorProfile: design.colorProfile,
+      otherColorProfileDetail: design.otherColorProfileDetail,
+      plateType: design.plateType,
+      // jobCardNumber: undefined, // Not available directly on design submission, could be added if linking happens before email
+    };
+
+    setIsSubmitting(true); // Use a general loading state or a specific one for emailing
+    try {
+      const result = await sendPlateEmail(emailInput);
+      if (result.success) {
+        toast({ title: "Email Sent", description: result.message || "Email successfully dispatched to plate maker."});
+      } else {
+        toast({ title: "Email Failed", description: result.message || "Could not send email.", variant: "destructive" });
+      }
+    } catch (error) {
+      console.error("Error calling sendPlateEmail flow:", error);
+      toast({ title: "Error", description: "An error occurred while trying to send the email.", variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleViewPdf = (pdfDataUri: string | undefined) => {
@@ -402,8 +432,8 @@ export default function ForApprovalPage() {
                             </>
                           )}
                           {design.status === 'approved' && design.plateType === 'new' && (
-                             <Button variant="outline" size="sm" onClick={() => handleSendEmailToPlateManufacturer(design)} className="font-body text-blue-600 border-blue-600 hover:bg-blue-50">
-                               <Mail className="mr-1 h-4 w-4" /> Email Plate Maker
+                             <Button variant="outline" size="sm" onClick={() => handleSendEmailToPlateManufacturer(design)} className="font-body text-blue-600 border-blue-600 hover:bg-blue-50" disabled={isSubmitting}>
+                               {isSubmitting ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Mail className="mr-1 h-4 w-4" />} Email Plate Maker
                              </Button>
                           )}
                           {design.status === 'pending' && (
