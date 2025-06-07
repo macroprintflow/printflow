@@ -8,10 +8,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { AddItemDialog } from "@/components/inventory/AddItemDialog";
 import { InventoryAdjustmentsDialog } from "@/components/inventory/InventoryAdjustmentsDialog";
 import { getInventoryItems } from "@/lib/actions/jobActions";
-import type { InventoryItem, PaperQualityType, PaperSubCategoryFilterValue, PaperSubCategory, ArtPaperFinishFilterValue, KappaFinishFilterValue } from "@/lib/definitions";
+import type { InventoryItem, PaperQualityType, PaperSubCategoryFilterValue, PaperSubCategory, ArtPaperFinishFilterValue, KappaFinishFilterValue, SubCategoryFinishFilterValue } from "@/lib/definitions";
 import { PAPER_SUB_CATEGORIES, KAPPA_MDF_QUALITIES, getPaperQualityUnit, getPaperQualityLabel } from "@/lib/definitions";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -46,14 +45,13 @@ export default function CategorizedInventoryPage() {
 
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
   const [isAdjustmentsDialogOpen, setIsAdjustmentsDialogOpen] = useState(false);
   const [selectedItemForAdjustments, setSelectedItemForAdjustments] = useState<InventoryItem | null>(null);
 
   const [selectedPaperQualityFilter, setSelectedPaperQualityFilter] = useState<PaperSubCategoryFilterValue | null>(null);
-  const [selectedSubCategoryFinishFilter, setSelectedSubCategoryFinishFilter] = useState<ArtPaperFinishFilterValue | KappaFinishFilterValue | null>(null);
+  const [selectedSubCategoryFinishFilter, setSelectedSubCategoryFinishFilter] = useState<SubCategoryFinishFilterValue | null>(null);
   const [selectedSpec, setSelectedSpec] = useState<{ value: number; unit: 'GSM' | 'mm' } | null>(null);
 
   const fetchInventory = useCallback(async () => {
@@ -297,8 +295,8 @@ export default function CategorizedInventoryPage() {
         return <p>Invalid selection or "All Paper" view selected.</p>;
     }
 
-    const title = selectedSubCategoryFinishFilter
-      ? `Select Specification for ${currentPaperSubCategoryDefinition.subFinishes?.find(f => f.finishFilterValue === selectedSubCategoryFinishFilter)?.name || currentPaperSubCategoryDefinition.name}`
+    const title = selectedSubCategoryFinishFilter && currentPaperSubCategoryDefinition.subFinishes
+      ? `Select Specification for ${currentPaperSubCategoryDefinition.subFinishes.find(f => f.finishFilterValue === selectedSubCategoryFinishFilter)?.name || currentPaperSubCategoryDefinition.name}`
       : currentPaperSubCategoryDefinition.subFinishes
         ? `Select Finish for ${currentPaperSubCategoryDefinition.name}`
         : `Select Specification for ${currentPaperSubCategoryDefinition.name}`;
@@ -330,8 +328,10 @@ export default function CategorizedInventoryPage() {
                 No predefined or dynamically found specifications for this selection.
                 This could mean no items of this type are in stock with defined GSM/Thickness, or this paper type has no predefined specs.
               </p>
-              <Button className="mt-6 font-body" onClick={() => setIsAddItemDialogOpen(true)}>
-                <PlusCircle className="mr-2 h-4 w-4" /> Add New Item
+              <Button asChild className="mt-6 font-body">
+                <Link href="/inventory/new-purchase">
+                  <PlusCircle className="mr-2 h-4 w-4" /> Add New Item to Purchase
+                </Link>
               </Button>
             </CardContent>
           </Card>
@@ -370,10 +370,10 @@ export default function CategorizedInventoryPage() {
                   className="h-16 p-4 flex flex-col items-start justify-center text-left hover:shadow-md transition-shadow"
                   onClick={() => {
                     if (specItem.type === 'finish') {
-                      setSelectedSubCategoryFinishFilter(specItem.value as ArtPaperFinishFilterValue | KappaFinishFilterValue);
+                      setSelectedSubCategoryFinishFilter(specItem.value as SubCategoryFinishFilterValue);
                       setSelectedSpec(null); 
                     } else {
-                      setSelectedSpec({ value: specItem.value, unit: specItem.unit });
+                      setSelectedSpec({ value: specItem.value, unit: specItem.unit as 'GSM' | 'mm' });
                     }
                   }}
                 >
@@ -430,8 +430,10 @@ export default function CategorizedInventoryPage() {
               : `There are no inventory items currently matching: ${currentFilterDisplayName.toLowerCase()}. Ensure items have positive stock.`
             }
           </p>
-           <Button className="mt-6 font-body" onClick={() => setIsAddItemDialogOpen(true)}>
-            <PlusCircle className="mr-2 h-4 w-4" /> Add New Item to {currentFilterDisplayName}
+           <Button asChild className="mt-6 font-body">
+             <Link href="/inventory/new-purchase">
+                <PlusCircle className="mr-2 h-4 w-4" /> Add New Item to Purchase
+             </Link>
           </Button>
         </div>
       );
@@ -451,22 +453,22 @@ export default function CategorizedInventoryPage() {
         </TableHeader>
         <TableBody>
           {items.map((item) => {
-            const itemNameDisplay =
-              (item.type === 'Master Sheet' && item.masterSheetSizeWidth && item.masterSheetSizeHeight)
+             const isMasterSheetWithDims = item.type === 'Master Sheet' && item.masterSheetSizeWidth && item.masterSheetSizeHeight;
+             const itemNameDisplay = isMasterSheetWithDims
                 ? `${formatDimension(item.masterSheetSizeWidth)} x ${formatDimension(item.masterSheetSizeHeight)} in`
                 : item.name;
-            const itemFontWeight =
-              (item.type === 'Master Sheet' && item.masterSheetSizeWidth && item.masterSheetSizeHeight)
-                ? 'font-semibold'
-                : 'font-medium';
 
             return (
               <TableRow key={item.id}>
                 <TableCell
-                  className={`font-body ${itemFontWeight} hover:underline cursor-pointer`}
+                  className={`font-body hover:underline cursor-pointer`}
                   onClick={() => handleViewAdjustments(item)}
                 >
-                  {itemNameDisplay}
+                  {isMasterSheetWithDims ? (
+                    <span className="text-base font-semibold">{itemNameDisplay}</span>
+                  ) : (
+                    <span className="font-medium">{itemNameDisplay}</span>
+                  )}
                 </TableCell>
                 <TableCell>
                   <Badge variant={
@@ -584,9 +586,6 @@ export default function CategorizedInventoryPage() {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-             <Button className="w-full sm:w-auto font-body" variant="outline" onClick={() => setIsAddItemDialogOpen(true)}>
-              <PlusCircle className="mr-2 h-4 w-4" /> Add Single Item
-            </Button>
             <Button asChild className="w-full sm:w-auto font-body">
               <Link href="/inventory/new-purchase">
                 <ShoppingCart className="mr-2 h-4 w-4" /> Enter Purchase
@@ -598,11 +597,7 @@ export default function CategorizedInventoryPage() {
           {renderInventoryTable(filteredItems)}
         </CardContent>
       </Card>
-      <AddItemDialog
-        isOpen={isAddItemDialogOpen}
-        setIsOpen={setIsAddItemDialogOpen}
-        onItemAdded={handleInventoryUpdate}
-      />
+      
       <InventoryAdjustmentsDialog
         isOpen={isAdjustmentsDialogOpen}
         setIsOpen={setIsAdjustmentsDialogOpen}
@@ -612,3 +607,4 @@ export default function CategorizedInventoryPage() {
   );
 }
 
+    
