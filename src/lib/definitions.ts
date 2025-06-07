@@ -626,6 +626,27 @@ export interface DesignSubmission {
   otherColorProfileDetail?: string;
 }
 
+// --- Send Plate Email Flow Schemas and Types ---
+export const SendPlateEmailInputSchema = z.object({
+  jobName: z.string().describe("Name of the job."),
+  customerName: z.string().describe("Name of the customer."),
+  pdfName: z.string().describe("Filename of the PDF design."),
+  pdfDataUri: z.string().describe("The PDF design as a data URI."),
+  colorProfile: z.enum(['cmyk', 'cmyk_white', 'other']).optional().describe("Color profile for the plates."),
+  otherColorProfileDetail: z.string().optional().describe("Details if color profile is 'other'."),
+  plateType: z.enum(['new', 'old']).default('new').describe("Plate type, typically 'new' for this flow."),
+  jobCardNumber: z.string().optional().describe("Job card number, if available."), 
+});
+export type SendPlateEmailInput = z.infer<typeof SendPlateEmailInputSchema>;
+
+export const SendPlateEmailOutputSchema = z.object({
+  success: z.boolean().describe("Whether the email was sent successfully."),
+  message: z.string().describe("A message indicating the outcome of the email sending attempt."),
+  messageId: z.string().optional().describe("The message ID from the email provider if successful."),
+});
+export type SendPlateEmailOutput = z.infer<typeof SendPlateEmailOutputSchema>;
+// --- End Send Plate Email Flow Schemas and Types ---
+
 // Country Code Definitions
 export interface CountryCode {
   name: string;

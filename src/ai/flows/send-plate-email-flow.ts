@@ -4,36 +4,21 @@
  * @fileOverview A Genkit flow to send an email to the plate manufacturer with design details and PDF attachment.
  *
  * - sendPlateEmail - A function that handles composing and sending the email.
- * - SendPlateEmailInput - The input type for the flow.
- * - SendPlateEmailOutput - The return type for the flow.
+ * - SendPlateEmailInput - The input type for the flow (imported from definitions).
+ * - SendPlateEmailOutput - The return type for the flow (imported from definitions).
  */
 
 import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+// Zod is still needed if used by ai.defineFlow directly, but schemas are imported
 import { sendEmailService } from '@/services/emailService';
-import type { PlateTypeValue, ColorProfileValue } from '@/lib/definitions';
+import { 
+    SendPlateEmailInputSchema, 
+    type SendPlateEmailInput, 
+    SendPlateEmailOutputSchema, 
+    type SendPlateEmailOutput 
+} from '@/lib/definitions'; // Import schemas and types
 
 const PLATE_MAKER_EMAIL = process.env.PLATE_MAKER_EMAIL;
-
-export const SendPlateEmailInputSchema = z.object({
-  jobName: z.string().describe("Name of the job."),
-  customerName: z.string().describe("Name of the customer."),
-  pdfName: z.string().describe("Filename of the PDF design."),
-  pdfDataUri: z.string().describe("The PDF design as a data URI."),
-  colorProfile: z.enum(['cmyk', 'cmyk_white', 'other']).optional().describe("Color profile for the plates."),
-  otherColorProfileDetail: z.string().optional().describe("Details if color profile is 'other'."),
-  plateType: z.enum(['new', 'old']).default('new').describe("Plate type, typically 'new' for this flow."),
-  // jobCardNumber is optional and might not always be available when sending from 'For Approval'
-  jobCardNumber: z.string().optional().describe("Job card number, if available."), 
-});
-export type SendPlateEmailInput = z.infer<typeof SendPlateEmailInputSchema>;
-
-export const SendPlateEmailOutputSchema = z.object({
-  success: z.boolean().describe("Whether the email was sent successfully."),
-  message: z.string().describe("A message indicating the outcome of the email sending attempt."),
-  messageId: z.string().optional().describe("The message ID from the email provider if successful."),
-});
-export type SendPlateEmailOutput = z.infer<typeof SendPlateEmailOutputSchema>;
 
 export async function sendPlateEmail(input: SendPlateEmailInput): Promise<SendPlateEmailOutput> {
   return sendPlateEmailFlow(input);
@@ -42,8 +27,8 @@ export async function sendPlateEmail(input: SendPlateEmailInput): Promise<SendPl
 const sendPlateEmailFlow = ai.defineFlow(
   {
     name: 'sendPlateEmailFlow',
-    inputSchema: SendPlateEmailInputSchema,
-    outputSchema: SendPlateEmailOutputSchema,
+    inputSchema: SendPlateEmailInputSchema, // Use imported schema
+    outputSchema: SendPlateEmailOutputSchema, // Use imported schema
   },
   async (input) => {
     if (!PLATE_MAKER_EMAIL) {
@@ -98,3 +83,8 @@ const sendPlateEmailFlow = ai.defineFlow(
     }
   }
 );
+
+// Ensure that only the async function and necessary types are exported.
+// Zod schema objects (SendPlateEmailInputSchema, SendPlateEmailOutputSchema) are no longer exported from here.
+// Types SendPlateEmailInput and SendPlateEmailOutput are imported from definitions.ts and re-exported by usage.
+export type { SendPlateEmailInput, SendPlateEmailOutput };
