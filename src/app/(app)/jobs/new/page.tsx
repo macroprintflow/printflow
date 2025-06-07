@@ -99,7 +99,7 @@ function NewJobPageContent() {
     setPrefillCustomerName(design.customerName);
     setSelectedDesignPdfUri(design.pdfDataUri); // Set the PDF URI from the selected design
     
-    // Create a minimal initialJobData structure to pass the PDF URI
+    // Create a minimal initialJobDataForForm structure to pass the PDF URI
     const designPrefillData: Partial<JobCardData> = {
         jobName: design.jobName,
         customerName: design.customerName,
@@ -216,10 +216,10 @@ function NewJobPageContent() {
         </CardHeader>
         <CardContent>
           <JobCardForm 
-            key={initialJobData?.id || fromCustomerJobId || 'new-job'}
-            initialJobName={initialJobData?.jobName || prefillJobName} 
-            initialCustomerName={initialJobData?.customerName || prefillCustomerName}
-            initialJobData={initialJobData} // Pass the full data including PDF URI
+            key={initialJobDataForForm?.id || fromCustomerJobId || 'new-job'}
+            initialJobName={initialJobDataForForm?.jobName || prefillJobName} 
+            initialCustomerName={initialJobDataForForm?.customerName || prefillCustomerName}
+            initialJobData={initialJobDataForForm} // Pass the full data including PDF URI
           />
         </CardContent>
       </Card>
