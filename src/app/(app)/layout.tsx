@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/sidebar';
 import AppLogo from '@/components/AppLogo';
 import { Header } from '@/components/layout/Header';
-import { LayoutDashboard, Briefcase, FileUp, FilePlus2, CalendarCheck2, ClipboardList, UserCircle, Settings, Archive, LogOut, type LucideIcon, ShoppingBag } from 'lucide-react';
+import { LayoutDashboard, Briefcase, FileUp, FilePlus2, CalendarCheck2, ClipboardList, UserCircle, Settings, Archive, LogOut, type LucideIcon, ShoppingBag, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -35,7 +35,7 @@ import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase/clientApp';
 import { useToast } from '@/hooks/use-toast';
 
-type UserRole = "Admin" | "Departmental" | "Customer"; // Added Customer
+type UserRole = "Admin" | "Manager" | "Departmental" | "Customer";
 
 interface NavItem {
   href: string;
@@ -44,18 +44,19 @@ interface NavItem {
   allowedRoles: UserRole[];
 }
 
+// Manager has all access like Admin for now. Departmental has limited access.
 const allNavItems: NavItem[] = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, allowedRoles: ['Admin'] },
-  { href: '/jobs', label: 'All Jobs', icon: Briefcase, allowedRoles: ['Admin'] },
-  { href: '/for-approval', label: 'For Approval', icon: FileUp, allowedRoles: ['Admin'] },
-  { href: '/jobs/new', label: 'New Job Card', icon: FilePlus2, allowedRoles: ['Admin'] },
-  { href: '/planning', label: 'Production Planning', icon: CalendarCheck2, allowedRoles: ['Admin'] },
-  { href: '/tasks', label: 'Departmental Tasks', icon: ClipboardList, allowedRoles: ['Admin', 'Departmental'] },
-  { href: '/inventory', label: 'Inventory', icon: Archive, allowedRoles: ['Admin'] },
-  { href: '/customer/my-jobs', label: 'My Jobs', icon: ShoppingBag, allowedRoles: ['Customer'] }, // New Customer Portal Link
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, allowedRoles: ['Admin', 'Manager'] },
+  { href: '/jobs', label: 'All Jobs', icon: Briefcase, allowedRoles: ['Admin', 'Manager'] },
+  { href: '/for-approval', label: 'For Approval', icon: FileUp, allowedRoles: ['Admin', 'Manager'] },
+  { href: '/jobs/new', label: 'New Job Card', icon: FilePlus2, allowedRoles: ['Admin', 'Manager'] },
+  { href: '/planning', label: 'Production Planning', icon: CalendarCheck2, allowedRoles: ['Admin', 'Manager'] },
+  { href: '/tasks', label: 'Departmental Tasks', icon: ClipboardList, allowedRoles: ['Admin', 'Manager', 'Departmental'] },
+  { href: '/inventory', label: 'Inventory', icon: Archive, allowedRoles: ['Admin', 'Manager'] },
+  { href: '/customer/my-jobs', label: 'My Jobs', icon: ShoppingBag, allowedRoles: ['Customer'] },
 ];
 
-const ADMIN_EMAIL = "kuvamsharma@printflow.app"; // Admin/Manager
+const ADMIN_EMAIL = "kuvamsharma@printflow.app"; 
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -63,6 +64,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth(); 
   const { toast } = useToast();
   const [isClient, setIsClient] = React.useState(false);
+  const [effectiveUserRole, setEffectiveUserRole] = React.useState<UserRole>("Customer"); // Default to least privileged
 
   React.useEffect(() => {
     setIsClient(true);
@@ -71,6 +73,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     if (!loading && !user) {
       router.push('/login'); 
+    } else if (user) {
+      let actualRole: UserRole;
+      if (user.email === ADMIN_EMAIL) {
+        actualRole = "Admin";
+      } else {
+        // This is where you'd typically fetch a role from your database or custom claims
+        // For now, defaulting non-admin users to "Customer" for portal access.
+        // Could be "Departmental" if there was a specific signup or assignment for that.
+        actualRole = "Customer"; 
+      }
+      setEffectiveUserRole(actualRole); // Set initial effective role based on actual user
     }
   }, [user, loading, router]);
 
@@ -92,21 +105,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const userDisplayName = user?.displayName || user?.email?.split('@')[0] || "User";
   const userEmail = user?.email || "No email";
   
-  // Simplified role determination for now
-  let currentUserRole: UserRole;
-  if (user?.email === ADMIN_EMAIL) {
-    currentUserRole = "Admin"; // Admins/Managers
-  } else {
-    // For now, any other authenticated user is a "Customer" for portal access.
-    // A more robust system would check a role field on the user object or custom claims.
-    currentUserRole = "Customer"; 
-  }
-  
-  const userRoleDisplay = currentUserRole === "Admin" ? "Admin" : currentUserRole === "Customer" ? "Customer" : "User";
+  // The userRoleDisplay now reflects the effective role
+  const userRoleDisplay = effectiveUserRole;
 
   const visibleNavItems = allNavItems.filter(item => 
-    item.allowedRoles.includes(currentUserRole)
+    item.allowedRoles.includes(effectiveUserRole)
   );
+  
+  // Determine if the current user is the designated admin for showing the role switcher
+  const isDesignatedAdmin = user?.email === ADMIN_EMAIL;
 
   return (
     <ClientOnlyWrapper>
@@ -169,7 +176,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     Profile
                   </Link>
                 </DropdownMenuItem>
-                {currentUserRole === 'Admin' && (
+                {(effectiveUserRole === 'Admin' || effectiveUserRole === 'Manager') && (
                   <DropdownMenuItem asChild>
                     <Link href="/settings" className="w-full">
                       <Settings className="mr-2 h-4 w-4" />
@@ -178,7 +185,23 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout}>
+                {isDesignatedAdmin && (
+                  <>
+                    <DropdownMenuLabel className="text-xs text-muted-foreground px-2">Switch Role (Dev Tool)</DropdownMenuLabel>
+                    {(["Admin", "Manager", "Departmental", "Customer"] as UserRole[]).map((role) => (
+                      <DropdownMenuItem 
+                        key={role} 
+                        onClick={() => setEffectiveUserRole(role)}
+                        className={cn("cursor-pointer", effectiveUserRole === role && "bg-accent font-semibold")}
+                      >
+                        Switch to {role}
+                        {effectiveUserRole === role && <Check className="ml-auto h-4 w-4" />}
+                      </DropdownMenuItem>
+                    ))}
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+                <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
                   <LogOut className="mr-2 h-4 w-4" />
                   Log out
                 </DropdownMenuItem>
