@@ -136,9 +136,9 @@ export function InventoryOptimizationModal({
         </div>
 
         {optimalSuggestion && (
-          <div className="my-4 p-4 border border-green-500 bg-green-50 dark:bg-green-900/30 rounded-md">
-            <h3 className="text-lg font-semibold text-green-700 dark:text-green-300 font-headline">Optimal Suggestion</h3>
-            <p className="text-sm text-green-600 dark:text-green-200">
+          <div className="my-4 p-4 border border-green-500 bg-green-100 dark:bg-green-700/40 rounded-md">
+            <h3 className="text-lg font-semibold text-green-700 dark:text-green-200 font-headline">Optimal Suggestion</h3>
+            <p className="text-sm text-green-600 dark:text-green-100">
               Sheet: {optimalSuggestion.masterSheetSizeWidth.toFixed(2)}in x {optimalSuggestion.masterSheetSizeHeight.toFixed(2)}in 
               ({renderSheetSpec(optimalSuggestion)}, Quality: {getPaperQualityLabel(optimalSuggestion.paperQuality as PaperQualityType)}) <br />
               Wastage: {optimalSuggestion.wastagePercentage.toFixed(2)}% | 
@@ -146,7 +146,7 @@ export function InventoryOptimizationModal({
               Total Masters: {optimalSuggestion.totalMasterSheetsNeeded} <br />
               Layout: {optimalSuggestion.cuttingLayoutDescription || 'N/A'}
             </p>
-            <Button size="sm" className="mt-2 bg-green-600 hover:bg-green-700" onClick={() => handleSelect(optimalSuggestion)}>
+            <Button size="sm" className="mt-2 bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600" onClick={() => handleSelect(optimalSuggestion)}>
               Use Optimal Suggestion
             </Button>
           </div>
@@ -172,10 +172,9 @@ export function InventoryOptimizationModal({
                   <TableRow 
                     key={s.sourceInventoryItemId || index} 
                     className={cn(
-                      "transition-colors", // Keep basic transition for other properties if any
                       s.sourceInventoryItemId === optimalSuggestion?.sourceInventoryItemId 
-                        ? "bg-green-100 dark:bg-green-900/30 hover:bg-green-100 dark:hover:bg-green-900/30" 
-                        : "bg-secondary/50 dark:bg-secondary/40 hover:bg-secondary/50 dark:hover:bg-secondary/40"
+                        ? "bg-green-100 dark:bg-green-700/40 hover:bg-green-100 dark:hover:bg-green-700/40" // Optimal
+                        : "bg-muted dark:bg-slate-800 hover:bg-muted dark:hover:bg-slate-800" // Normal
                     )}
                   >
                     <TableCell className="text-card-foreground">{s.masterSheetSizeWidth.toFixed(2)} x {s.masterSheetSizeHeight.toFixed(2)}</TableCell>
