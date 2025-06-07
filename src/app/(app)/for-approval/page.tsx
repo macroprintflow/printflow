@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { UploadCloud, FileText, CheckCircle, Send, Loader2, AlertTriangle, Eye } from "lucide-react"; // Added Eye icon
+import { UploadCloud, FileText, CheckCircle, Send, Loader2, AlertTriangle, Eye, Download } from "lucide-react"; // Added Download icon
 import { useState, type FormEvent, type ChangeEvent, useEffect, useCallback } from "react";
 import type { DesignSubmission, SubmitDesignInput, SubmitDesignOutput } from "@/lib/definitions";
 import { submitDesignForApproval } from "@/ai/flows/design-submission-flow";
@@ -172,6 +172,10 @@ export default function ForApprovalPage() {
 
     try {
       const base64 = pdfDataUri.split(',')[1];
+      if (!base64) { // Extra check for empty base64 string after split
+          toast({ title: "Cannot View PDF", description: "PDF data is invalid (empty content).", variant: "destructive" });
+          return;
+      }
       const byteCharacters = atob(base64);
       const byteNumbers = Array.from(byteCharacters, char => char.charCodeAt(0));
       const byteArray = new Uint8Array(byteNumbers);
@@ -180,16 +184,15 @@ export default function ForApprovalPage() {
       const url = URL.createObjectURL(blob);
       const pdfWindow = window.open(url, '_blank');
 
-      // Clean up the object URL when the window/tab is closed
       if (pdfWindow) {
         pdfWindow.addEventListener('unload', () => {
           URL.revokeObjectURL(url);
           console.log("Revoked PDF Object URL:", url);
         });
       } else {
-        // Fallback if window.open was blocked or failed, revoke immediately
         URL.revokeObjectURL(url);
         console.warn("Could not open PDF window, revoked URL immediately:", url);
+        toast({ title: "Popup Blocked?", description: "Could not open PDF. Please check if your browser blocked the popup.", variant: "destructive" });
       }
       
     } catch (error) {
@@ -197,6 +200,51 @@ export default function ForApprovalPage() {
       toast({
         title: "Failed to Open PDF",
         description: "Something went wrong while rendering the PDF.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDownloadPdf = (pdfDataUri: string | undefined, jobName: string, customerName: string, date: string) => {
+    if (!pdfDataUri || !pdfDataUri.startsWith('data:application/pdf;base64,')) {
+      toast({
+        title: "Cannot Download PDF",
+        description: "The PDF data is empty or invalid.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const base64 = pdfDataUri.split(',')[1];
+      if (!base64) { // Extra check for empty base64 string after split
+          toast({ title: "Cannot Download PDF", description: "PDF data is invalid (empty content).", variant: "destructive" });
+          return;
+      }
+      const byteCharacters = atob(base64);
+      const byteNumbers = Array.from(byteCharacters, char => char.charCodeAt(0));
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: 'application/pdf' });
+
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      const sanitizedJobName = jobName.replace(/[^\w\s-]/g, '').replace(/\s+/g, '_');
+      const sanitizedCustomer = customerName.replace(/[^\w\s-]/g, '').replace(/\s+/g, '_');
+      const formattedDate = new Date(date).toISOString().slice(0, 10);
+      const fileName = `${sanitizedJobName}_${sanitizedCustomer}_${formattedDate}.pdf`;
+
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a); // Required for Firefox
+      a.click();
+      document.body.removeChild(a); // Clean up
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Download error:", error);
+      toast({
+        title: "Failed to Download PDF",
+        description: "Something went wrong while downloading the PDF.",
         variant: "destructive",
       });
     }
@@ -290,17 +338,27 @@ export default function ForApprovalPage() {
                     </div>
                   </div>
                   <div className="flex gap-2 mt-2 sm:mt-0 flex-shrink-0 items-center">
-                    {/* Updated View PDF button condition and onClick handler */}
                     {design.pdfDataUri && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleViewPdf(design.pdfDataUri)}
-                        className="font-body"
-                        title="View PDF"
-                      >
-                        <Eye className="mr-1 h-4 w-4" /> View PDF
-                      </Button>
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleViewPdf(design.pdfDataUri)}
+                          className="font-body"
+                          title="View PDF"
+                        >
+                          <Eye className="mr-1 h-4 w-4" /> View PDF
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDownloadPdf(design.pdfDataUri, design.jobName, design.customerName, design.date)}
+                          className="font-body"
+                          title="Download PDF"
+                        >
+                          <Download className="mr-1 h-4 w-4" /> Download
+                        </Button>
+                      </>
                     )}
                     {design.status === 'pending' && (
                       <>
