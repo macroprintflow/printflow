@@ -14,10 +14,13 @@ import {
   SidebarMenuButton,
   SidebarInset,
   SidebarTrigger,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
 } from '@/components/ui/sidebar';
 import AppLogo from '@/components/AppLogo';
 import { Header } from '@/components/layout/Header';
-import { LayoutDashboard, Briefcase, FileUp, FilePlus2, CalendarCheck2, ClipboardList, UserCircle, Settings, Archive, LogOut, type LucideIcon, ShoppingBag, Check, Loader2, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, Briefcase, FileUp, FilePlus2, CalendarCheck2, ClipboardList, UserCircle, Settings, Archive, LogOut, type LucideIcon, ShoppingBag, Check, Loader2, ChevronRight, ListChecks, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -32,7 +35,7 @@ import {
   DropdownMenuSubContent as RadixDropdownMenuSubContent,
   DropdownMenuPortal,
 } from "@/components/ui/dropdown-menu"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"; 
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from '@/components/ui/button';
 import ClientOnlyWrapper from '@/components/ClientOnlyWrapper';
 import { useAuth } from '@/contexts/AuthContext';
@@ -50,9 +53,10 @@ interface NavItem {
 
 const allNavItems: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, allowedRoles: ['Admin', 'Manager'] },
-  { href: '/jobs', label: 'All Jobs', icon: Briefcase, allowedRoles: ['Admin', 'Manager'] },
+  // { href: '/jobs', label: 'All Jobs', icon: Briefcase, allowedRoles: ['Admin', 'Manager'] }, // Will be a sub-item
+  { href: '#jobs-trigger', label: 'Jobs', icon: Briefcase, allowedRoles: ['Admin', 'Manager'] }, // Parent "Jobs" item
   { href: '/for-approval', label: 'For Approval', icon: FileUp, allowedRoles: ['Admin', 'Manager'] },
-  { href: '/jobs/new', label: 'New Job Card', icon: FilePlus2, allowedRoles: ['Admin', 'Manager'] },
+  // { href: '/jobs/new', label: 'New Job Card', icon: FilePlus2, allowedRoles: ['Admin', 'Manager'] }, // Replaced by "Jobs" parent
   { href: '/planning', label: 'Production Planning', icon: CalendarCheck2, allowedRoles: ['Admin', 'Manager'] },
   { href: '/tasks', label: 'Departmental Tasks', icon: ClipboardList, allowedRoles: ['Admin', 'Manager', 'Departmental'] },
   { href: '/inventory', label: 'Inventory', icon: Archive, allowedRoles: ['Admin', 'Manager'] },
@@ -73,6 +77,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [isRoleFromDevTool, setIsRoleFromDevTool] = React.useState(false);
   const [isLoadingRole, setIsLoadingRole] = React.useState(true);
   const isDeterminingRoleRef = React.useRef(false);
+
+  const [isJobsSubmenuOpen, setIsJobsSubmenuOpen] = React.useState(pathname.startsWith('/jobs'));
+
 
   React.useEffect(() => {
     setIsClient(true);
@@ -115,10 +122,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         roleToSet = "Customer";
       }
 
-      console.log(`[Auth Role] Determined role: ${roleToSet} for ${user.email}`);
-
       if (effectiveUserRole !== roleToSet) {
-        console.log(`[Auth Role] Setting effective role to: ${roleToSet}`);
         setEffectiveUserRole(roleToSet);
       }
       setIsLoadingRole(false);
@@ -145,15 +149,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       const roleDefaultRoute = defaultRoutes[effectiveUserRole];
 
-      const isCurrentPathAllowed = visibleNavItems.some(item => pathname.startsWith(item.href));
+      const isCurrentPathAllowedOrJobsSubPath = visibleNavItems.some(item => {
+        if (item.href === '#jobs-trigger') return pathname.startsWith('/jobs'); // Check if current path is under /jobs/
+        return pathname.startsWith(item.href);
+      });
 
-      if (!isCurrentPathAllowed && pathname !== roleDefaultRoute && !pathname.startsWith('/login') && !pathname.startsWith('/signup') && !pathname.startsWith('/profile')) {
-        const isDefaultRouteVisible = visibleNavItems.some(item => item.href === roleDefaultRoute);
+
+      if (!isCurrentPathAllowedOrJobsSubPath && pathname !== roleDefaultRoute && !pathname.startsWith('/login') && !pathname.startsWith('/signup') && !pathname.startsWith('/profile')) {
+        const isDefaultRouteVisible = visibleNavItems.some(item => item.href === roleDefaultRoute || (item.href === '#jobs-trigger' && roleDefaultRoute.startsWith('/jobs')));
         if (isDefaultRouteVisible) {
-          console.log(`[Auth Role Redirect] Role: ${effectiveUserRole}, Current Path: ${pathname} not allowed or not the default. Redirecting to ${roleDefaultRoute}`);
           router.replace(roleDefaultRoute);
         } else {
-          console.error(`[Auth Role Redirect] Critical: Default route ${roleDefaultRoute} for role ${effectiveUserRole} is not in visibleNavItems. This indicates a configuration error. Fallback to /login.`);
           handleLogout();
         }
       }
@@ -189,14 +195,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!user && (pathname !== '/login' && pathname !== '/signup')) {
-    return (
-      <div className="flex h-screen w-screen items-center justify-center bg-background">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-      </div>
-    );
-  }
-
   if (!user && (pathname === '/login' || pathname === '/signup')) {
      return <ClientOnlyWrapper>{children}</ClientOnlyWrapper>;
   }
@@ -223,9 +221,69 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </SidebarHeader>
           <SidebarContent>
             <SidebarMenu>
-              {visibleNavItems.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  {item.href === '/jobs' ? null : (
+              {visibleNavItems.map((item) => {
+                 if (item.href === '#jobs-trigger') {
+                  return (
+                    <SidebarMenuItem key={item.href}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                           <SidebarMenuButton
+                            isActive={pathname.startsWith('/jobs')}
+                            onClick={() => setIsJobsSubmenuOpen(!isJobsSubmenuOpen)}
+                          >
+                            <span className="flex items-center gap-2 w-full">
+                              <item.icon className="h-4 w-4 shrink-0" />
+                              <span className="truncate">{item.label}</span>
+                              {isJobsSubmenuOpen ? <ChevronDown className="ml-auto h-4 w-4 shrink-0" /> : <ChevronRight className="ml-auto h-4 w-4 shrink-0" />}
+                            </span>
+                          </SidebarMenuButton>
+                        </TooltipTrigger>
+                        <TooltipContent side="right" align="center" className="font-body">
+                          {item.label}
+                        </TooltipContent>
+                      </Tooltip>
+                      {isJobsSubmenuOpen && (
+                        <SidebarMenuSub>
+                          <SidebarMenuSubItem>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <SidebarMenuSubButton asChild isActive={pathname === '/jobs'}>
+                                  <Link href="/jobs">
+                                    <ListChecks className="h-4 w-4 shrink-0" />
+                                    <span className="truncate">View all jobs</span>
+                                  </Link>
+                                </SidebarMenuSubButton>
+                              </TooltipTrigger>
+                              <TooltipContent side="right" align="center" className="font-body">
+                                View all jobs
+                              </TooltipContent>
+                            </Tooltip>
+                          </SidebarMenuSubItem>
+                          <SidebarMenuSubItem>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <SidebarMenuSubButton asChild isActive={pathname === '/jobs/new'}>
+                                  <Link href="/jobs/new">
+                                    <FilePlus2 className="h-4 w-4 shrink-0" />
+                                    <span className="truncate">Create Job card</span>
+                                  </Link>
+                                </SidebarMenuSubButton>
+                              </TooltipTrigger>
+                              <TooltipContent side="right" align="center" className="font-body">
+                                Create Job card
+                              </TooltipContent>
+                            </Tooltip>
+                          </SidebarMenuSubItem>
+                        </SidebarMenuSub>
+                      )}
+                    </SidebarMenuItem>
+                  );
+                 }
+                // Temporarily skip /jobs as it's handled by the submenu
+                if (item.href === '/jobs') return null;
+
+                return (
+                  <SidebarMenuItem key={item.href}>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <SidebarMenuButton
@@ -245,9 +303,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                          {item.label}
                       </TooltipContent>
                     </Tooltip>
-                  )}
-                </SidebarMenuItem>
-              ))}
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarContent>
           <SidebarFooter className="p-4">
