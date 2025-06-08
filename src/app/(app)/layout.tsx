@@ -221,7 +221,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             )}
           </SidebarHeader>
           <SidebarContent>
-            {/* Relevant JSX block starts here */}
             <SidebarMenu>
               {visibleNavItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
@@ -231,7 +230,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     tooltip={{ children: item.label, className: "font-body" }}
                   >
                     <Link href={item.href} className="flex items-center gap-2 w-full">
-                      <item.icon className="h-4 w-4 shrink-0" /> {/* Ensure icon size is controlled if needed */}
+                      <item.icon className="h-4 w-4 shrink-0" />
                       <span className="truncate">{item.label}</span>
                       <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-sidebar-foreground/60 group-data-[active=true]:text-sidebar-primary group-data-[collapsible=icon]:hidden" />
                     </Link>
@@ -239,7 +238,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
-            {/* Relevant JSX block ends here */}
           </SidebarContent>
           <SidebarFooter className="p-4">
             <DropdownMenu>
@@ -323,5 +321,3 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     </ClientOnlyWrapper>
   );
 }
-
-    
