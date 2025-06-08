@@ -24,6 +24,7 @@ const AvailableSheetSchema = z.object({
   paperGsm: z.number().optional().describe('The GSM of this available master sheet, if applicable.'),
   paperThicknessMm: z.number().optional().describe('The thickness in mm of this available master sheet, if applicable (e.g., for Kappa, MDF).'),
   paperQuality: z.string().describe('The quality of this available master sheet.'),
+  availableStock: z.number().optional().describe('The available stock quantity for this master sheet.'),
 });
 export type AvailableSheet = z.infer<typeof AvailableSheetSchema>;
 
@@ -64,141 +65,79 @@ export async function optimizeInventory(input: OptimizeInventoryInput): Promise<
   return optimizeInventoryFlow(input);
 }
 
-// Helper function to calculate ups for a given job and sheet orientation (simple fill)
-function calculateSimpleFill(
-  jobW: number, jobH: number, // Job dimensions for this attempt
-  sheetW: number, sheetH: number // Sheet dimensions for this attempt
-): { ups: number; cols: number; rows: number; jobOrientation: 'portrait' | 'landscape' } {
-  // Attempt 1: Job as is (jobW x jobH)
-  const colsP = Math.floor(sheetW / jobW);
-  const rowsP = Math.floor(sheetH / jobH);
-  const upsP = colsP * rowsP;
-
-  // Attempt 2: Job rotated (jobH x jobW)
-  const colsL = Math.floor(sheetW / jobH);
-  const rowsL = Math.floor(sheetH / jobW);
-  const upsL = colsL * rowsL;
-
-  if (upsP >= upsL) {
-    return { ups: upsP, cols: colsP, rows: rowsP, jobOrientation: 'portrait' };
-  } else {
-    return { ups: upsL, cols: colsL, rows: rowsL, jobOrientation: 'landscape' };
-  }
-}
-
-
-// Helper function for two-stage guillotine cuts
-function calculateTwoStageGuillotine(
-  jobW_orig: number, jobH_orig: number, // Original job dimensions
-  sheetW_eff: number, sheetH_eff: number // Effective sheet dimensions for this attempt
-): { ups: number; description: string } {
+// New improved guillotine cut calculation function
+function calculateMaxGuillotineUps(jobW: number, jobH: number, sheetW: number, sheetH: number) {
   let maxUps = 0;
-  let description = "N/A";
+  let bestLayout = "";
 
-  // Primary Orientation: Job Portrait (jobW_orig x jobH_orig)
-  // Secondary Orientation: Job Landscape (jobH_orig x jobW_orig)
+  // Try both job orientations
+  const orientations = [
+    {w: jobW, h: jobH, label: 'portrait'},
+    {w: jobH, h: jobW, label: 'landscape'}
+  ];
 
-  // Strategy 1: Horizontal primary cut, fill first strip with Job Portrait
-  if (sheetH_eff >= jobH_orig) {
-    const strip1_cols = Math.floor(sheetW_eff / jobW_orig);
-    const strip1_rows = 1; // Only one row for the primary strip height
-    const ups_strip1 = strip1_cols * strip1_rows;
+  for (const orient of orientations) {
+    // Loop over possible number of jobs across width (first guillotine cut - vertical cuts)
+    for (let colsInStrip1 = 1; colsInStrip1 <= Math.floor(sheetW / orient.w); colsInStrip1++) {
+      const strip1Width = colsInStrip1 * orient.w;
+      const strip1Height = sheetH; // Full sheet height for this strip
+      const strip1Rows = Math.floor(strip1Height / orient.h);
+      const upsInStrip1 = colsInStrip1 * strip1Rows;
 
-    if (ups_strip1 > 0) {
-      const remainderH = sheetH_eff - jobH_orig;
-      let totalUps = ups_strip1;
-      let currentDesc = `${strip1_cols}x${strip1_rows} JP`;
-
-      if (remainderH > 0) {
-        const remainderFill = calculateSimpleFill(jobW_orig, jobH_orig, sheetW_eff, remainderH);
-        if (remainderFill.ups > 0) {
-          totalUps += remainderFill.ups;
-          currentDesc += ` + ${remainderFill.cols}x${remainderFill.rows} ${remainderFill.jobOrientation === 'portrait' ? 'JP' : 'JL'} (rem H)`;
+      const remainderW = sheetW - strip1Width;
+      let upsInRemainder = 0;
+      let remainderDesc = "";
+      if (remainderW >= Math.min(jobW, jobH)) { // Check if remainder can fit at least one job in any orientation
+        for (const remOrient of orientations) {
+          if (remOrient.w > 0 && remOrient.h > 0) { // Ensure valid dimensions for remainder orientation
+            const remCols = Math.floor(remainderW / remOrient.w);
+            const remRows = Math.floor(sheetH / remOrient.h); // Remainder uses full sheet height
+            const remUps = remCols * remRows;
+            if (remUps > upsInRemainder) {
+              upsInRemainder = remUps;
+              remainderDesc = ` + ${remCols}x${remRows} ${remOrient.label} (R)`;
+            }
+          }
         }
       }
+      const totalUps = upsInStrip1 + upsInRemainder;
       if (totalUps > maxUps) {
         maxUps = totalUps;
-        description = currentDesc;
+        bestLayout = `${colsInStrip1}x${strip1Rows} ${orient.label}${remainderDesc}`;
+      }
+    }
+
+    // Repeat for horizontal guillotine (first cut across height - horizontal cuts)
+    for (let rowsInStrip1 = 1; rowsInStrip1 <= Math.floor(sheetH / orient.h); rowsInStrip1++) {
+      const strip1Height = rowsInStrip1 * orient.h;
+      const strip1Width = sheetW; // Full sheet width for this strip
+      const strip1Cols = Math.floor(strip1Width / orient.w);
+      const upsInStrip1 = strip1Cols * rowsInStrip1;
+
+      const remainderH = sheetH - strip1Height;
+      let upsInRemainder = 0;
+      let remainderDesc = "";
+      if (remainderH >= Math.min(jobW, jobH)) { // Check if remainder can fit at least one job
+        for (const remOrient of orientations) {
+           if (remOrient.w > 0 && remOrient.h > 0) { // Ensure valid dimensions for remainder orientation
+            const remCols = Math.floor(sheetW / remOrient.w); // Remainder uses full sheet width
+            const remRows = Math.floor(remainderH / remOrient.h);
+            const remUps = remCols * remRows;
+            if (remUps > upsInRemainder) {
+              upsInRemainder = remUps;
+              remainderDesc = ` + ${remCols}x${remRows} ${remOrient.label} (R)`;
+            }
+          }
+        }
+      }
+      const totalUps = upsInStrip1 + upsInRemainder;
+      if (totalUps > maxUps) {
+        maxUps = totalUps;
+        bestLayout = `${strip1Cols}x${rowsInStrip1} ${orient.label}${remainderDesc}`;
       }
     }
   }
-
-  // Strategy 2: Horizontal primary cut, fill first strip with Job Landscape
-  if (sheetH_eff >= jobW_orig) { // Job height for landscape is jobW_orig
-    const strip1_cols = Math.floor(sheetW_eff / jobH_orig); // width of landscape job
-    const strip1_rows = 1;
-    const ups_strip1 = strip1_cols * strip1_rows;
-
-    if (ups_strip1 > 0) {
-      const remainderH = sheetH_eff - jobW_orig; // height of landscape job
-      let totalUps = ups_strip1;
-      let currentDesc = `${strip1_cols}x${strip1_rows} JL`;
-
-      if (remainderH > 0) {
-        const remainderFill = calculateSimpleFill(jobW_orig, jobH_orig, sheetW_eff, remainderH);
-        if (remainderFill.ups > 0) {
-          totalUps += remainderFill.ups;
-          currentDesc += ` + ${remainderFill.cols}x${remainderFill.rows} ${remainderFill.jobOrientation === 'portrait' ? 'JP' : 'JL'} (rem H)`;
-        }
-      }
-      if (totalUps > maxUps) {
-        maxUps = totalUps;
-        description = currentDesc;
-      }
-    }
-  }
-  
-  // Strategy 3: Vertical primary cut, fill first strip with Job Portrait
-  if (sheetW_eff >= jobW_orig) {
-    const strip1_cols = 1;
-    const strip1_rows = Math.floor(sheetH_eff / jobH_orig);
-    const ups_strip1 = strip1_cols * strip1_rows;
-
-    if (ups_strip1 > 0) {
-      const remainderW = sheetW_eff - jobW_orig;
-      let totalUps = ups_strip1;
-      let currentDesc = `${strip1_cols}x${strip1_rows} JP`;
-      
-      if (remainderW > 0) {
-        const remainderFill = calculateSimpleFill(jobW_orig, jobH_orig, remainderW, sheetH_eff);
-        if (remainderFill.ups > 0) {
-          totalUps += remainderFill.ups;
-          currentDesc += ` + ${remainderFill.cols}x${remainderFill.rows} ${remainderFill.jobOrientation === 'portrait' ? 'JP' : 'JL'} (rem V)`;
-        }
-      }
-      if (totalUps > maxUps) {
-        maxUps = totalUps;
-        description = currentDesc;
-      }
-    }
-  }
-
-  // Strategy 4: Vertical primary cut, fill first strip with Job Landscape
-  if (sheetW_eff >= jobH_orig) { // Job width for landscape is jobH_orig
-    const strip1_cols = 1;
-    const strip1_rows = Math.floor(sheetH_eff / jobW_orig); // height of landscape job
-    const ups_strip1 = strip1_cols * strip1_rows;
-
-    if (ups_strip1 > 0) {
-      const remainderW = sheetW_eff - jobH_orig; // width of landscape job
-      let totalUps = ups_strip1;
-      let currentDesc = `${strip1_cols}x${strip1_rows} JL`;
-
-      if (remainderW > 0) {
-        const remainderFill = calculateSimpleFill(jobW_orig, jobH_orig, remainderW, sheetH_eff);
-        if (remainderFill.ups > 0) {
-          totalUps += remainderFill.ups;
-          currentDesc += ` + ${remainderFill.cols}x${remainderFill.rows} ${remainderFill.jobOrientation === 'portrait' ? 'JP' : 'JL'} (rem V)`;
-        }
-      }
-      if (totalUps > maxUps) {
-        maxUps = totalUps;
-        description = currentDesc;
-      }
-    }
-  }
-  
-  return { ups: maxUps, description };
+  return { ups: maxUps, description: bestLayout };
 }
 
 
@@ -229,49 +168,42 @@ const optimizeInventoryFlow = ai.defineFlow(
     const allSuggestions: MasterSheetSuggestionSchema[] = [];
 
     for (const sheet of input.availableMasterSheets) {
-      // 1. Filtering based on quality and GSM/Thickness
       const targetUnit = getPaperQualityUnit(targetPaperQuality as any);
       const sheetUnit = getPaperQualityUnit(sheet.paperQuality as any);
 
       if (sheet.paperQuality !== targetPaperQuality) continue;
       if ((sheet.availableStock ?? 0) <= 0) continue;
 
-
       if (targetUnit === 'mm' && sheetUnit === 'mm') {
-        if (targetPaperThicknessMm === undefined || sheet.paperThicknessMm === undefined || Math.abs(sheet.paperThicknessMm - targetPaperThicknessMm) > 0.1) { // Tolerance
+        if (targetPaperThicknessMm === undefined || sheet.paperThicknessMm === undefined || Math.abs(sheet.paperThicknessMm - targetPaperThicknessMm) > 0.1) {
           continue;
         }
       } else if (targetUnit === 'gsm' && sheetUnit === 'gsm') {
         if (targetPaperGsm === undefined || sheet.paperGsm === undefined) continue;
-        const gsmTolerance = targetPaperGsm * 0.05; // 5% tolerance
+        const gsmTolerance = targetPaperGsm * 0.05;
         if (Math.abs(sheet.paperGsm - targetPaperGsm) > gsmTolerance) {
           continue;
         }
       } else {
-        // Mismatch in unit types (e.g. target is GSM, sheet is MM), or invalid quality
         continue;
       }
 
       let bestUpsForThisSheet = 0;
       let bestLayoutDesc = "N/A";
-      let masterWasRotated = false;
-
-      // Calculation for original master sheet orientation
-      const resOrig = calculateOptimalGuillotineLayout(jobSizeWidth, jobSizeHeight, sheet.masterSheetSizeWidth, sheet.masterSheetSizeHeight);
+      
+      // Calculate for original master sheet orientation
+      const resOrig = calculateMaxGuillotineUps(jobSizeWidth, jobSizeHeight, sheet.masterSheetSizeWidth, sheet.masterSheetSizeHeight);
       if (resOrig.ups > bestUpsForThisSheet) {
         bestUpsForThisSheet = resOrig.ups;
         bestLayoutDesc = `${resOrig.description} (Master Portrait)`;
-        masterWasRotated = false;
       }
       
-      // Calculation for rotated master sheet orientation
-      const resRot = calculateOptimalGuillotineLayout(jobSizeWidth, jobSizeHeight, sheet.masterSheetSizeHeight, sheet.masterSheetSizeWidth); // Note: H, W swapped
+      // Calculate for rotated master sheet orientation
+      const resRot = calculateMaxGuillotineUps(jobSizeWidth, jobSizeHeight, sheet.masterSheetSizeHeight, sheet.masterSheetSizeWidth); // Note: H, W swapped
       if (resRot.ups > bestUpsForThisSheet) {
         bestUpsForThisSheet = resRot.ups;
         bestLayoutDesc = `${resRot.description} (Master Landscape)`;
-        masterWasRotated = true;
       }
-
 
       if (bestUpsForThisSheet === 0) {
         console.log(`[InventoryOptimization TS Flow] Sheet ID ${sheet.id} yields 0 ups after all calculations. Skipping.`);
@@ -279,7 +211,7 @@ const optimizeInventoryFlow = ai.defineFlow(
       }
 
       const jobArea = jobSizeWidth * jobSizeHeight;
-      const masterSheetArea = sheet.masterSheetSizeWidth * sheet.masterSheetSizeHeight; // Always use original area for wastage
+      const masterSheetArea = sheet.masterSheetSizeWidth * sheet.masterSheetSizeHeight;
       const usedArea = bestUpsForThisSheet * jobArea;
       const wastagePercentage = masterSheetArea > 0 ? Number(((1 - (usedArea / masterSheetArea)) * 100).toFixed(2)) : 100;
       const totalMasterSheetsNeeded = Math.ceil(netQuantity / bestUpsForThisSheet);
@@ -298,7 +230,6 @@ const optimizeInventoryFlow = ai.defineFlow(
       });
     }
 
-    // Sort suggestions: highest ups, then lowest wastage, then fewest total masters
     allSuggestions.sort((a, b) => {
       if (b.sheetsPerMasterSheet !== a.sheetsPerMasterSheet) {
         return b.sheetsPerMasterSheet - a.sheetsPerMasterSheet;
