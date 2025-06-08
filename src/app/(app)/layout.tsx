@@ -67,7 +67,8 @@ const allNavItems: NavItem[] = [
 
 const ADMIN_EMAIL = "kuvam@macroprinters.com".toLowerCase();
 const MANAGER_EMAIL = "niharikasehgal0512@gmail.com".toLowerCase();
-const DEPARTMENTAL_EMAIL = "niharikasehgal@icloud.com".toLowerCase();
+// Changed DEPARTMENTAL_EMAIL to a dummy value to make niharikasehgal@icloud.com a Customer by default
+const DEPARTMENTAL_EMAIL = "departmental-user@example.com".toLowerCase();
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -120,9 +121,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         roleToSet = "Admin";
       } else if (userEmailLower === MANAGER_EMAIL) {
         roleToSet = "Manager";
-      } else if (userEmailLower === DEPARTMENTAL_EMAIL) {
+      } else if (userEmailLower === DEPARTMENTAL_EMAIL) { // This will now match "departmental-user@example.com"
         roleToSet = "Departmental";
-      } else {
+      } else { // "niharikasehgal@icloud.com" will fall here
         roleToSet = "Customer";
       }
 
@@ -478,4 +479,3 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     </ClientOnlyWrapper>
   );
 }
-
