@@ -230,7 +230,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     tooltip={{ children: item.label, className: "font-body" }}
                   >
                     <Link href={item.href}>
-                      <span className="flex items-center gap-2 w-full">
+                       <span className="flex items-center gap-2 w-full">
                         <item.icon className="h-4 w-4 shrink-0" />
                         <span className="truncate">{item.label}</span>
                         <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-sidebar-foreground/60 group-data-[active=true]:text-sidebar-primary group-data-[collapsible=icon]:hidden" />
