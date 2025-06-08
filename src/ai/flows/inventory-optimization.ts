@@ -14,7 +14,7 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import type { OptimizeInventoryOutput as ImportedOptimizeInventoryOutput } from '@/lib/definitions';
-import { KAPPA_MDF_QUALITIES } from '@/lib/definitions';
+import { KAPPA_MDF_QUALITIES, getPaperQualityUnit } from '@/lib/definitions';
 
 
 const AvailableSheetSchema = z.object({
@@ -52,123 +52,154 @@ const MasterSheetSuggestionSchema = z.object({
   cuttingLayoutDescription: z.string().optional().describe("Textual description of the cutting layout, e.g., '3 across x 4 down (job portrait)'."),
 });
 
-// This output schema is for the AI flow itself.
 const OptimizeInventoryOutputSchema = z.object({
-  suggestions: z.array(MasterSheetSuggestionSchema).describe('An array of master sheet size suggestions, sorted by wastage percentage (lowest first).'),
-  optimalSuggestion: MasterSheetSuggestionSchema.optional().describe('The optimal master sheet size suggestion based on the lowest wastage percentage.'),
+  suggestions: z.array(MasterSheetSuggestionSchema).describe('An array of master sheet size suggestions, sorted by sheetsPerMasterSheet (highest first), then wastage percentage (lowest first).'),
+  optimalSuggestion: MasterSheetSuggestionSchema.optional().describe('The optimal master sheet size suggestion based on the highest sheetsPerMasterSheet and then lowest wastage percentage.'),
 });
 export type OptimizeInventoryOutput = ImportedOptimizeInventoryOutput;
 
 
 export async function optimizeInventory(input: OptimizeInventoryInput): Promise<OptimizeInventoryOutput> {
-  console.log('[InventoryOptimization AI Flow] optimizeInventory function called with input (availableMasterSheets count):', input.availableMasterSheets?.length);
+  console.log('[InventoryOptimization TS Flow] optimizeInventory function called with input (availableMasterSheets count):', input.availableMasterSheets?.length);
   return optimizeInventoryFlow(input);
 }
 
-// New prompt definition
-const prompt = ai.definePrompt({
-  name: 'optimizeInventoryPrompt',
-  input: {schema: OptimizeInventoryInputSchema },
-  output: {
-    schema: z.object({
-        suggestions: z.array(MasterSheetSuggestionSchema),
-        optimalSuggestion: MasterSheetSuggestionSchema.optional()
-      }),
-  },
-  prompt: ({ targetPaperGsm, targetPaperThicknessMm, targetPaperQuality, jobSizeWidth, jobSizeHeight, netQuantity, availableMasterSheets }) => `
-You are a precise calculator and an expert in printing and packaging optimization. Your goal is to minimize waste.
-You MUST perform the calculations exactly as described, using integer division (floor function) where specified for ups calculations.
+// Helper function to calculate ups for a given job and sheet orientation (simple fill)
+function calculateSimpleFill(
+  jobW: number, jobH: number, // Job dimensions for this attempt
+  sheetW: number, sheetH: number // Sheet dimensions for this attempt
+): { ups: number; cols: number; rows: number; jobOrientation: 'portrait' | 'landscape' } {
+  // Attempt 1: Job as is (jobW x jobH)
+  const colsP = Math.floor(sheetW / jobW);
+  const rowsP = Math.floor(sheetH / jobH);
+  const upsP = colsP * rowsP;
 
-IMPORTANT: Your response MUST ONLY consider the master sheets explicitly provided in the \`availableMasterSheets\` data below. Do not include any sheets not found in this input. If this input array is empty or contains no suitable sheets based on the job requirements, the \`suggestions\` array in your output must be empty, and "optimalSuggestion" must be undefined.
+  // Attempt 2: Job rotated (jobH x jobW)
+  const colsL = Math.floor(sheetW / jobH);
+  const rowsL = Math.floor(sheetH / jobW);
+  const upsL = colsL * rowsL;
 
-### Job Specifications:
-- Job Sheet Size: ${jobSizeWidth} inches (Width) x ${jobSizeHeight} inches (Height)
-- Target Paper Quality: ${targetPaperQuality}
-${KAPPA_MDF_QUALITIES.includes(targetPaperQuality as any) ? `- Target Paper Thickness: ${targetPaperThicknessMm} mm` : `- Target Paper GSM: ${targetPaperGsm}`}
-- Net Quantity Needed: ${netQuantity} sheets
-
-### Task:
-For EACH sheet in the \`availableMasterSheets\` data provided below:
-1.  Identify the Current Master Sheet properties from the JSON data for that sheet:
-    - CurrentMasterSheetID: from \`id\`
-    - CurrentMasterSheetWidth: from \`masterSheetSizeWidth\`
-    - CurrentMasterSheetHeight: from \`masterSheetSizeHeight\`
-    - CurrentMasterSheetQuality: from \`paperQuality\`
-    - CurrentMasterSheetGSM: from \`paperGsm\` (if applicable)
-    - CurrentMasterSheetThicknessMm: from \`paperThicknessMm\` (if applicable, e.g. for Kappa, MDF)
-
-2.  Filtering:
-    - If target paper quality is '${KAPPA_MDF_QUALITIES.join("' or '")}', the CurrentMasterSheet MUST have a \`paperThicknessMm\` that closely matches \`targetPaperThicknessMm\`.
-    - Otherwise (for other paper qualities), the CurrentMasterSheet MUST have a \`paperGsm\` that closely matches \`targetPaperGsm\`.
-    - If a sheet does not meet these primary criteria (quality AND GSM/Thickness match), DO NOT process it further. Skip it.
-
-3.  Calculate for **Portrait Layout** (Job as ${jobSizeWidth}W x ${jobSizeHeight}H on CurrentMasterSheet):
-    - Pieces_Across_Portrait = floor(CurrentMasterSheetWidth / ${jobSizeWidth})
-    - Pieces_Down_Portrait = floor(CurrentMasterSheetHeight / ${jobSizeHeight})
-    - Total_Ups_Portrait = Pieces_Across_Portrait * Pieces_Down_Portrait
-
-4.  Calculate for **Landscape Layout** (Job as ${jobSizeHeight}W x ${jobSizeWidth}H on CurrentMasterSheet, meaning job is rotated):
-    - Pieces_Across_Landscape = floor(CurrentMasterSheetWidth / ${jobSizeHeight})
-    - Pieces_Down_Landscape = floor(CurrentMasterSheetHeight / ${jobSizeWidth})
-    - Total_Ups_Landscape = Pieces_Across_Landscape * Pieces_Down_Landscape
-
-5.  Determine the final \`sheetsPerMasterSheet\` and \`cuttingLayoutDescription\`:
-    - IF Total_Ups_Portrait >= Total_Ups_Landscape:
-        - sheetsPerMasterSheet = Total_Ups_Portrait
-        - cuttingLayoutDescription = \`\${Pieces_Across_Portrait} across x \${Pieces_Down_Portrait} down (job portrait)\`
-    - ELSE (meaning Total_Ups_Landscape > Total_Ups_Portrait):
-        - sheetsPerMasterSheet = Total_Ups_Landscape
-        - cuttingLayoutDescription = \`\${Pieces_Across_Landscape} across x \${Pieces_Down_Landscape} down (job landscape)\`
-    This sheetsPerMasterSheet value MUST be an integer.
-
-6.  IMPORTANT: If the calculated \`sheetsPerMasterSheet\` from step 5 is 0 (e.g., because the job dimensions are larger than the CurrentMasterSheet dimensions), then this CurrentMasterSheet is unsuitable. DO NOT include this CurrentMasterSheet in the \`suggestions\` output array. Skip all further calculations for this sheet and proceed to the next available master sheet.
-
-7.  If \`sheetsPerMasterSheet\` > 0, calculate \`totalMasterSheetsNeeded\`:
-    - totalMasterSheetsNeeded = ceil(${netQuantity} / sheetsPerMasterSheet). This value MUST be an integer.
-
-8.  If \`sheetsPerMasterSheet\` > 0, calculate \`wastagePercentage\`:
-    - JobSheetArea = ${jobSizeWidth} * ${jobSizeHeight}
-    - MasterSheetArea = CurrentMasterSheetWidth * CurrentMasterSheetHeight
-    - UsedArea = JobSheetArea * sheetsPerMasterSheet
-    - WastedArea = MasterSheetArea - UsedArea
-    - wastagePercentage = (WastedArea / MasterSheetArea) * 100. (Round to two decimal places, ensure it's a number).
-
-### Output Format:
-After processing ALL provided \`Available Master Sheets\` that result in sheetsPerMasterSheet > 0 AND meet the GSM/Thickness criteria, compile a list of suggestions.
-Each suggestion must include all calculated fields: sourceInventoryItemId, masterSheetSizeWidth, masterSheetSizeHeight, paperQuality, sheetsPerMasterSheet, totalMasterSheetsNeeded, wastagePercentage, and cuttingLayoutDescription.
-Also include \`paperGsm\` OR \`paperThicknessMm\` as appropriate for the sheet's quality.
-Sort the \`suggestions\` array by \`wastagePercentage\` (lowest first). If wastage percentages are equal, prioritize fewer \`totalMasterSheetsNeeded\`.
-The \`optimalSuggestion\` should be the best item from this sorted list.
-If no sheets are suitable (i.e., \`suggestions\` array is empty), then return an empty \`suggestions\` array and no \`optimalSuggestion\`.
-
-Return a JSON object strictly adhering to this structure:
-{
-  "suggestions": [
-    {
-      "sourceInventoryItemId": "...", // from availableMasterSheets.id
-      "masterSheetSizeWidth": ...,    // from availableMasterSheets.masterSheetSizeWidth
-      "masterSheetSizeHeight": ...,   // from availableMasterSheets.masterSheetSizeHeight
-      "paperGsm": ...,                // from availableMasterSheets.paperGsm (if applicable)
-      "paperThicknessMm": ...,        // from availableMasterSheets.paperThicknessMm (if applicable)
-      "paperQuality": "...",          // from availableMasterSheets.paperQuality
-      "sheetsPerMasterSheet": ...,    // calculated integer from step 5
-      "totalMasterSheetsNeeded": ..., // calculated integer from step 7
-      "wastagePercentage": ...,       // calculated number from step 8 (e.g., 12.5)
-      "cuttingLayoutDescription": "..." // from step 5, e.g., "3x2 (job portrait)"
-    }
-    // ... more suggestions if any
-  ],
-  "optimalSuggestion": { /* same structure as a suggestion, or undefined if no suggestions */ }
+  if (upsP >= upsL) {
+    return { ups: upsP, cols: colsP, rows: rowsP, jobOrientation: 'portrait' };
+  } else {
+    return { ups: upsL, cols: colsL, rows: rowsL, jobOrientation: 'landscape' };
+  }
 }
 
-### Data:
-Available Master Sheets to process:
-${JSON.stringify(availableMasterSheets, null, 2)}
 
-CRITICAL: Respond ONLY with a valid JSON object matching the defined output structure. Do NOT use placeholder text like 'string' or placeholder numbers like '1.23' in your actual calculated values. Ensure all calculations are accurate and all numerical results of division are floored before multiplication for ups calculation. Ensure \`cuttingLayoutDescription\` correctly reflects the pieces across, pieces down, and the orientation (job portrait or job landscape) that achieved the maximum ups.
-If the \`availableMasterSheets\` array is empty or no sheets are suitable, the "suggestions" array in your JSON output MUST be empty, and "optimalSuggestion" must be undefined.
-  `,
-});
+// Helper function for two-stage guillotine cuts
+function calculateTwoStageGuillotine(
+  jobW_orig: number, jobH_orig: number, // Original job dimensions
+  sheetW_eff: number, sheetH_eff: number // Effective sheet dimensions for this attempt
+): { ups: number; description: string } {
+  let maxUps = 0;
+  let description = "N/A";
+
+  // Primary Orientation: Job Portrait (jobW_orig x jobH_orig)
+  // Secondary Orientation: Job Landscape (jobH_orig x jobW_orig)
+
+  // Strategy 1: Horizontal primary cut, fill first strip with Job Portrait
+  if (sheetH_eff >= jobH_orig) {
+    const strip1_cols = Math.floor(sheetW_eff / jobW_orig);
+    const strip1_rows = 1; // Only one row for the primary strip height
+    const ups_strip1 = strip1_cols * strip1_rows;
+
+    if (ups_strip1 > 0) {
+      const remainderH = sheetH_eff - jobH_orig;
+      let totalUps = ups_strip1;
+      let currentDesc = `${strip1_cols}x${strip1_rows} JP`;
+
+      if (remainderH > 0) {
+        const remainderFill = calculateSimpleFill(jobW_orig, jobH_orig, sheetW_eff, remainderH);
+        if (remainderFill.ups > 0) {
+          totalUps += remainderFill.ups;
+          currentDesc += ` + ${remainderFill.cols}x${remainderFill.rows} ${remainderFill.jobOrientation === 'portrait' ? 'JP' : 'JL'} (rem H)`;
+        }
+      }
+      if (totalUps > maxUps) {
+        maxUps = totalUps;
+        description = currentDesc;
+      }
+    }
+  }
+
+  // Strategy 2: Horizontal primary cut, fill first strip with Job Landscape
+  if (sheetH_eff >= jobW_orig) { // Job height for landscape is jobW_orig
+    const strip1_cols = Math.floor(sheetW_eff / jobH_orig); // width of landscape job
+    const strip1_rows = 1;
+    const ups_strip1 = strip1_cols * strip1_rows;
+
+    if (ups_strip1 > 0) {
+      const remainderH = sheetH_eff - jobW_orig; // height of landscape job
+      let totalUps = ups_strip1;
+      let currentDesc = `${strip1_cols}x${strip1_rows} JL`;
+
+      if (remainderH > 0) {
+        const remainderFill = calculateSimpleFill(jobW_orig, jobH_orig, sheetW_eff, remainderH);
+        if (remainderFill.ups > 0) {
+          totalUps += remainderFill.ups;
+          currentDesc += ` + ${remainderFill.cols}x${remainderFill.rows} ${remainderFill.jobOrientation === 'portrait' ? 'JP' : 'JL'} (rem H)`;
+        }
+      }
+      if (totalUps > maxUps) {
+        maxUps = totalUps;
+        description = currentDesc;
+      }
+    }
+  }
+  
+  // Strategy 3: Vertical primary cut, fill first strip with Job Portrait
+  if (sheetW_eff >= jobW_orig) {
+    const strip1_cols = 1;
+    const strip1_rows = Math.floor(sheetH_eff / jobH_orig);
+    const ups_strip1 = strip1_cols * strip1_rows;
+
+    if (ups_strip1 > 0) {
+      const remainderW = sheetW_eff - jobW_orig;
+      let totalUps = ups_strip1;
+      let currentDesc = `${strip1_cols}x${strip1_rows} JP`;
+      
+      if (remainderW > 0) {
+        const remainderFill = calculateSimpleFill(jobW_orig, jobH_orig, remainderW, sheetH_eff);
+        if (remainderFill.ups > 0) {
+          totalUps += remainderFill.ups;
+          currentDesc += ` + ${remainderFill.cols}x${remainderFill.rows} ${remainderFill.jobOrientation === 'portrait' ? 'JP' : 'JL'} (rem V)`;
+        }
+      }
+      if (totalUps > maxUps) {
+        maxUps = totalUps;
+        description = currentDesc;
+      }
+    }
+  }
+
+  // Strategy 4: Vertical primary cut, fill first strip with Job Landscape
+  if (sheetW_eff >= jobH_orig) { // Job width for landscape is jobH_orig
+    const strip1_cols = 1;
+    const strip1_rows = Math.floor(sheetH_eff / jobW_orig); // height of landscape job
+    const ups_strip1 = strip1_cols * strip1_rows;
+
+    if (ups_strip1 > 0) {
+      const remainderW = sheetW_eff - jobH_orig; // width of landscape job
+      let totalUps = ups_strip1;
+      let currentDesc = `${strip1_cols}x${strip1_rows} JL`;
+
+      if (remainderW > 0) {
+        const remainderFill = calculateSimpleFill(jobW_orig, jobH_orig, remainderW, sheetH_eff);
+        if (remainderFill.ups > 0) {
+          totalUps += remainderFill.ups;
+          currentDesc += ` + ${remainderFill.cols}x${remainderFill.rows} ${remainderFill.jobOrientation === 'portrait' ? 'JP' : 'JL'} (rem V)`;
+        }
+      }
+      if (totalUps > maxUps) {
+        maxUps = totalUps;
+        description = currentDesc;
+      }
+    }
+  }
+  
+  return { ups: maxUps, description };
+}
 
 
 const optimizeInventoryFlow = ai.defineFlow(
@@ -178,105 +209,118 @@ const optimizeInventoryFlow = ai.defineFlow(
     outputSchema: OptimizeInventoryOutputSchema,
   },
   async (input): Promise<OptimizeInventoryOutput> => {
-    console.log('[InventoryOptimization AI Flow] optimizeInventoryFlow called.');
-    console.log('[InventoryOptimization AI Flow] Received input (availableMasterSheets count):', input.availableMasterSheets?.length);
-    if (input.availableMasterSheets?.length) {
-      console.log('[InventoryOptimization AI Flow] Preview of received availableMasterSheets (first 2):', JSON.stringify(input.availableMasterSheets.slice(0,2), null, 2));
-      let jobSpec = `Job Size ${input.jobSizeWidth}x${input.jobSizeHeight}, Quality ${input.targetPaperQuality}, Net Qty ${input.netQuantity}`;
-      if (KAPPA_MDF_QUALITIES.includes(input.targetPaperQuality as any) && input.targetPaperThicknessMm !== undefined) {
-        jobSpec += `, Thickness ${input.targetPaperThicknessMm}mm`;
-      } else if (input.targetPaperGsm !== undefined) {
-        jobSpec += `, GSM ${input.targetPaperGsm}`;
-      }
-      console.log(`[InventoryOptimization AI Flow] Job details for prompt: ${jobSpec}`);
-    }
-
+    console.log('[InventoryOptimization TS Flow] optimizeInventoryFlow called.');
+    console.log('[InventoryOptimization TS Flow] Received input (availableMasterSheets count):', input.availableMasterSheets?.length);
+    
     if (!input.availableMasterSheets || input.availableMasterSheets.length === 0) {
-      console.log('[InventoryOptimization AI Flow] Input availableMasterSheets is empty or undefined. Returning empty suggestions immediately as per flow logic.');
+      console.log('[InventoryOptimization TS Flow] Input availableMasterSheets is empty. Returning empty suggestions.');
       return { suggestions: [], optimalSuggestion: undefined };
     }
 
-    console.log('[InventoryOptimization AI Flow] Calling AI prompt with structured input...');
+    const { 
+      targetPaperGsm, 
+      targetPaperThicknessMm, 
+      targetPaperQuality, 
+      jobSizeWidth, 
+      jobSizeHeight, 
+      netQuantity 
+    } = input;
 
-    const {output: rawAiOutput, usage} = await prompt(input);
+    const allSuggestions: MasterSheetSuggestionSchema[] = [];
 
-    console.log('[InventoryOptimization AI Flow] Raw structured output from AI prompt:', JSON.stringify(rawAiOutput, null, 2));
-    if (usage) {
-      console.log('[InventoryOptimization AI Flow] AI prompt usage stats:', JSON.stringify(usage, null, 2));
-    }
+    for (const sheet of input.availableMasterSheets) {
+      // 1. Filtering based on quality and GSM/Thickness
+      const targetUnit = getPaperQualityUnit(targetPaperQuality as any);
+      const sheetUnit = getPaperQualityUnit(sheet.paperQuality as any);
 
-    if (!rawAiOutput) {
-      console.error('[InventoryOptimization AI Flow] AI prompt returned null or undefined output. Returning empty suggestions.');
-      return { suggestions: [], optimalSuggestion: undefined };
-    }
+      if (sheet.paperQuality !== targetPaperQuality) continue;
+      if ((sheet.availableStock ?? 0) <= 0) continue;
 
-    let processedOutput: { suggestions: any[], optimalSuggestion?: any };
-    try {
-        const plainOutput = typeof rawAiOutput === 'object' && rawAiOutput !== null ? { ...rawAiOutput } : rawAiOutput;
-        processedOutput = JSON.parse(JSON.stringify(plainOutput)); // Create a mutable deep copy
-    } catch (e) {
-        console.error('[InventoryOptimization AI Flow] Error parsing AI output (not valid JSON or structure):', e);
-        console.error('[InventoryOptimization AI Flow] Faulty AI Output:', rawAiOutput);
-        return { suggestions: [], optimalSuggestion: undefined };
-    }
 
-    if (!processedOutput.suggestions) {
-        console.warn('[InventoryOptimization AI Flow] AI output was missing the suggestions array. Defaulting to empty array.');
-        processedOutput.suggestions = [];
-    }
-
-    if (!processedOutput.suggestions?.length) {
-      if (processedOutput.optimalSuggestion) {
-        console.log(`[InventoryOptimization AI Flow] Cleanup: Suggestions array is empty, but optimalSuggestion was present. Setting optimalSuggestion to undefined. Original optimal: ${JSON.stringify(processedOutput.optimalSuggestion)}`);
+      if (targetUnit === 'mm' && sheetUnit === 'mm') {
+        if (targetPaperThicknessMm === undefined || sheet.paperThicknessMm === undefined || Math.abs(sheet.paperThicknessMm - targetPaperThicknessMm) > 0.1) { // Tolerance
+          continue;
+        }
+      } else if (targetUnit === 'gsm' && sheetUnit === 'gsm') {
+        if (targetPaperGsm === undefined || sheet.paperGsm === undefined) continue;
+        const gsmTolerance = targetPaperGsm * 0.05; // 5% tolerance
+        if (Math.abs(sheet.paperGsm - targetPaperGsm) > gsmTolerance) {
+          continue;
+        }
+      } else {
+        // Mismatch in unit types (e.g. target is GSM, sheet is MM), or invalid quality
+        continue;
       }
-      processedOutput.optimalSuggestion = undefined;
-    } else if (processedOutput.optimalSuggestion) {
-      const opt = processedOutput.optimalSuggestion;
-      if (
-        (typeof opt.sourceInventoryItemId === 'string' && opt.sourceInventoryItemId.toLowerCase() === 'string') ||
-        (typeof opt.masterSheetSizeWidth === 'number' && opt.masterSheetSizeWidth === 1.23) ||
-        (opt.sheetsPerMasterSheet === 123 && opt.paperQuality === 'string')
-      ) {
-        console.log(`[InventoryOptimization AI Flow] Cleanup: optimalSuggestion appears to be placeholder data. Setting to undefined. Original optimal: ${JSON.stringify(opt)}`);
-        processedOutput.optimalSuggestion = undefined;
+
+      let bestUpsForThisSheet = 0;
+      let bestLayoutDesc = "N/A";
+      let masterWasRotated = false;
+
+      // Calculation for original master sheet orientation
+      const resOrig = calculateOptimalGuillotineLayout(jobSizeWidth, jobSizeHeight, sheet.masterSheetSizeWidth, sheet.masterSheetSizeHeight);
+      if (resOrig.ups > bestUpsForThisSheet) {
+        bestUpsForThisSheet = resOrig.ups;
+        bestLayoutDesc = `${resOrig.description} (Master Portrait)`;
+        masterWasRotated = false;
       }
+      
+      // Calculation for rotated master sheet orientation
+      const resRot = calculateOptimalGuillotineLayout(jobSizeWidth, jobSizeHeight, sheet.masterSheetSizeHeight, sheet.masterSheetSizeWidth); // Note: H, W swapped
+      if (resRot.ups > bestUpsForThisSheet) {
+        bestUpsForThisSheet = resRot.ups;
+        bestLayoutDesc = `${resRot.description} (Master Landscape)`;
+        masterWasRotated = true;
+      }
+
+
+      if (bestUpsForThisSheet === 0) {
+        console.log(`[InventoryOptimization TS Flow] Sheet ID ${sheet.id} yields 0 ups after all calculations. Skipping.`);
+        continue;
+      }
+
+      const jobArea = jobSizeWidth * jobSizeHeight;
+      const masterSheetArea = sheet.masterSheetSizeWidth * sheet.masterSheetSizeHeight; // Always use original area for wastage
+      const usedArea = bestUpsForThisSheet * jobArea;
+      const wastagePercentage = masterSheetArea > 0 ? Number(((1 - (usedArea / masterSheetArea)) * 100).toFixed(2)) : 100;
+      const totalMasterSheetsNeeded = Math.ceil(netQuantity / bestUpsForThisSheet);
+      
+      allSuggestions.push({
+        sourceInventoryItemId: sheet.id,
+        masterSheetSizeWidth: sheet.masterSheetSizeWidth,
+        masterSheetSizeHeight: sheet.masterSheetSizeHeight,
+        paperGsm: sheet.paperGsm,
+        paperThicknessMm: sheet.paperThicknessMm,
+        paperQuality: sheet.paperQuality,
+        sheetsPerMasterSheet: bestUpsForThisSheet,
+        totalMasterSheetsNeeded,
+        wastagePercentage,
+        cuttingLayoutDescription: bestLayoutDesc,
+      });
     }
 
-    if (processedOutput.suggestions.length > 0 && !processedOutput.optimalSuggestion) {
-        console.warn('[InventoryOptimization AI Flow] Suggestions exist but optimalSuggestion is undefined after AI output/cleanup. Assigning first suggestion as optimal.');
-        processedOutput.optimalSuggestion = processedOutput.suggestions[0];
-    }
-
-    processedOutput.suggestions.forEach(s => {
-      s.masterSheetSizeWidth = parseFloat(Number(s.masterSheetSizeWidth || 0).toFixed(2));
-      s.masterSheetSizeHeight = parseFloat(Number(s.masterSheetSizeHeight || 0).toFixed(2));
-      s.paperGsm = s.paperGsm !== undefined ? Number(s.paperGsm) : undefined;
-      s.paperThicknessMm = s.paperThicknessMm !== undefined ? parseFloat(Number(s.paperThicknessMm).toFixed(2)) : undefined;
-      s.wastagePercentage = parseFloat(Number(s.wastagePercentage || 0).toFixed(2));
-      s.sheetsPerMasterSheet = Math.floor(Number(s.sheetsPerMasterSheet || 0));
-      s.totalMasterSheetsNeeded = Math.ceil(Number(s.totalMasterSheetsNeeded || 0));
+    // Sort suggestions: highest ups, then lowest wastage, then fewest total masters
+    allSuggestions.sort((a, b) => {
+      if (b.sheetsPerMasterSheet !== a.sheetsPerMasterSheet) {
+        return b.sheetsPerMasterSheet - a.sheetsPerMasterSheet;
+      }
+      if (a.wastagePercentage !== b.wastagePercentage) {
+        return a.wastagePercentage - b.wastagePercentage;
+      }
+      return a.totalMasterSheetsNeeded - b.totalMasterSheetsNeeded;
     });
+    
+    const optimalSuggestion = allSuggestions.length > 0 ? allSuggestions[0] : undefined;
 
-    if (processedOutput.optimalSuggestion) {
-       const opt = processedOutput.optimalSuggestion;
-       opt.masterSheetSizeWidth = parseFloat(Number(opt.masterSheetSizeWidth || 0).toFixed(2));
-       opt.masterSheetSizeHeight = parseFloat(Number(opt.masterSheetSizeHeight || 0).toFixed(2));
-       opt.paperGsm = opt.paperGsm !== undefined ? Number(opt.paperGsm) : undefined;
-       opt.paperThicknessMm = opt.paperThicknessMm !== undefined ? parseFloat(Number(opt.paperThicknessMm).toFixed(2)) : undefined;
-       opt.wastagePercentage = parseFloat(Number(opt.wastagePercentage || 0).toFixed(2));
-       opt.sheetsPerMasterSheet = Math.floor(Number(opt.sheetsPerMasterSheet || 0));
-       opt.totalMasterSheetsNeeded = Math.ceil(Number(opt.totalMasterSheetsNeeded || 0));
+    console.log(`[InventoryOptimization TS Flow] Processed ${input.availableMasterSheets.length} sheets. Generated ${allSuggestions.length} suggestions.`);
+    if (optimalSuggestion) {
+      console.log('[InventoryOptimization TS Flow] Optimal suggestion:', JSON.stringify(optimalSuggestion, null, 2));
     }
 
-    console.log(`[InventoryOptimization AI Flow] Returning processed output. Suggestions count: ${processedOutput.suggestions.length}. Optimal is ${processedOutput.optimalSuggestion ? 'defined' : 'undefined'}.`);
-
-    const finalOutput: OptimizeInventoryOutput = {
-        suggestions: processedOutput.suggestions,
-        optimalSuggestion: processedOutput.optimalSuggestion,
+    return {
+      suggestions: allSuggestions,
+      optimalSuggestion: optimalSuggestion,
     };
-    return finalOutput;
   }
 );
-
 
     
