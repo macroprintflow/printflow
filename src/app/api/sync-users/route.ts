@@ -1,27 +1,23 @@
 
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import * as admin from 'firebase-admin';
 import fs from 'fs/promises';
 import path from 'path';
 
 // Attempt to parse credentials and catch potential errors
-let serviceAccount;
+let serviceAccount: admin.ServiceAccount;
 try {
   if (!process.env.FIREBASE_ADMIN_CREDENTIALS) {
     throw new Error("FIREBASE_ADMIN_CREDENTIALS environment variable is not set.");
   }
-  serviceAccount = JSON.parse(process.env.FIREBASE_ADMIN_CREDENTIALS);
+  serviceAccount = JSON.parse(process.env.FIREBASE_ADMIN_CREDENTIALS) as admin.ServiceAccount;
   console.log('[API Sync Users] Successfully parsed FIREBASE_ADMIN_CREDENTIALS. Project ID:', serviceAccount.project_id);
 } catch (error) {
   console.error('[API Sync Users] CRITICAL ERROR parsing FIREBASE_ADMIN_CREDENTIALS:', error);
-  // Return an error response if credentials can't be parsed, as the app cannot initialize.
-  // Note: This GET handler might not be the best place for this, ideally it's at app startup,
-  // but for this specific API route, it's a necessary check.
-  // However, NextResponse cannot be used directly at the top level like this.
-  // The error will be thrown, and the GET handler will fail if admin.apps.length is 0.
+  // serviceAccount will remain undefined or an error will be thrown, handled by later checks
 }
 
-if (serviceAccount && !admin.apps.length) {
+if (serviceAccount! && !admin.apps.length) {
   try {
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
@@ -33,16 +29,19 @@ if (serviceAccount && !admin.apps.length) {
 } else if (admin.apps.length) {
   console.log('[API Sync Users] Firebase Admin SDK already initialized.');
 } else {
-  console.error('[API Sync Users] CRITICAL ERROR: Service account not loaded, Firebase Admin SDK cannot be initialized.');
+  // This block will be hit if serviceAccount parsing failed and it's still undefined,
+  // or if it was parsed but admin.apps.length was already > 0 (which is handled by the else if)
+  // The main concern here is if serviceAccount is undefined due to parsing failure.
+  console.error('[API Sync Users] CRITICAL ERROR: Service account not loaded or other initialization issue, Firebase Admin SDK cannot be reliably initialized.');
 }
 
-export async function GET() {
-  if (!admin.apps.length) {
+export async function GET(req: NextRequest) {
+  if (!admin.apps.length || !admin.app().name) { // More robust check
     console.error("[API Sync Users] Firebase Admin SDK not initialized. Cannot process request.");
-    return NextResponse.json({ status: 'error', message: 'Firebase Admin SDK not initialized.' }, { status: 500 });
+    return NextResponse.json({ status: 'error', message: 'Firebase Admin SDK not initialized. Check server logs for critical errors during startup.' }, { status: 500 });
   }
 
-  const users: any[] = [];
+  const users: admin.auth.UserRecord[] = [];
   let nextPageToken;
 
   try {
