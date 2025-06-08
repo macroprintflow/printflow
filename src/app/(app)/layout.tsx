@@ -144,26 +144,21 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       const roleDefaultRoute = defaultRoutes[effectiveUserRole];
       
-      // Check if current path starts with any of the allowed hrefs
       const isCurrentPathAllowed = visibleNavItems.some(item => pathname.startsWith(item.href));
 
       if (!isCurrentPathAllowed && pathname !== roleDefaultRoute && !pathname.startsWith('/login') && !pathname.startsWith('/signup') && !pathname.startsWith('/profile')) {
-        // The /profile page is generally accessible, so we add a check for it.
-        // It's not typically in `allNavItems` as a primary navigation link but is a valid page.
-
         const isDefaultRouteVisible = visibleNavItems.some(item => item.href === roleDefaultRoute);
         if (isDefaultRouteVisible) {
           console.log(`[Auth Role Redirect] Role: ${effectiveUserRole}, Current Path: ${pathname} not allowed or not the default. Redirecting to ${roleDefaultRoute}`);
           router.replace(roleDefaultRoute);
         } else {
           console.error(`[Auth Role Redirect] Critical: Default route ${roleDefaultRoute} for role ${effectiveUserRole} is not in visibleNavItems. This indicates a configuration error. Fallback to /login.`);
-          // If the default route for the role is somehow not visible (config error), redirect to login as a safe fallback.
-          handleLogout(); // Log out to prevent inconsistent state
+          handleLogout(); 
         }
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoadingRole, user, effectiveUserRole, pathname, router, visibleNavItems]); // visibleNavItems is now stable due to useMemo
+  }, [isLoadingRole, user, effectiveUserRole, pathname, router, visibleNavItems]); 
 
 
   const handleLogout = async () => {
@@ -194,8 +189,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   if (!user && (pathname !== '/login' && pathname !== '/signup')) {
-    // This case should ideally be caught by the redirect in determineRoleLogic,
-    // but it's a safe fallback.
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -212,7 +205,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const userRoleDisplay = effectiveUserRole;
 
-  // visibleNavItems is now memoized above
 
   const isDesignatedAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
 
@@ -236,11 +228,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     asChild
                     isActive={pathname === item.href || (item.href !== '/dashboard' && item.href !== '/tasks' && item.href !== '/customer/my-jobs' && pathname.startsWith(item.href))}
                     tooltip={{ children: item.label, className: "font-body" }}
-                    className="font-body bg-card/60 hover:bg-accent/80 data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:shadow-lg"
+                    className="font-body bg-card/60 hover:bg-sidebar-accent/50 data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-primary data-[active=true]:shadow-lg text-white border border-sidebar-border"
                   >
                     <Link href={item.href}>
-                      <item.icon />
-                      <span>{item.label}</span>
+                      <span className="flex items-center gap-2 w-full">
+                        <item.icon />
+                        <span>{item.label}</span>
+                      </span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
