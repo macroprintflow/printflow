@@ -229,11 +229,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     isActive={pathname === item.href || (item.href !== '/dashboard' && item.href !== '/tasks' && item.href !== '/customer/my-jobs' && pathname.startsWith(item.href))}
                     tooltip={{ children: item.label, className: "font-body" }}
                   >
-                    <Link href={item.href} className="flex items-center gap-2 w-full">
-                      <item.icon className="h-4 w-4 shrink-0" />
-                      <span className="truncate">{item.label}</span>
-                      <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-sidebar-foreground/60 group-data-[active=true]:text-sidebar-primary group-data-[collapsible=icon]:hidden" />
-                    </Link>
+                    <span className="flex items-center gap-2 w-full">
+                      <Link
+                        href={item.href}
+                        className="flex items-center gap-2 w-full" 
+                      >
+                        <item.icon className="h-4 w-4 shrink-0" />
+                        <span className="truncate">{item.label}</span>
+                        <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-sidebar-foreground/60 group-data-[active=true]:text-sidebar-primary group-data-[collapsible=icon]:hidden" />
+                      </Link>
+                    </span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
