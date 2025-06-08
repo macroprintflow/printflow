@@ -13,16 +13,24 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
+// Log the loaded configuration to help debug
+console.log("[Firebase ClientApp] Loaded Firebase Config:", firebaseConfig);
+
+if (!firebaseConfig.projectId) {
+  console.error("[Firebase ClientApp] CRITICAL: Firebase projectId is missing in the configuration. Firestore operations will likely fail or hang. Check your .env file and Next.js setup.");
+}
+
 let app: FirebaseApp;
 if (!getApps().length) {
   app = initializeApp(firebaseConfig);
+  console.log("[Firebase ClientApp] Firebase app initialized.");
 } else {
   app = getApps()[0];
+  console.log("[Firebase ClientApp] Using existing Firebase app instance.");
 }
 
 const auth: Auth = getAuth(app);
-const db: Firestore = getFirestore(app); // Initialize Firestore
+const db: Firestore = getFirestore(app); 
+console.log("[Firebase ClientApp] Firestore instance initialized:", db ? "Successfully obtained Firestore instance." : "Failed to obtain Firestore instance.");
 
-export { app, auth, db }; // Export db
-
-    
+export { app, auth, db };

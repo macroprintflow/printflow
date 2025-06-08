@@ -5,7 +5,6 @@ import { db } from '@/lib/firebase/clientApp';
 import { 
   collection, 
   addDoc, 
-  // serverTimestamp, // Removed serverTimestamp
   getDocs, 
   query, 
   orderBy,
@@ -17,9 +16,12 @@ import {
 import type { 
   CustomerFormValues, 
   CustomerData,
-  CustomerListItem
+  CustomerListItem,
+  JobCardData
 } from '@/lib/definitions';
-import { revalidatePath } from 'next/cache';
+// import { revalidatePath } from 'next/cache'; // Commented out as it's not effective in this client-side mock setup
+import { getJobCards } from '@/lib/actions/jobActions';
+
 
 const CUSTOMERS_COLLECTION = 'customers';
 
@@ -30,17 +32,25 @@ export async function addCustomer(
   customerData: CustomerFormValues
 ): Promise<{ success: boolean; message: string; customerId?: string; customer?: CustomerData }> {
   const currentDate = new Date().toISOString();
+  console.log('[CustomerActions] addCustomer called with data:', JSON.stringify(customerData, null, 2));
+
+  if (!db) {
+    console.error('[CustomerActions] CRITICAL: Firestore db instance is NOT initialized or available! This is a problem in clientApp.ts or Firebase setup.');
+    return { success: false, message: 'Database connection error. Firestore instance is not available.' };
+  }
+  console.log('[CustomerActions] db instance appears to be available. Proceeding to addDoc.');
+
   try {
-    const docRef = await addDoc(collection(db, CUSTOMERS_COLLECTION), {
+    const docDataPayload = {
       ...customerData,
-      createdAt: currentDate, // Using client-generated ISO string
-      updatedAt: currentDate, // Using client-generated ISO string
-    });
-    console.log('[CustomerActions] Customer added with ID:', docRef.id);
-    // Revalidation might not work as expected in a purely client-side mock setup without a server roundtrip.
-    // For a real app, these are correct.
-    // revalidatePath('/customers'); 
-    // revalidatePath('/jobs/new'); 
+      createdAt: currentDate,
+      updatedAt: currentDate,
+    };
+    console.log('[CustomerActions] Attempting addDoc to collection:', CUSTOMERS_COLLECTION, 'with payload:', JSON.stringify(docDataPayload, null, 2));
+    
+    const docRef = await addDoc(collection(db, CUSTOMERS_COLLECTION), docDataPayload);
+
+    console.log('[CustomerActions] addDoc successful. Firestore Document ID:', docRef.id);
     
     const newCustomer: CustomerData = {
         id: docRef.id,
@@ -48,10 +58,20 @@ export async function addCustomer(
         createdAt: currentDate, 
         updatedAt: currentDate,
     };
+    // revalidatePath('/customers'); 
+    // revalidatePath('/jobs/new'); 
     return { success: true, message: 'Customer added successfully.', customerId: docRef.id, customer: newCustomer };
   } catch (error) {
-    console.error('[CustomerActions] Error adding customer:', error);
-    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred.';
+    console.error('[CustomerActions] Firebase Error caught while adding customer:', error);
+    let errorMessage = 'An unexpected error occurred while adding the customer.';
+    if (error instanceof Error) {
+        errorMessage = error.message;
+        if ('code' in error) { // Check if it's a FirebaseError-like object
+            console.error('[CustomerActions] Firebase Error Code:', (error as any).code);
+            errorMessage += ` (Code: ${(error as any).code})`;
+        }
+    }
+    console.error('[CustomerActions] Full error object:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
     return { success: false, message: `Failed to add customer: ${errorMessage}` };
   }
 }
@@ -60,6 +80,11 @@ export async function addCustomer(
  * Fetches a list of customers (id and fullName) for selection purposes.
  */
 export async function getCustomersList(): Promise<CustomerListItem[]> {
+  console.log('[CustomerActions] getCustomersList called.');
+  if (!db) {
+    console.error('[CustomerActions] CRITICAL: Firestore db instance is NOT initialized for getCustomersList.');
+    return [];
+  }
   try {
     const customersCollection = collection(db, CUSTOMERS_COLLECTION);
     const q = query(customersCollection, orderBy('fullName', 'asc'));
@@ -82,6 +107,11 @@ export async function getCustomersList(): Promise<CustomerListItem[]> {
  * Fetches all customer documents with their full data.
  */
 export async function getAllCustomerData(): Promise<CustomerData[]> {
+   console.log('[CustomerActions] getAllCustomerData called.');
+  if (!db) {
+    console.error('[CustomerActions] CRITICAL: Firestore db instance is NOT initialized for getAllCustomerData.');
+    return [];
+  }
   try {
     const customersCollection = collection(db, CUSTOMERS_COLLECTION);
     const q = query(customersCollection, orderBy('createdAt', 'desc')); // Or 'fullName'
@@ -95,8 +125,8 @@ export async function getAllCustomerData(): Promise<CustomerData[]> {
         email: data.email,
         phoneNumber: data.phoneNumber,
         address: data.address,
-        createdAt: data.createdAt, // Keep as is, assuming it's already an ISO string from our addCustomer
-        updatedAt: data.updatedAt, // Keep as is
+        createdAt: data.createdAt,
+        updatedAt: data.updatedAt,
       } as CustomerData;
     });
     
@@ -112,6 +142,11 @@ export async function getAllCustomerData(): Promise<CustomerData[]> {
  * Fetches a single customer document by ID.
  */
 export async function getCustomerById(customerId: string): Promise<CustomerData | null> {
+  console.log(`[CustomerActions] getCustomerById called for ID: ${customerId}`);
+  if (!db) {
+    console.error(`[CustomerActions] CRITICAL: Firestore db instance is NOT initialized for getCustomerById: ${customerId}.`);
+    return null;
+  }
   try {
     const customerDocRef = doc(db, CUSTOMERS_COLLECTION, customerId);
     const docSnap = await getDoc(customerDocRef);
@@ -124,8 +159,8 @@ export async function getCustomerById(customerId: string): Promise<CustomerData 
         email: data.email,
         phoneNumber: data.phoneNumber,
         address: data.address,
-        createdAt: data.createdAt, // Assuming ISO string
-        updatedAt: data.updatedAt, // Assuming ISO string
+        createdAt: data.createdAt, 
+        updatedAt: data.updatedAt, 
       };
       console.log(`[CustomerActions] Fetched customer by ID ${customerId}:`, customer.fullName);
       return customer;
@@ -147,18 +182,23 @@ export async function updateCustomer(
   customerData: Partial<CustomerFormValues>
 ): Promise<{ success: boolean; message: string; customer?: CustomerData }> {
   const currentDate = new Date().toISOString();
+  console.log(`[CustomerActions] updateCustomer called for ID: ${customerId} with data:`, JSON.stringify(customerData, null, 2));
+  if (!db) {
+    console.error(`[CustomerActions] CRITICAL: Firestore db instance is NOT initialized for updateCustomer: ${customerId}.`);
+    return { success: false, message: 'Database connection error.' };
+  }
   try {
     const customerDocRef = doc(db, CUSTOMERS_COLLECTION, customerId);
     await updateDoc(customerDocRef, {
       ...customerData,
-      updatedAt: currentDate, // Using client-generated ISO string
+      updatedAt: currentDate, 
     });
     console.log(`[CustomerActions] Customer updated with ID: ${customerId}`);
     // revalidatePath('/customers');
     // revalidatePath(`/customers/${customerId}`); 
     // revalidatePath('/jobs/new');
     
-    const updatedCustomerData = await getCustomerById(customerId);
+    const updatedCustomerData = await getCustomerById(customerId); // Fetch the updated data to return
     return { success: true, message: 'Customer updated successfully.', customer: updatedCustomerData || undefined };
   } catch (error) {
     console.error(`[CustomerActions] Error updating customer ${customerId}:`, error);
@@ -171,6 +211,11 @@ export async function updateCustomer(
  * Deletes a customer from the Firestore 'customers' collection.
  */
 export async function deleteCustomer(customerId: string): Promise<{ success: boolean; message: string }> {
+  console.log(`[CustomerActions] deleteCustomer called for ID: ${customerId}`);
+  if (!db) {
+    console.error(`[CustomerActions] CRITICAL: Firestore db instance is NOT initialized for deleteCustomer: ${customerId}.`);
+    return { success: false, message: 'Database connection error.' };
+  }
   try {
     const customerDocRef = doc(db, CUSTOMERS_COLLECTION, customerId);
     await deleteDoc(customerDocRef);
@@ -185,20 +230,23 @@ export async function deleteCustomer(customerId: string): Promise<{ success: boo
   }
 }
 
-// Function to get jobs by customer name (moved from jobActions.ts)
 export async function getJobsByCustomerName(customerName: string): Promise<JobCardData[]> {
-  // This function now depends on getJobCards from jobActions.ts
-  // We need to ensure jobActions.ts is also adjusted if it was not already.
-  // For now, assuming getJobCards is globally available or we'll adjust jobActions.ts next.
-  // This is a temporary measure if jobActions.ts isn't updated yet.
-  const jobs: JobCardData[] = (global as any).__jobCards__ || []; 
-
-  return jobs.filter(job => job.customerName === customerName).sort((a, b) => {
-    const dateA = new Date(a.date).getTime();
-    const dateB = new Date(b.date).getTime();
-    if (dateB !== dateA) {
-      return dateB - dateA; // Sort by date descending
-    }
-    return a.jobName.localeCompare(b.jobName); // Then by job name ascending
-  });
+  console.log(`[CustomerActions] getJobsByCustomerName called for: ${customerName}`);
+  try {
+    const allJobs = await getJobCards(); // Assumes getJobCards is working and available
+    const customerJobs = allJobs.filter(job => job.customerName.toLowerCase() === customerName.toLowerCase());
+    customerJobs.sort((a, b) => {
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
+      if (dateB !== dateA) {
+        return dateB - dateA; // Sort by date descending
+      }
+      return a.jobName.localeCompare(b.jobName); // Then by job name ascending
+    });
+    console.log(`[CustomerActions] Found ${customerJobs.length} jobs for customer ${customerName}.`);
+    return customerJobs;
+  } catch (error) {
+    console.error(`[CustomerActions] Error fetching jobs for customer ${customerName}:`, error);
+    return [];
+  }
 }
