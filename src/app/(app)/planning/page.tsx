@@ -150,7 +150,7 @@ export default function PlanningPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {productionSteps.map((step) => (
               <Link key={step.slug} href={`/planning/${step.slug}`} passHref>
                 <Card
@@ -236,3 +236,4 @@ export default function PlanningPage() {
     </div>
   );
 }
+
