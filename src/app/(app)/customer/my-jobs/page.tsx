@@ -7,7 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { getJobCards } from "@/lib/actions/jobActions";
 import { getUserDataById } from "@/lib/actions/userActions";
 import { getCustomerById } from "@/lib/actions/customerActions";
-import type { JobCardData, UserData, CustomerData } from "@/lib/definitions";
+import type { JobCardData, UserData as MockUserData, CustomerData } from "@/lib/definitions"; // Renamed UserData to MockUserData to avoid conflict
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, ShoppingBag, Search, RefreshCw, ExternalLink, ArrowUpDown, XCircle, Eye, Briefcase, History } from "lucide-react";
+import { Loader2, ShoppingBag, Search, RefreshCw, Eye, Briefcase, History, XCircle } from "lucide-react"; // Removed ExternalLink, ArrowUpDown
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
@@ -24,7 +24,7 @@ import { CustomerJobDetailModal } from "@/components/customer/CustomerJobDetailM
 type SortKey = "jobName" | "date" | "status";
 type SortDirection = "asc" | "desc";
 
-interface CurrentUserDetails extends UserData {
+interface CurrentUserDetails extends MockUserData { // Use MockUserData here
   linkedCustomerName?: string;
 }
 
@@ -32,7 +32,7 @@ export default function MyJobsPage() {
   const { user, loading: authLoading } = useAuth();
   const [allJobs, setAllJobs] = useState<JobCardData[]>([]);
   const [isLoadingJobs, setIsLoadingJobs] = useState(true);
-  const [isLoadingUserData, setIsLoadingUserData] = useState(false);
+  const [isLoadingUserData, setIsLoadingUserData] = useState(false); // New state for user data loading
   const [currentUserDetails, setCurrentUserDetails] = useState<CurrentUserDetails | null>(null);
   
   const [searchQuery, setSearchQuery] = useState("");
@@ -57,7 +57,6 @@ export default function MyJobsPage() {
       setIsLoadingUserData(true);
 
       try {
-        // Fetch all jobs
         const jobs = await getJobCards();
         setAllJobs(jobs);
       } catch (error) {
@@ -67,9 +66,8 @@ export default function MyJobsPage() {
         setIsLoadingJobs(false);
       }
 
-      // Fetch UserData and potentially linked CustomerData
       try {
-        const uData = await getUserDataById(user.uid);
+        const uData = await getUserDataById(user.uid); // Fetch UserData from mock store
         if (uData) {
           if (uData.linkedCustomerId) {
             const customer = await getCustomerById(uData.linkedCustomerId);
@@ -79,6 +77,7 @@ export default function MyJobsPage() {
           }
         } else {
           setCurrentUserDetails(null);
+          console.warn(`No mock user data found for UID: ${user.uid}. MyJobs page might not filter correctly if user relies on linkedCustomerId.`);
         }
       } catch (error) {
         console.error("Failed to fetch user details:", error);
@@ -95,9 +94,10 @@ export default function MyJobsPage() {
 
   const customerDisplayNameForHeader = useMemo(() => {
     if (!user) return "Guest";
-    if (currentUserDetails?.linkedCustomerName) {
+    if (currentUserDetails?.linkedCustomerName) { // Check if a linked customer name is available
       return `${currentUserDetails.linkedCustomerName} (via ${user.email})`;
     }
+    // Fallback to Firebase user's display name or email
     return user.displayName || user.email || "User";
   }, [user, currentUserDetails]);
 
@@ -118,17 +118,20 @@ export default function MyJobsPage() {
     }
 
     jobs.sort((a, b) => {
-      let valA: string | number | undefined;
-      let valB: string | number | undefined;
+      let valA: string | number | Date | undefined; // Allow Date type for proper sorting
+      let valB: string | number | Date | undefined;
 
       if (sortKey === "date") {
-        valA = new Date(a.createdAt || a.date).getTime();
-        valB = new Date(b.createdAt || b.date).getTime();
+        valA = new Date(a.createdAt || a.date);
+        valB = new Date(b.createdAt || b.date);
       } else {
         valA = a[sortKey as keyof JobCardData] || "";
         valB = b[sortKey as keyof JobCardData] || "";
       }
       
+      if (valA instanceof Date && valB instanceof Date) {
+        return sortDirection === "asc" ? valA.getTime() - valB.getTime() : valB.getTime() - valA.getTime();
+      }
       if (typeof valA === 'string' && typeof valB === 'string') {
         return sortDirection === "asc" ? valA.localeCompare(valB) : valB.localeCompare(valA);
       }
@@ -142,28 +145,29 @@ export default function MyJobsPage() {
 
   const jobsForCurrentCustomer = useMemo(() => {
     if (!user) return [];
-    if (isLoadingJobs || isLoadingUserData) return []; // Wait for data
+    if (isLoadingJobs || isLoadingUserData) return []; // Wait for all relevant data
 
+    // Prioritize linkedCustomerId if available from currentUserDetails (mock UserData)
     if (currentUserDetails?.linkedCustomerId) {
       return allJobs.filter(job => job.customerId === currentUserDetails.linkedCustomerId);
     } else if (user) {
-      // Fallback: name matching (original logic for non-linked users or if UserData fetch fails)
+      // Fallback: original logic (matching Firebase user's name/email with job's customerName)
       const fallbackIdentifier = (
-        user.displayName && user.displayName !== user.email?.split('@')[0]
-          ? user.displayName
-          : user.email
+        currentUserDetails?.displayName || // Use displayName from mock UserData if available
+        user.displayName || 
+        user.email
       )?.toLowerCase();
       
       if (fallbackIdentifier) {
         return allJobs.filter(job => job.customerName?.toLowerCase() === fallbackIdentifier);
       }
     }
-    return []; // Default to empty if no identification method works
+    return [];
   }, [allJobs, user, currentUserDetails, isLoadingJobs, isLoadingUserData]);
 
 
-  const activeJobs = useMemo(() => processJobsForTab(jobsForCurrentCustomer, true), [jobsForCurrentCustomer, searchQuery, sortKey, sortDirection]);
-  const pastJobs = useMemo(() => processJobsForTab(jobsForCurrentCustomer, false), [jobsForCurrentCustomer, searchQuery, sortKey, sortDirection]);
+  const activeJobs = useMemo(() => processJobsForTab(jobsForCurrentCustomer, true), [jobsForCurrentCustomer, searchQuery, sortKey, sortDirection, processJobsForTab]);
+  const pastJobs = useMemo(() => processJobsForTab(jobsForCurrentCustomer, false), [jobsForCurrentCustomer, searchQuery, sortKey, sortDirection, processJobsForTab]);
 
 
   const handleSort = (key: SortKey) => {
@@ -187,7 +191,7 @@ export default function MyJobsPage() {
     setIsDetailModalOpen(true);
   };
 
-  if (authLoading || isLoadingJobs || isLoadingUserData) {
+  if (authLoading || isLoadingJobs || isLoadingUserData) { // Check all loading states
     return (
       <div className="flex justify-center items-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -280,7 +284,7 @@ export default function MyJobsPage() {
             <ShoppingBag className="mr-3 h-7 w-7 text-primary" /> My Jobs Portal
           </CardTitle>
           <CardDescription className="font-body">
-            View the status of your jobs and re-order past ones. (Logged in as: {customerDisplayNameForHeader})
+            View the status of your jobs and re-order past ones. (Viewing for: {customerDisplayNameForHeader})
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -306,14 +310,15 @@ export default function MyJobsPage() {
               )}
             </div>
             <div className="flex gap-2 flex-shrink-0 w-full sm:w-auto justify-end">
+              {/* Removed ArrowUpDown for brevity, icons suffice */}
               <Button variant="outline" onClick={() => handleSort("jobName")} className="font-body h-11">
-                <ArrowUpDown className="mr-2 h-4 w-4" /> Name{getSortIndicator("jobName")}
+                 Name{getSortIndicator("jobName")}
               </Button>
               <Button variant="outline" onClick={() => handleSort("date")} className="font-body h-11">
-                <ArrowUpDown className="mr-2 h-4 w-4" /> Date{getSortIndicator("date")}
+                 Date{getSortIndicator("date")}
               </Button>
                <Button variant="outline" onClick={() => handleSort("status")} className="font-body h-11">
-                <ArrowUpDown className="mr-2 h-4 w-4" /> Status{getSortIndicator("status")}
+                 Status{getSortIndicator("status")}
               </Button>
             </div>
           </div>
