@@ -83,6 +83,18 @@ export async function getAllUsersMock(): Promise<UserData[]> {
   return [...(users || [])].sort((a, b) => (a.displayName || a.email).localeCompare(b.displayName || b.email));
 }
 
+export async function getUserDataById(id: string): Promise<UserData | null> {
+  console.log(`[UserActions] getUserDataById called for ID (File Persistent): ${id}`);
+  const users = await loadMockUsersFromFile();
+  const user = users.find(u => u.id === id);
+  if (user) {
+    console.log(`[UserActions] Fetched mock user by ID ${id}:`, user.displayName || user.email);
+    return user;
+  }
+  console.log(`[UserActions] No mock user found with ID: ${id}`);
+  return null;
+}
+
 export async function updateUserRoleMock(userId: string, newRole: UserRole): Promise<{ success: boolean; message?: string; user?: UserData }> {
   console.log(`[UserActions] Attempting to update role for userId: ${userId} to newRole: ${newRole} (File Persistent)`);
   let users = await loadMockUsersFromFile();
@@ -174,4 +186,3 @@ export async function createUserDocumentInAuth(user: any /* FirebaseUser */, rol
     role: determinedRole,
   };
 }
-

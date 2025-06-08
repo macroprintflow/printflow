@@ -5,26 +5,36 @@ import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { getJobCards } from "@/lib/actions/jobActions";
-import type { JobCardData } from "@/lib/definitions";
+import { getUserDataById } from "@/lib/actions/userActions";
+import { getCustomerById } from "@/lib/actions/customerActions";
+import type { JobCardData, UserData, CustomerData } from "@/lib/definitions";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2, ShoppingBag, Search, RefreshCw, ExternalLink, ArrowUpDown, XCircle, Eye, Briefcase, History } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
-import { CustomerJobDetailModal } from "@/components/customer/CustomerJobDetailModal"; // Import the new modal
+import { CustomerJobDetailModal } from "@/components/customer/CustomerJobDetailModal";
 
 type SortKey = "jobName" | "date" | "status";
 type SortDirection = "asc" | "desc";
+
+interface CurrentUserDetails extends UserData {
+  linkedCustomerName?: string;
+}
 
 export default function MyJobsPage() {
   const { user, loading: authLoading } = useAuth();
   const [allJobs, setAllJobs] = useState<JobCardData[]>([]);
   const [isLoadingJobs, setIsLoadingJobs] = useState(true);
+  const [isLoadingUserData, setIsLoadingUserData] = useState(false);
+  const [currentUserDetails, setCurrentUserDetails] = useState<CurrentUserDetails | null>(null);
+  
   const [searchQuery, setSearchQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
@@ -33,48 +43,66 @@ export default function MyJobsPage() {
   const [selectedJobForDetail, setSelectedJobForDetail] = useState<JobCardData | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
-  const customerIdentifier = useMemo(() => {
-    if (!user) return null;
-    if (user.displayName && user.displayName !== user.email?.split('@')[0]) {
-      return user.displayName;
-    }
-    return user.email; 
-  }, [user]);
-
-  const fetchJobs = async () => {
-    if (!customerIdentifier) {
-      setIsLoadingJobs(false);
-      return;
-    }
-    setIsLoadingJobs(true);
-    try {
-      const jobs = await getJobCards();
-      const customerJobs = jobs.filter(
-        (job) => job.customerName?.toLowerCase() === customerIdentifier.toLowerCase()
-      );
-      setAllJobs(customerJobs);
-    } catch (error) {
-      console.error("Failed to fetch customer jobs:", error);
-      toast({
-        title: "Error",
-        description: "Could not load your jobs. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoadingJobs(false);
-    }
-  };
-  
   useEffect(() => {
+    const fetchInitialData = async () => {
+      if (!user?.uid) {
+        setIsLoadingJobs(false);
+        setIsLoadingUserData(false);
+        setCurrentUserDetails(null);
+        setAllJobs([]);
+        return;
+      }
+
+      setIsLoadingJobs(true);
+      setIsLoadingUserData(true);
+
+      try {
+        // Fetch all jobs
+        const jobs = await getJobCards();
+        setAllJobs(jobs);
+      } catch (error) {
+        console.error("Failed to fetch jobs:", error);
+        toast({ title: "Error", description: "Could not load jobs.", variant: "destructive" });
+      } finally {
+        setIsLoadingJobs(false);
+      }
+
+      // Fetch UserData and potentially linked CustomerData
+      try {
+        const uData = await getUserDataById(user.uid);
+        if (uData) {
+          if (uData.linkedCustomerId) {
+            const customer = await getCustomerById(uData.linkedCustomerId);
+            setCurrentUserDetails({ ...uData, linkedCustomerName: customer?.fullName });
+          } else {
+            setCurrentUserDetails(uData);
+          }
+        } else {
+          setCurrentUserDetails(null);
+        }
+      } catch (error) {
+        console.error("Failed to fetch user details:", error);
+        toast({ title: "Error", description: "Could not load your user profile details.", variant: "destructive" });
+      } finally {
+        setIsLoadingUserData(false);
+      }
+    };
+
     if (!authLoading) {
-      fetchJobs();
+      fetchInitialData();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, customerIdentifier]); // customerIdentifier should trigger re-fetch
+  }, [authLoading, user?.uid, toast]);
 
+  const customerDisplayNameForHeader = useMemo(() => {
+    if (!user) return "Guest";
+    if (currentUserDetails?.linkedCustomerName) {
+      return `${currentUserDetails.linkedCustomerName} (via ${user.email})`;
+    }
+    return user.displayName || user.email || "User";
+  }, [user, currentUserDetails]);
 
-  const processJobs = (jobsToFilter: JobCardData[], active: boolean) => {
-    let jobs = jobsToFilter.filter(job => {
+  const processJobsForTab = (jobsToProcess: JobCardData[], active: boolean) => {
+    let jobs = jobsToProcess.filter(job => {
         const isActiveStatus = job.status !== "Completed" && job.status !== "Billed";
         return active ? isActiveStatus : !isActiveStatus;
     });
@@ -112,8 +140,30 @@ export default function MyJobsPage() {
     return jobs;
   };
 
-  const activeJobs = useMemo(() => processJobs([...allJobs], true), [allJobs, searchQuery, sortKey, sortDirection]);
-  const pastJobs = useMemo(() => processJobs([...allJobs], false), [allJobs, searchQuery, sortKey, sortDirection]);
+  const jobsForCurrentCustomer = useMemo(() => {
+    if (!user) return [];
+    if (isLoadingJobs || isLoadingUserData) return []; // Wait for data
+
+    if (currentUserDetails?.linkedCustomerId) {
+      return allJobs.filter(job => job.customerId === currentUserDetails.linkedCustomerId);
+    } else if (user) {
+      // Fallback: name matching (original logic for non-linked users or if UserData fetch fails)
+      const fallbackIdentifier = (
+        user.displayName && user.displayName !== user.email?.split('@')[0]
+          ? user.displayName
+          : user.email
+      )?.toLowerCase();
+      
+      if (fallbackIdentifier) {
+        return allJobs.filter(job => job.customerName?.toLowerCase() === fallbackIdentifier);
+      }
+    }
+    return []; // Default to empty if no identification method works
+  }, [allJobs, user, currentUserDetails, isLoadingJobs, isLoadingUserData]);
+
+
+  const activeJobs = useMemo(() => processJobsForTab(jobsForCurrentCustomer, true), [jobsForCurrentCustomer, searchQuery, sortKey, sortDirection]);
+  const pastJobs = useMemo(() => processJobsForTab(jobsForCurrentCustomer, false), [jobsForCurrentCustomer, searchQuery, sortKey, sortDirection]);
 
 
   const handleSort = (key: SortKey) => {
@@ -137,7 +187,7 @@ export default function MyJobsPage() {
     setIsDetailModalOpen(true);
   };
 
-  if (authLoading || isLoadingJobs) {
+  if (authLoading || isLoadingJobs || isLoadingUserData) {
     return (
       <div className="flex justify-center items-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -230,7 +280,7 @@ export default function MyJobsPage() {
             <ShoppingBag className="mr-3 h-7 w-7 text-primary" /> My Jobs Portal
           </CardTitle>
           <CardDescription className="font-body">
-            View the status of your jobs and re-order past ones. (Logged in as: {customerIdentifier})
+            View the status of your jobs and re-order past ones. (Logged in as: {customerDisplayNameForHeader})
           </CardDescription>
         </CardHeader>
         <CardContent>
