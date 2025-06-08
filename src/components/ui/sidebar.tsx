@@ -22,9 +22,9 @@ import {
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
-const SIDEBAR_WIDTH = "16rem"
+const SIDEBAR_WIDTH = "16rem" // Standard width
 const SIDEBAR_WIDTH_MOBILE = "18rem"
-const SIDEBAR_WIDTH_ICON = "3rem"
+const SIDEBAR_WIDTH_ICON = "3rem" // Width when collapsed to icon-only
 const SIDEBAR_KEYBOARD_SHORTCUT = "b"
 
 type SidebarContext = {
@@ -160,8 +160,8 @@ const Sidebar = React.forwardRef<
   (
     {
       side = "left",
-      variant = "sidebar",
-      collapsible = "offcanvas",
+      variant = "sidebar", // Default variant for standard sidebar
+      collapsible = "icon", // Default to icon collapse
       className,
       children,
       ...props
@@ -197,7 +197,7 @@ const Sidebar = React.forwardRef<
           <SheetContent
             data-sidebar="sidebar"
             data-mobile="true"
-            className={cn("w-[--sidebar-width] p-0 bg-card text-card-foreground [&>button]:hidden backdrop-blur-xl", className)}
+            className={cn("w-[--sidebar-width] p-0 bg-card text-card-foreground [&>button]:hidden", className)} // Standard card background for mobile sheet
             style={
               {
                 "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
@@ -224,7 +224,7 @@ const Sidebar = React.forwardRef<
       >
         <div
           className={cn(
-            "duration-200 relative h-svh w-[--sidebar-width] bg-transparent transition-[width] ease-linear",
+            "duration-200 relative h-svh w-[--sidebar-width] bg-transparent transition-[width] ease-linear", // Changed bg-card to bg-transparent
             "group-data-[collapsible=offcanvas]:w-0",
             "group-data-[side=right]:rotate-180",
             variant === "floating" || variant === "inset"
@@ -247,7 +247,7 @@ const Sidebar = React.forwardRef<
         >
           <div
             data-sidebar="sidebar"
-            className="bg-card backdrop-blur-xl flex h-full w-full flex-col group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:border-border group-data-[variant=floating]:shadow"
+            className="bg-card text-card-foreground flex h-full w-full flex-col group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:border-border group-data-[variant=floating]:shadow" // Standard card background
           >
             {children}
           </div>
@@ -513,7 +513,7 @@ const sidebarMenuButtonVariants = cva(
   "peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left outline-none ring-ring transition-all focus-visible:ring-2 active:shadow-sm disabled:pointer-events-none disabled:opacity-50 group-has-[[data-sidebar=menu-action]]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[state=open]:bg-accent data-[state=open]:text-accent-foreground group-data-[collapsible=icon]:!size-9 group-data-[collapsible=icon]:!p-2 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0",
   {
     variants: {
-      variant: {
+      variant: { // Reverted to standard theme colors
         default: "bg-transparent text-foreground hover:bg-accent hover:text-accent-foreground data-[active=true]:bg-primary data-[active=true]:text-primary-foreground",
         outline: 
           "bg-transparent shadow-[0_0_0_1px_hsl(var(--border))_inset] hover:bg-accent hover:text-accent-foreground",
@@ -531,31 +531,20 @@ const sidebarMenuButtonVariants = cva(
   }
 )
 
+// Simplified SidebarMenuButton, externalizing Tooltip
 const SidebarMenuButton = React.forwardRef<
   HTMLButtonElement,
   React.ComponentProps<"button"> & {
-    asChild?: boolean
-    isActive?: boolean
-    tooltip?: string | React.ComponentProps<typeof TooltipContent>
+    asChild?: boolean;
+    isActive?: boolean;
   } & VariantProps<typeof sidebarMenuButtonVariants>
->(
-  (
-    {
-      asChild = false,
-      isActive = false,
-      variant = "default",
-      size = "default",
-      tooltip,
-      className,
-      children,
-      ...props
-    },
-    ref
-  ) => {
-    const Comp = asChild ? Slot : "button"
-    const { isMobile, state } = useSidebar()
+>(({ asChild = false, isActive = false, variant = "default", size = "default", className, children, ...props }, ref) => {
+  const Comp = asChild ? Slot : "button";
 
-    const buttonElement = (
+  if (asChild) {
+    // When asChild is true, Comp is Slot. It expects a single child from the usage site (e.g., <Link>),
+    // and it will merge its props (className, data-*) onto that child.
+    return (
       <Comp
         ref={ref}
         data-sidebar="menu-button"
@@ -565,36 +554,28 @@ const SidebarMenuButton = React.forwardRef<
         {...props}
       >
         {children}
-        {!asChild && (
-          <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-muted-foreground group-data-[active=true]:text-primary-foreground group-data-[collapsible=icon]:hidden" />
-        )}
       </Comp>
-    )
-
-    if (!tooltip) {
-      return buttonElement
-    }
-
-    if (typeof tooltip === "string") {
-      tooltip = {
-        children: tooltip,
-      }
-    }
-
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>{buttonElement}</TooltipTrigger>
-        <TooltipContent
-          side="right"
-          align="center"
-          hidden={state !== "collapsed" || isMobile}
-          {...tooltip}
-        />
-      </Tooltip>
-    )
+    );
   }
-)
-SidebarMenuButton.displayName = "SidebarMenuButton"
+
+  // When asChild is false, Comp is "button". We render a regular button.
+  return (
+    <button
+      ref={ref}
+      data-sidebar="menu-button"
+      data-size={size}
+      data-active={isActive}
+      className={cn(sidebarMenuButtonVariants({ variant, size, className }))}
+      {...props}
+    >
+      {children}
+      {/* Chevron is only rendered if it's a real button, not a Slot */}
+      <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-muted-foreground group-data-[active=true]:text-primary-foreground group-data-[collapsible=icon]:hidden" />
+    </button>
+  );
+});
+SidebarMenuButton.displayName = "SidebarMenuButton";
+
 
 const SidebarMenuAction = React.forwardRef<
   HTMLButtonElement,
@@ -763,4 +744,3 @@ export {
   SidebarTrigger,
   useSidebar,
 }
-

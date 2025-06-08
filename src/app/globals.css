@@ -20,10 +20,9 @@
   font-display: swap;
 }
 
-
-/* ShadCN HSL Variables - FORCED DARK MODE */
+/* Default to dark theme HSL Variables */
 :root {
-  --background: 240 4% 9%; /* Maps to a dark gray for body background */
+  --background: 240 4% 9%; /* Dark gray for body background */
   --foreground: 0 0% 95%; 
   
   --card: 240 4% 12%; 

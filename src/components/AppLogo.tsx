@@ -13,7 +13,7 @@ const AppLogo = () => {
           priority // Optional: improves LCP for logos
         />
       </div>
-      <h1 className="text-lg font-headline text-foreground mt-1"> {/* Changed to text-foreground */}
+      <h1 className="text-lg font-headline text-foreground mt-1"> {/* Reverted to text-foreground */}
         <span className="font-bold">Macro </span>PrintFlow
       </h1>
     </div>
@@ -21,5 +21,3 @@ const AppLogo = () => {
 };
 
 export default AppLogo;
-
-    

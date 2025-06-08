@@ -32,6 +32,7 @@ import {
   DropdownMenuSubContent as RadixDropdownMenuSubContent,
   DropdownMenuPortal,
 } from "@/components/ui/dropdown-menu"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"; // Added Tooltip components
 import { Button } from '@/components/ui/button';
 import ClientOnlyWrapper from '@/components/ClientOnlyWrapper';
 import { useAuth } from '@/contexts/AuthContext';
@@ -211,7 +212,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <ClientOnlyWrapper>
       <SidebarProvider defaultOpen>
-        <Sidebar variant="sidebar" collapsible="icon" className="bg-card text-card-foreground">
+        <Sidebar variant="sidebar" collapsible="icon" className="bg-card text-card-foreground"> {/* Standard card background */}
           <SidebarHeader className="p-4 justify-between items-center">
             <AppLogo />
             {isClient && (
@@ -224,17 +225,28 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <SidebarMenu>
               {visibleNavItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={pathname === item.href || (item.href !== '/dashboard' && item.href !== '/tasks' && item.href !== '/customer/my-jobs' && pathname.startsWith(item.href))}
-                    tooltip={{ children: item.label, className: "font-body" }}
-                  >
-                    <Link href={item.href}>
-                        <item.icon className="h-4 w-4 shrink-0" />
-                        <span className="truncate">{item.label}</span>
-                        {/* ChevronRight is rendered by SidebarMenuButton when asChild is false */}
-                    </Link>
-                  </SidebarMenuButton>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={pathname === item.href || (item.href !== '/dashboard' && item.href !== '/tasks' && item.href !== '/customer/my-jobs' && pathname.startsWith(item.href))}
+                        // Tooltip prop removed from SidebarMenuButton
+                      >
+                        <Link href={item.href}>
+                          {/* Ensure Link has a single, valid child element for layout */}
+                          <span className="flex items-center gap-2 w-full">
+                            <item.icon className="h-4 w-4 shrink-0" />
+                            <span className="truncate">{item.label}</span>
+                            {/* Chevron is added here if Link is to mimic button style with chevron */}
+                            <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-muted-foreground group-data-[active=true]:text-primary-foreground group-data-[collapsible=icon]:hidden" />
+                          </span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" align="center" className="font-body">
+                       {item.label}
+                    </TooltipContent>
+                  </Tooltip>
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
@@ -321,4 +333,3 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     </ClientOnlyWrapper>
   );
 }
-
