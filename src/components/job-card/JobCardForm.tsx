@@ -22,7 +22,7 @@ import { CalendarIcon, Wand2, Link2, PlusCircle, Loader2, RotateCcw, ListOrdered
 import { format } from "date-fns";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { InventoryOptimizationModal } from "./InventoryOptimizationModal";
-import { LinkJobsModal } from "./LinkJobsModal"; // Import the new modal
+import { LinkJobsModal } from "./LinkJobsModal";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -62,7 +62,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
   const customerInputRef = useRef<HTMLInputElement>(null);
   const jobInputRef = useRef<HTMLInputElement>(null);
 
-  const [isLinkJobsModalOpen, setIsLinkJobsModalOpen] = useState(false); // State for the link jobs modal
+  const [isLinkJobsModalOpen, setIsLinkJobsModalOpen] = useState(false);
 
   const form = useForm<JobCardFormValues>({
     resolver: zodResolver(JobCardSchema),
@@ -102,7 +102,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
       remarks: initialJobData.remarks,
       dispatchDate: initialJobData.dispatchDate ? new Date(initialJobData.dispatchDate).toISOString() : undefined,
       workflowSteps: initialJobData.workflowSteps || [],
-      linkedJobCardIds: initialJobData.linkedJobCardIds || [], // Initialize linkedJobCardIds
+      linkedJobCardIds: initialJobData.linkedJobCardIds || [],
       pdfDataUri: initialJobData.pdfDataUri,
     }
     : { 
@@ -140,7 +140,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
       remarks: "",
       dispatchDate: undefined,
       workflowSteps: [],
-      linkedJobCardIds: [], // Initialize linkedJobCardIds
+      linkedJobCardIds: [],
       pdfDataUri: undefined,
     },
   });
@@ -241,9 +241,9 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
       setCustomerSuggestions(filtered);
       setIsCustomerPopoverOpen(true);
     } else {
-      setCustomerSuggestions(allCustomers.slice(0, 10));
+      setCustomerSuggestions(allCustomers.slice(0, 10)); // Show some initial suggestions if input is cleared
       setIsCustomerPopoverOpen(true);
-      setJobsForCustomer([]);
+      setJobsForCustomer([]); // Clear jobs if customer is cleared
       setJobInputValue("");
       setSelectedPastJobId("");
     }
@@ -271,12 +271,12 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
       setJobSuggestions(filtered);
       setIsJobPopoverOpen(true);
     } else if (!value && jobsForCustomer.length > 0) {
-        setJobSuggestions(jobsForCustomer.slice(0,10));
+        setJobSuggestions(jobsForCustomer.slice(0,10)); // Show some initial suggestions
         setIsJobPopoverOpen(true);
     } else {
       setJobSuggestions([]);
       setIsJobPopoverOpen(false);
-      setSelectedPastJobId("");
+      setSelectedPastJobId(""); // Clear selected past job if input is cleared
     }
   };
 
@@ -511,6 +511,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
                                     setIsCustomerPopoverOpen(true);
                                   }
                                 }}
+                                onBlur={() => setTimeout(() => setIsCustomerPopoverOpen(false), 150)}
                                 className="pl-10 font-body"
                                 disabled={isLoadingCustomers}
                                 autoComplete="off"
@@ -577,6 +578,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
                                         setIsJobPopoverOpen(true);
                                     }
                                 }}
+                                onBlur={() => setTimeout(() => setIsJobPopoverOpen(false), 150)}
                                 className="pl-10 font-body"
                                 disabled={!form.getValues('customerId') || isLoadingJobsForCustomer}
                                 autoComplete="off"
@@ -677,7 +679,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
                 <FormItem>
                   <FormLabel>Target Paper GSM</FormLabel>
                   <FormControl><Input
-                      type="number" placeholder="e.g., 300" {...field}
+                      type="number" step="any" placeholder="e.g., 300" {...field}
                       value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
                       onChange={e => { const numValue = parseFloat(e.target.value); field.onChange(isNaN(numValue) ? undefined : numValue); }}
                       className="font-body"
@@ -691,7 +693,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
                 <FormItem>
                   <FormLabel>Target Paper Thickness (mm)</FormLabel>
                   <FormControl><Input
-                      type="number" step="0.1" placeholder="e.g., 1.2" {...field}
+                      type="number" step="any" placeholder="e.g., 1.2" {...field}
                       value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
                       onChange={e => { const numValue = parseFloat(e.target.value); field.onChange(isNaN(numValue) ? undefined : numValue); }}
                       className="font-body"
@@ -711,7 +713,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
                 <FormItem>
                   <FormLabel>Net Quantity</FormLabel>
                   <FormControl><Input
-                      type="number" placeholder="e.g., 1000" {...field}
+                      type="number" step="any" placeholder="e.g., 1000" {...field}
                        value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
                       onChange={e => { const numValue = parseFloat(e.target.value); field.onChange(isNaN(numValue) ? undefined : numValue); }}
                       className="font-body"
@@ -723,12 +725,12 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
                 <FormItem>
                   <FormLabel>Gross Quantity</FormLabel>
                   <FormControl><Input
-                      type="number" placeholder="e.g., 1100" {...field}
+                      type="number" step="any" placeholder="e.g., 1100" {...field}
                       value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
                       onChange={e => { const numValue = parseFloat(e.target.value); field.onChange(isNaN(numValue) ? undefined : numValue); }}
                       className="font-body"
                     /></FormControl>
-                   <FormDescription className="text-xs">Total master sheets. Used by optimizer.</FormDescription>
+                   <FormDescription className="text-xs">Total items. Used by optimizer.</FormDescription>
                   <FormMessage />
                 </FormItem>
               )} />
@@ -738,7 +740,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
                     <FormItem>
                         <FormLabel>Job Size Width (in)</FormLabel>
                         <FormControl><Input
-                            type="number" placeholder="e.g., 8.5" {...field}
+                            type="number" step="any" placeholder="e.g., 8.5" {...field}
                             value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
                             onChange={e => { const numValue = parseFloat(e.target.value); field.onChange(isNaN(numValue) ? undefined : numValue); }}
                             className="font-body"
@@ -750,7 +752,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
                     <FormItem>
                         <FormLabel>Job Size Height (in)</FormLabel>
                         <FormControl><Input
-                            type="number" placeholder="e.g., 11" {...field}
+                            type="number" step="any" placeholder="e.g., 11" {...field}
                             value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
                             onChange={e => { const numValue = parseFloat(e.target.value); field.onChange(isNaN(numValue) ? undefined : numValue); }}
                             className="font-body"
@@ -767,33 +769,33 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
             <FormField control={form.control} name="masterSheetSizeWidth" render={({ field }) => (
                 <FormItem>
                     <FormLabel>Selected Master Width (in)</FormLabel>
-                    <FormControl><Input type="number" placeholder="From optimizer" {...field} readOnly value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)} className="font-body bg-muted" /></FormControl>
+                    <FormControl><Input type="number" step="any" placeholder="From optimizer" {...field} readOnly value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)} className="font-body bg-muted" /></FormControl>
                     <FormMessage />
                 </FormItem>
             )} />
             <FormField control={form.control} name="masterSheetSizeHeight" render={({ field }) => (
                 <FormItem>
                     <FormLabel>Selected Master Height (in)</FormLabel>
-                    <FormControl><Input type="number" placeholder="From optimizer" {...field} readOnly value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)} className="font-body bg-muted" /></FormControl>
+                    <FormControl><Input type="number" step="any" placeholder="From optimizer" {...field} readOnly value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)} className="font-body bg-muted" /></FormControl>
                     <FormMessage />
                 </FormItem>
             )} />
             <FormField control={form.control} name="wastagePercentage" render={({ field }) => (
                 <FormItem>
                     <FormLabel>Wastage (%)</FormLabel>
-                    <FormControl><Input type="number" placeholder="Calculated %" {...field} readOnly value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)} className="font-body bg-muted" /></FormControl>
+                    <FormControl><Input type="number" step="any" placeholder="Calculated %" {...field} readOnly value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)} className="font-body bg-muted" /></FormControl>
                     <FormMessage />
                 </FormItem>
             )} />
 
             {selectedMasterSheetUnit === 'gsm' && (
               <FormField control={form.control} name="selectedMasterSheetGsm" render={({ field }) => (
-                  <FormItem><FormLabel>Selected Master GSM</FormLabel><FormControl><Input type="number" placeholder="From optimizer" {...field} readOnly value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)} className="font-body bg-muted" /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel>Selected Master GSM</FormLabel><FormControl><Input type="number" step="any" placeholder="From optimizer" {...field} readOnly value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)} className="font-body bg-muted" /></FormControl><FormMessage /></FormItem>
               )} />
             )}
             {selectedMasterSheetUnit === 'mm' && (
               <FormField control={form.control} name="selectedMasterSheetThicknessMm" render={({ field }) => (
-                  <FormItem><FormLabel>Selected Master Thickness (mm)</FormLabel><FormControl><Input type="number" placeholder="From optimizer" {...field} readOnly value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)} className="font-body bg-muted" /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel>Selected Master Thickness (mm)</FormLabel><FormControl><Input type="number" step="any" placeholder="From optimizer" {...field} readOnly value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)} className="font-body bg-muted" /></FormControl><FormMessage /></FormItem>
               )} />
             )}
              <FormField control={form.control} name="selectedMasterSheetQuality" render={({ field }) => (
@@ -806,7 +808,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
             <FormField control={form.control} name="sheetsPerMasterSheet" render={({ field }) => (
                 <FormItem>
                     <FormLabel>Ups / Master Sheet</FormLabel>
-                    <FormControl><Input type="number" placeholder="From optimizer" {...field} readOnly value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)} className="font-body bg-muted" /></FormControl>
+                    <FormControl><Input type="number" step="any" placeholder="From optimizer" {...field} readOnly value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)} className="font-body bg-muted" /></FormControl>
                     <FormMessage />
                 </FormItem>
             )} />
@@ -994,7 +996,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
           />
         )}
         <FormField control={form.control} name="linkedJobCardIds" render={({ field }) => (
-          <FormItem className="hidden"><FormMessage /></FormItem> /* Hidden field to hold and validate the array */
+          <FormItem className="hidden"><FormMessage /></FormItem>
         )} />
 
 
