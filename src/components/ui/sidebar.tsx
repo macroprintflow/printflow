@@ -4,7 +4,7 @@
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { VariantProps, cva } from "class-variance-authority"
-import { PanelLeft, ChevronRight } from "lucide-react" // Added ChevronRight
+import { PanelLeft, ChevronRight } from "lucide-react" 
 
 import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
@@ -528,13 +528,13 @@ const sidebarMenuButtonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-transparent text-white border border-sidebar-border shadow-md hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground hover:shadow-lg data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-primary data-[active=true]:shadow-lg data-[active=true]:border-sidebar-border/70", // Adjusted for light sidebar
+        default: "bg-transparent text-sidebar-foreground border border-sidebar-border shadow-md hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground hover:shadow-lg data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-primary data-[active=true]:shadow-lg data-[active=true]:border-sidebar-border/70",
         outline: 
           "bg-transparent shadow-[0_0_0_1px_hsl(var(--sidebar-border))_inset] hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground hover:shadow-[0_0_0_1px_hsl(var(--sidebar-accent))_inset]",
       },
       size: { 
-        default: "h-12 text-sm", // Increased from h-11, added p-3 in base
-        sm: "h-10 text-xs",    // Increased from h-9
+        default: "h-12 text-sm", 
+        sm: "h-10 text-xs",    
         lg: "h-14 text-sm group-data-[collapsible=icon]:!p-0", 
       },
     },
@@ -579,7 +579,9 @@ const SidebarMenuButton = React.forwardRef<
         {...props}
       >
         {children}
-        <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-sidebar-foreground/60 group-data-[active=true]:text-sidebar-primary group-data-[collapsible=icon]:hidden" />
+        {!asChild && (
+          <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-sidebar-foreground/60 group-data-[active=true]:text-sidebar-primary group-data-[collapsible=icon]:hidden" />
+        )}
       </Comp>
     )
 
@@ -777,3 +779,4 @@ export {
   SidebarTrigger,
   useSidebar,
 }
+
