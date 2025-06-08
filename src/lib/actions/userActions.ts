@@ -15,8 +15,8 @@ const MOCK_USERS_FILE_PATH = path.join(MOCK_DATA_DIR, 'mock-users.json');
 const ADMIN_EMAIL_FOR_MOCK_STORE = "kuvam@macroprinters.com".toLowerCase();
 
 declare global {
-  var __usersStore__: UserData[] | undefined;
   var __userCounter__: number | undefined; // For generating new mock IDs if needed
+  // global.__usersStore__ is no longer used as we always read from file for freshness.
 }
 
 // Helper to ensure directory exists
@@ -40,11 +40,13 @@ async function loadMockUsersFromFile(): Promise<UserData[]> {
   } catch (error: any) {
     if (error.code === 'ENOENT') {
       console.log(`[UserActions] Mock users data file not found at ${MOCK_USERS_FILE_PATH}. Initializing with default admin or empty.`);
-      // Initialize with a default admin if the store is completely new and file doesn't exist
-      return [{ id: 'admin-user-mock-id', email: ADMIN_EMAIL_FOR_MOCK_STORE, displayName: 'Kuvam Sharma (Admin)', role: 'Admin' }];
+      // Initialize with a default admin if the file doesn't exist
+      const defaultAdmin = { id: 'admin-user-mock-id', email: ADMIN_EMAIL_FOR_MOCK_STORE, displayName: 'Kuvam Sharma (Admin)', role: 'Admin' as UserRole };
+      await saveMockUsersToFile([defaultAdmin]); // Save it so it exists for next time
+      return [defaultAdmin];
     }
     console.error('[UserActions] Error reading mock users data file:', error);
-    return [{ id: 'admin-user-mock-id', email: ADMIN_EMAIL_FOR_MOCK_STORE, displayName: 'Kuvam Sharma (Admin)', role: 'Admin' }]; // Fallback
+    return [{ id: 'admin-user-mock-id', email: ADMIN_EMAIL_FOR_MOCK_STORE, displayName: 'Kuvam Sharma (Admin)', role: 'Admin' as UserRole }]; // Fallback
   }
 }
 
@@ -58,13 +60,13 @@ async function saveMockUsersToFile(users: UserData[]): Promise<void> {
   }
 }
 
-// Initialize store from file when the module first loads
+// Initialize counter based on loaded data when the module first loads.
 (async () => {
-  if (global.__usersStore__ === undefined) {
-    console.log('[UserActions] Initializing mock users store from file...');
-    global.__usersStore__ = await loadMockUsersFromFile();
-    if (global.__usersStore__.length > 0) {
-        const maxIdNum = Math.max(...global.__usersStore__.map(u => parseInt(u.id.replace(/[^0-9]/g, '') || '0')), 0);
+  if (global.__userCounter__ === undefined) {
+    console.log('[UserActions] Initializing mock user counter...');
+    const users = await loadMockUsersFromFile(); // Load to ensure file exists and we have data
+    if (users.length > 0) {
+        const maxIdNum = Math.max(...users.map(u => parseInt(u.id.replace(/[^0-9]/g, '') || '0')), 0);
         global.__userCounter__ = maxIdNum + 1;
     } else {
         global.__userCounter__ = 1; // Start counter if store was empty
@@ -75,43 +77,37 @@ async function saveMockUsersToFile(users: UserData[]): Promise<void> {
 
 
 export async function getAllUsersMock(): Promise<UserData[]> {
-  console.log('[UserActions] getAllUsersMock called (File Persistent).');
-  if (global.__usersStore__ === undefined) { // Should be initialized by IIFE, but as a fallback
-    global.__usersStore__ = await loadMockUsersFromFile();
-  }
-  return [...(global.__usersStore__ || [])].sort((a, b) => (a.displayName || a.email).localeCompare(b.displayName || b.email));
+  console.log('[UserActions] getAllUsersMock called (File Persistent - will re-read).');
+  const users = await loadMockUsersFromFile(); // Always read fresh
+  return [...(users || [])].sort((a, b) => (a.displayName || a.email).localeCompare(b.displayName || b.email));
 }
 
 export async function updateUserRoleMock(userId: string, newRole: UserRole): Promise<{ success: boolean; message?: string; user?: UserData }> {
   console.log(`[UserActions] Attempting to update role for userId: ${userId} to newRole: ${newRole} (File Persistent)`);
-  if (global.__usersStore__ === undefined) { global.__usersStore__ = await loadMockUsersFromFile(); }
+  let users = await loadMockUsersFromFile();
 
-  const userIndex = global.__usersStore__!.findIndex(u => u.id === userId);
+  const userIndex = users.findIndex(u => u.id === userId);
   if (userIndex === -1) {
     return { success: false, message: "User not found in mock store." };
   }
-  const user = global.__usersStore__![userIndex];
-  // if (user.email.toLowerCase() === ADMIN_EMAIL_FOR_MOCK_STORE && newRole !== 'Admin') {
-  //   console.warn(`[UserActions] WARNING: Primary admin role is being changed from Admin for ${ADMIN_EMAIL_FOR_MOCK_STORE}.`);
-  // }
-  global.__usersStore__![userIndex].role = newRole;
-  await saveMockUsersToFile(global.__usersStore__!);
+  const user = users[userIndex];
+  users[userIndex].role = newRole;
+  await saveMockUsersToFile(users);
   revalidatePath('/settings');
   console.log(`[UserActions] Role for ${user.displayName || user.email} updated to ${newRole} in mock store.`);
-  return { success: true, message: `Role for ${user.displayName || user.email} updated to ${newRole}.`, user: global.__usersStore__![userIndex] };
+  return { success: true, message: `Role for ${user.displayName || user.email} updated to ${newRole}.`, user: users[userIndex] };
 }
 
 export async function createNewUserMock(
   userData: Omit<UserData, 'id'> & { password?: string }
 ): Promise<{ success: boolean; message?: string; user?: UserData }> {
   console.log('[UserActions] Attempting to create new mock user with email (File Persistent):', userData.email);
-  if (global.__usersStore__ === undefined) { global.__usersStore__ = await loadMockUsersFromFile(); }
-  if (global.__userCounter__ === undefined) { // Fallback if IIFE didn't set it
-    global.__userCounter__ = (global.__usersStore__!.length > 0 ? Math.max(...global.__usersStore__!.map(u => parseInt(u.id.replace(/[^0-9]/g, '') || '0')), 0) : 0) + 1;
+  let users = await loadMockUsersFromFile();
+  if (global.__userCounter__ === undefined) { // Fallback if IIFE didn't set it (should not happen)
+    global.__userCounter__ = (users.length > 0 ? Math.max(...users.map(u => parseInt(u.id.replace(/[^0-9]/g, '') || '0')), 0) : 0) + 1;
   }
 
-
-  if (global.__usersStore__!.some(u => u.email.toLowerCase() === userData.email.toLowerCase())) {
+  if (users.some(u => u.email.toLowerCase() === userData.email.toLowerCase())) {
     return { success: false, message: `Mock user with email ${userData.email} already exists in the mock store.` };
   }
 
@@ -121,8 +117,8 @@ export async function createNewUserMock(
     displayName: userData.displayName || userData.email.split('@')[0] || "New Mock User",
     role: userData.role,
   };
-  global.__usersStore__!.push(newUser);
-  await saveMockUsersToFile(global.__usersStore__!);
+  users.push(newUser);
+  await saveMockUsersToFile(users);
   console.log(`[UserActions] Mock user ${newUser.displayName} added to store with role ${userData.role}.`);
   revalidatePath('/settings');
   return { success: true, message: "Mock user added to list. (This does NOT create a real Firebase Auth account).", user: newUser };
@@ -130,18 +126,15 @@ export async function createNewUserMock(
 
 export async function deleteUserMock(userId: string): Promise<{ success: boolean; message?: string }> {
   console.log(`[UserActions] Attempting to delete mock user with ID (File Persistent): ${userId}`);
-  if (global.__usersStore__ === undefined) { global.__usersStore__ = await loadMockUsersFromFile(); }
+  let users = await loadMockUsersFromFile();
 
-  const userIndex = global.__usersStore__!.findIndex(u => u.id === userId);
+  const userIndex = users.findIndex(u => u.id === userId);
   if (userIndex === -1) {
     return { success: false, message: "Mock user not found." };
   }
-  const user = global.__usersStore__![userIndex];
-  // if (user.email.toLowerCase() === ADMIN_EMAIL_FOR_MOCK_STORE) {
-  //   return { success: false, message: "Cannot delete the primary admin user from the mock store." };
-  // }
-  global.__usersStore__!.splice(userIndex, 1);
-  await saveMockUsersToFile(global.__usersStore__!);
+  const user = users[userIndex];
+  users.splice(userIndex, 1);
+  await saveMockUsersToFile(users);
   revalidatePath('/settings');
   console.log(`[UserActions] Mock user ${user.displayName || user.email} deleted from store.`);
   return { success: true, message: `Mock user ${user.displayName || user.email} deleted.` };
@@ -149,21 +142,21 @@ export async function deleteUserMock(userId: string): Promise<{ success: boolean
 
 export async function linkUserToCustomerMock(userId: string, customerId: string): Promise<{ success: boolean; message?: string; user?: UserData }> {
   console.log(`[UserActions] Attempting to link userId: ${userId} to customerId: ${customerId} (File Persistent)`);
-  if (global.__usersStore__ === undefined) { global.__usersStore__ = await loadMockUsersFromFile(); }
+  let users = await loadMockUsersFromFile();
 
-  const userIndex = global.__usersStore__!.findIndex(u => u.id === userId);
+  const userIndex = users.findIndex(u => u.id === userId);
   if (userIndex === -1) {
     return { success: false, message: "User not found in mock store." };
   }
-  global.__usersStore__![userIndex].linkedCustomerId = customerId === "" ? undefined : customerId;
-  await saveMockUsersToFile(global.__usersStore__!);
+  users[userIndex].linkedCustomerId = customerId === "" ? undefined : customerId;
+  await saveMockUsersToFile(users);
   revalidatePath('/settings');
   const action = customerId === "" ? "unlinked from customer" : `linked to customer ID ${customerId}`;
-  console.log(`[UserActions] User ${global.__usersStore__![userIndex].displayName || global.__usersStore__![userIndex].email} ${action} in mock store.`);
+  console.log(`[UserActions] User ${users[userIndex].displayName || users[userIndex].email} ${action} in mock store.`);
   return {
     success: true,
     message: `User ${action}.`,
-    user: global.__usersStore__![userIndex]
+    user: users[userIndex]
   };
 }
 
