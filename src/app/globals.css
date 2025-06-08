@@ -71,15 +71,14 @@
   
   --radius: 20px; /* Maps to --ios-radius */
 
-  /* iOS-inspired Sidebar Light Theme */
-  --sidebar-background: hsl(220 15% 94% / 0.75); /* Whitish, 75% opaque */
-  --sidebar-foreground: 240 2% 25%; 
-  --sidebar-primary: 212 100% 50%; 
-  --sidebar-primary-foreground: 0 0% 100%; 
-  --sidebar-accent: 220 15% 88%; 
-  --sidebar-accent-foreground: 212 100% 45%;
-  --sidebar-border: 220 10% 82%; 
-  --sidebar-ring: 212 100% 50%;
+  /* iOS-inspired Sidebar Light Theme (for Light App Mode) */
+  --sidebar-background: hsl(220 15% 94% / 0.85); /* Whitish, 85% opaque, slightly more opaque */
+  --sidebar-foreground: hsl(240 3% 20%);  /* Darker gray text for better contrast */
+  --sidebar-primary: hsl(212 100% 48%); /* Active item text color (slightly darker blue) */
+  --sidebar-accent: hsl(220 20% 88% / 0.6); /* Active/Hover item background (light gray, semi-transparent) */
+  --sidebar-accent-foreground: hsl(212 95% 45%); /* Hover item text color (vibrant blue) */
+  --sidebar-border: hsl(220 10% 82% / 0.4); /* More subtle border */
+  --sidebar-ring: hsl(212 100% 50%);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -124,16 +123,28 @@
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
 
-    --sidebar-background: hsl(0 0% 90% / 0.70); /* Light gray, 70% opaque */
-    --sidebar-foreground: 240 2% 25%; /* Darker text for whitish bg */
-    --sidebar-primary: 212 100% 58%; 
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 0 0% 85% / 0.5; /* Lighter accent for whitish bg */
-    --sidebar-accent-foreground: 212 100% 45%;
-    --sidebar-border: 0 0% 80% / 0.5; /* Lighter border for whitish bg */
-    --sidebar-ring: 212 100% 58%;
+    /* iOS-inspired Sidebar (Light for Dark App Mode) */
+    --sidebar-background: hsl(0 0% 12% / 0.75); /* Darker glassmorphic background for dark mode sidebar */
+    --sidebar-foreground: hsl(0 0% 85%); /* Light gray text for dark sidebar */
+    --sidebar-primary: hsl(210 100% 70%); /* Active item text color (brighter blue for dark sidebar) */
+    --sidebar-accent: hsl(0 0% 20% / 0.6); /* Active/Hover item background (darker gray, semi-transparent) */
+    --sidebar-accent-foreground: hsl(210 100% 75%); /* Hover item text color (brighter blue) */
+    --sidebar-border: hsl(0 0% 25% / 0.5); /* Subtle border for dark sidebar */
+    --sidebar-ring: hsl(212 100% 58%);
   }
 }
+
+/* Ensure that if <html> has .dark, the dark mode sidebar variables are used */
+html.dark {
+    --sidebar-background: hsl(0 0% 12% / 0.75); /* Darker glassmorphic background */
+    --sidebar-foreground: hsl(0 0% 85%); /* Light gray text */
+    --sidebar-primary: hsl(210 100% 70%); /* Active item text color (brighter blue) */
+    --sidebar-accent: hsl(0 0% 20% / 0.6); /* Active/Hover item background (darker gray) */
+    --sidebar-accent-foreground: hsl(210 100% 75%); /* Hover item text color (brighter blue) */
+    --sidebar-border: hsl(0 0% 25% / 0.5); /* Subtle border */
+    --sidebar-ring: hsl(212 100% 58%);
+}
+
 
 @layer base {
   * {
@@ -164,6 +175,9 @@
     body {
       background-color: var(--ios-dark-gray-bg); /* Dark mode solid fallback */
     }
+  }
+  html.dark body {
+    background-color: var(--ios-dark-gray-bg); /* Ensure dark body for html.dark */
   }
 }
 
@@ -348,3 +362,6 @@
 .ios-toggle:checked::before {
   transform: translateX(16px);
 }
+
+
+    
