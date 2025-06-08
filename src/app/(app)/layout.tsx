@@ -17,10 +17,11 @@ import {
   SidebarMenuSub,
   SidebarMenuSubItem,
   SidebarMenuSubButton,
+  SidebarSeparator, // Import SidebarSeparator
 } from '@/components/ui/sidebar';
 import AppLogo from '@/components/AppLogo';
 import { Header } from '@/components/layout/Header';
-import { LayoutDashboard, Briefcase, FileUp, FilePlus2, CalendarCheck2, ClipboardList, UserCircle, Settings, Archive, LogOut, type LucideIcon, ShoppingBag, Check, Loader2, ChevronRight, ListChecks, ChevronDown } from 'lucide-react';
+import { LayoutDashboard, Briefcase, FileUp, FilePlus2, CalendarCheck2, ClipboardList, UserCircle, Settings, Archive, LogOut, type LucideIcon, ShoppingBag, Check, Loader2, ChevronRight, ListChecks, ChevronDown, UserRoundPlus, Users } from 'lucide-react'; // Added Users
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -43,20 +44,22 @@ import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase/clientApp';
 import { useToast } from '@/hooks/use-toast';
 import type { UserRole } from '@/lib/definitions';
+// Import AddCustomerDialog if it exists, or prepare for it
+// import { AddCustomerDialog } from '@/components/customer/AddCustomerDialog';
 
 interface NavItem {
   href: string;
   label: string;
   icon: LucideIcon;
   allowedRoles: UserRole[];
+  isSubmenuTrigger?: boolean; // To identify items that open submenus
 }
 
 const allNavItems: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, allowedRoles: ['Admin', 'Manager'] },
-  // { href: '/jobs', label: 'All Jobs', icon: Briefcase, allowedRoles: ['Admin', 'Manager'] }, // Will be a sub-item
-  { href: '#jobs-trigger', label: 'Jobs', icon: Briefcase, allowedRoles: ['Admin', 'Manager'] }, // Parent "Jobs" item
+  { href: '#jobs-trigger', label: 'Jobs', icon: Briefcase, allowedRoles: ['Admin', 'Manager'], isSubmenuTrigger: true },
+  { href: '#customers-trigger', label: 'Customers', icon: Users, allowedRoles: ['Admin', 'Manager'], isSubmenuTrigger: true }, // New Customers menu
   { href: '/for-approval', label: 'For Approval', icon: FileUp, allowedRoles: ['Admin', 'Manager'] },
-  // { href: '/jobs/new', label: 'New Job Card', icon: FilePlus2, allowedRoles: ['Admin', 'Manager'] }, // Replaced by "Jobs" parent
   { href: '/planning', label: 'Production Planning', icon: CalendarCheck2, allowedRoles: ['Admin', 'Manager'] },
   { href: '/tasks', label: 'Departmental Tasks', icon: ClipboardList, allowedRoles: ['Admin', 'Manager', 'Departmental'] },
   { href: '/inventory', label: 'Inventory', icon: Archive, allowedRoles: ['Admin', 'Manager'] },
@@ -79,7 +82,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const isDeterminingRoleRef = React.useRef(false);
 
   const [isJobsSubmenuOpen, setIsJobsSubmenuOpen] = React.useState(pathname.startsWith('/jobs'));
-
+  const [isCustomersSubmenuOpen, setIsCustomersSubmenuOpen] = React.useState(pathname.startsWith('/customers')); // State for Customers submenu
+  const [isAddCustomerDialogOpen, setIsAddCustomerDialogOpen] = React.useState(false); // State for AddCustomerDialog
 
   React.useEffect(() => {
     setIsClient(true);
@@ -149,14 +153,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       const roleDefaultRoute = defaultRoutes[effectiveUserRole];
 
-      const isCurrentPathAllowedOrJobsSubPath = visibleNavItems.some(item => {
-        if (item.href === '#jobs-trigger') return pathname.startsWith('/jobs'); // Check if current path is under /jobs/
+      const isCurrentPathAllowedOrSubPath = visibleNavItems.some(item => {
+        if (item.href === '#jobs-trigger') return pathname.startsWith('/jobs');
+        if (item.href === '#customers-trigger') return pathname.startsWith('/customers') || isAddCustomerDialogOpen; // Consider dialog open state
         return pathname.startsWith(item.href);
       });
 
 
-      if (!isCurrentPathAllowedOrJobsSubPath && pathname !== roleDefaultRoute && !pathname.startsWith('/login') && !pathname.startsWith('/signup') && !pathname.startsWith('/profile')) {
-        const isDefaultRouteVisible = visibleNavItems.some(item => item.href === roleDefaultRoute || (item.href === '#jobs-trigger' && roleDefaultRoute.startsWith('/jobs')));
+      if (!isCurrentPathAllowedOrSubPath && pathname !== roleDefaultRoute && !pathname.startsWith('/login') && !pathname.startsWith('/signup') && !pathname.startsWith('/profile')) {
+        const isDefaultRouteVisible = visibleNavItems.some(item => item.href === roleDefaultRoute || (item.href === '#jobs-trigger' && roleDefaultRoute.startsWith('/jobs')) || (item.href === '#customers-trigger' && roleDefaultRoute.startsWith('/customers')));
         if (isDefaultRouteVisible) {
           router.replace(roleDefaultRoute);
         } else {
@@ -165,7 +170,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoadingRole, user, effectiveUserRole, pathname, router, visibleNavItems]);
+  }, [isLoadingRole, user, effectiveUserRole, pathname, router, visibleNavItems, isAddCustomerDialogOpen]);
 
 
   const handleLogout = async () => {
@@ -201,10 +206,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const userDisplayName = user?.displayName || user?.email?.split('@')[0] || "User";
   const userEmailDisplay = user?.email || "No email";
-
   const userRoleDisplay = effectiveUserRole;
-
-
   const isDesignatedAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
 
   return (
@@ -221,10 +223,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </SidebarHeader>
           <SidebarContent>
             <SidebarMenu>
-              {visibleNavItems.map((item) => {
-                 if (item.href === '#jobs-trigger') {
-                  return (
-                    <SidebarMenuItem key={item.href}>
+              {visibleNavItems.map((item, index) => (
+                <React.Fragment key={item.href}>
+                  {/* Add Separator between logical groups */}
+                  {index > 0 && !item.isSubmenuTrigger && !visibleNavItems[index-1].isSubmenuTrigger &&
+                   (item.label === "For Approval" || item.label === "Inventory" || item.label === "My Jobs") && // Logic for separators
+                    <SidebarSeparator className="my-1" />
+                  }
+
+                  {item.href === '#jobs-trigger' && (
+                    <SidebarMenuItem>
                       <Tooltip>
                         <TooltipTrigger asChild>
                            <SidebarMenuButton
@@ -232,7 +240,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                             onClick={() => setIsJobsSubmenuOpen(!isJobsSubmenuOpen)}
                           >
                             <span className="flex items-center gap-2 w-full">
-                              <item.icon className="h-4 w-4 shrink-0" />
+                              <item.icon className="h-5 w-5 shrink-0" />
                               <span className="truncate">{item.label}</span>
                               {isJobsSubmenuOpen ? <ChevronDown className="ml-auto h-4 w-4 shrink-0" /> : <ChevronRight className="ml-auto h-4 w-4 shrink-0" />}
                             </span>
@@ -254,9 +262,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                                   </Link>
                                 </SidebarMenuSubButton>
                               </TooltipTrigger>
-                              <TooltipContent side="right" align="center" className="font-body">
-                                View all jobs
-                              </TooltipContent>
+                              <TooltipContent side="right" align="center" className="font-body">View all jobs</TooltipContent>
                             </Tooltip>
                           </SidebarMenuSubItem>
                           <SidebarMenuSubItem>
@@ -269,43 +275,87 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                                   </Link>
                                 </SidebarMenuSubButton>
                               </TooltipTrigger>
-                              <TooltipContent side="right" align="center" className="font-body">
-                                Create Job card
-                              </TooltipContent>
+                              <TooltipContent side="right" align="center" className="font-body">Create Job card</TooltipContent>
                             </Tooltip>
                           </SidebarMenuSubItem>
                         </SidebarMenuSub>
                       )}
                     </SidebarMenuItem>
-                  );
-                 }
-                // Temporarily skip /jobs as it's handled by the submenu
-                if (item.href === '/jobs') return null;
+                  )}
 
-                return (
-                  <SidebarMenuItem key={item.href}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <SidebarMenuButton
-                          asChild
-                          isActive={pathname === item.href || (item.href !== '/dashboard' && item.href !== '/tasks' && item.href !== '/customer/my-jobs' && pathname.startsWith(item.href))}
-                        >
-                          <Link href={item.href}>
+                  {item.href === '#customers-trigger' && ( // New Customers Menu
+                    <SidebarMenuItem>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                           <SidebarMenuButton
+                            isActive={pathname.startsWith('/customers') || isAddCustomerDialogOpen}
+                            onClick={() => setIsCustomersSubmenuOpen(!isCustomersSubmenuOpen)}
+                          >
                             <span className="flex items-center gap-2 w-full">
-                              <item.icon className="h-4 w-4 shrink-0" />
+                              <item.icon className="h-5 w-5 shrink-0" />
                               <span className="truncate">{item.label}</span>
-                              <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-muted-foreground group-data-[active=true]:text-primary-foreground group-data-[collapsible=icon]:hidden" />
+                              {isCustomersSubmenuOpen ? <ChevronDown className="ml-auto h-4 w-4 shrink-0" /> : <ChevronRight className="ml-auto h-4 w-4 shrink-0" />}
                             </span>
-                          </Link>
-                        </SidebarMenuButton>
-                      </TooltipTrigger>
-                      <TooltipContent side="right" align="center" className="font-body">
-                         {item.label}
-                      </TooltipContent>
-                    </Tooltip>
-                  </SidebarMenuItem>
-                );
-              })}
+                          </SidebarMenuButton>
+                        </TooltipTrigger>
+                        <TooltipContent side="right" align="center" className="font-body">{item.label}</TooltipContent>
+                      </Tooltip>
+                      {isCustomersSubmenuOpen && (
+                        <SidebarMenuSub>
+                          <SidebarMenuSubItem>
+                             <Tooltip>
+                              <TooltipTrigger asChild>
+                                <SidebarMenuSubButton onClick={() => setIsAddCustomerDialogOpen(true)}>
+                                  <UserRoundPlus className="h-4 w-4 shrink-0" />
+                                  <span className="truncate">Add Customer</span>
+                                </SidebarMenuSubButton>
+                              </TooltipTrigger>
+                              <TooltipContent side="right" align="center" className="font-body">Add New Customer</TooltipContent>
+                            </Tooltip>
+                          </SidebarMenuSubItem>
+                          <SidebarMenuSubItem>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <SidebarMenuSubButton asChild isActive={pathname === '/customers'}>
+                                  <Link href="/customers"> {/* Placeholder link */}
+                                    <Users className="h-4 w-4 shrink-0" />
+                                    <span className="truncate">View Customers</span>
+                                  </Link>
+                                </SidebarMenuSubButton>
+                              </TooltipTrigger>
+                              <TooltipContent side="right" align="center" className="font-body">View All Customers</TooltipContent>
+                            </Tooltip>
+                          </SidebarMenuSubItem>
+                        </SidebarMenuSub>
+                      )}
+                    </SidebarMenuItem>
+                  )}
+
+                  {item.href !== '#jobs-trigger' && item.href !== '#customers-trigger' && (
+                    <SidebarMenuItem>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <SidebarMenuButton
+                            asChild
+                            isActive={pathname === item.href || (item.href !== '/dashboard' && item.href !== '/tasks' && item.href !== '/customer/my-jobs' && pathname.startsWith(item.href))}
+                          >
+                            <Link href={item.href}>
+                              <span className="flex items-center gap-2 w-full">
+                                <item.icon className="h-5 w-5 shrink-0" />
+                                <span className="truncate">{item.label}</span>
+                                <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-muted-foreground group-data-[active=true]:text-primary-foreground group-data-[collapsible=icon]:hidden" />
+                              </span>
+                            </Link>
+                          </SidebarMenuButton>
+                        </TooltipTrigger>
+                        <TooltipContent side="right" align="center" className="font-body">
+                           {item.label}
+                        </TooltipContent>
+                      </Tooltip>
+                    </SidebarMenuItem>
+                  )}
+                </React.Fragment>
+              ))}
             </SidebarMenu>
           </SidebarContent>
           <SidebarFooter className="p-4">
@@ -387,6 +437,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </main>
         </SidebarInset>
       </SidebarProvider>
+      {/* Conditionally render AddCustomerDialog if the component exists
+      {isClient && effectiveUserRole === 'Admin' && AddCustomerDialog && (
+        <AddCustomerDialog isOpen={isAddCustomerDialogOpen} setIsOpen={setIsAddCustomerDialogOpen} />
+      )}
+      */}
     </ClientOnlyWrapper>
   );
 }
+
+    

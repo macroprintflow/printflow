@@ -2,8 +2,8 @@
 import type { LucideIcon } from "lucide-react";
 import {
   FileCheck2, Scissors, Printer, Wand2, Film, Crop, Sparkles, ClipboardPaste, Box, Package, FileSpreadsheet,
-  FileText, Newspaper, Archive as ArchiveIcon, Layers, Palette, Focus // Added Palette, Focus
-} from "lucide-react"; // Renamed Archive to ArchiveIcon to avoid conflict
+  FileText, Newspaper, Archive as ArchiveIcon, Layers, Palette, Focus, UserRoundPlus
+} from "lucide-react"; // Renamed Archive to ArchiveIcon, Added UserRoundPlus
 import { z } from 'zod';
 
 export type PaperSpecs = {
@@ -75,11 +75,11 @@ export const PRODUCTION_PROCESS_STEPS: WorkflowProcessStepDefinition[] = [
   { name: "Job Approval", slug: "job-approval", icon: FileCheck2 },
   { name: "Cutter", slug: "cutter", icon: Scissors },
   { name: "Printing", slug: "printing", icon: Printer },
-  { name: "Texture UV", slug: "texture-uv", icon: Palette }, // Changed from Wand2
+  { name: "Texture UV", slug: "texture-uv", icon: Palette },
   { name: "Lamination", slug: "lamination", icon: Film },
-  { name: "Die Cutting", slug: "die-cutting", icon: Focus }, // Changed from Crop
+  { name: "Die Cutting", slug: "die-cutting", icon: Focus },
   { name: "Foil Stamping", slug: "foil-stamping", icon: Sparkles },
-  { name: "Pasting", slug: "pasting", icon: Layers }, // Changed from ClipboardPaste
+  { name: "Pasting", slug: "pasting", icon: Layers },
   { name: "Box Making & Assembly", slug: "box-making-assembly", icon: Box },
   { name: "Packing", slug: "packing", icon: Package },
   { name: "To be Billed", slug: "to-be-billed", icon: FileSpreadsheet },
@@ -96,7 +96,8 @@ export type JobCardData = {
   jobCardNumber?: string;
   date: string;
   jobName: string;
-  customerName: string;
+  customerName: string; // This will be populated by selected customer's fullName
+  customerId?: string; // Store the ID of the selected customer
   jobSizeWidth: number;
   jobSizeHeight: number;
   masterSheetSizeWidth?: number;
@@ -132,11 +133,11 @@ export type JobCardData = {
 
   linkedJobCardIds?: string[];
   currentDepartment?: string;
-  status?: string; // e.g., "Pending Planning", "In Printing", "Cutting Complete", "Completed", "Billed"
+  status?: string;
   createdAt?: string;
   updatedAt?: string;
   workflowSteps?: WorkflowStep[];
-  pdfDataUri?: string; 
+  pdfDataUri?: string;
 };
 
 export type JobTemplateData = {
@@ -160,7 +161,8 @@ const paperQualityEnumValues = ['', ...PAPER_QUALITY_OPTIONS.map(opt => opt.valu
 
 export const JobCardSchema = z.object({
   jobName: z.string().min(1, "Job name is required"),
-  customerName: z.string().min(1, "Customer name is required"),
+  customerName: z.string().min(1, "Customer name is required"), // Will be derived from selected customer
+  customerId: z.string().optional(), // ID of the selected customer
 
   jobSizeWidth: z.coerce.number().positive("Job width (in) must be positive"),
   jobSizeHeight: z.coerce.number().positive("Job height (in) must be positive"),
@@ -197,7 +199,7 @@ export const JobCardSchema = z.object({
   remarks: z.string().optional(),
   dispatchDate: z.string().optional(),
   workflowSteps: z.array(WorkflowStepSchema).optional(),
-  pdfDataUri: z.string().optional(), 
+  pdfDataUri: z.string().optional(),
 }).superRefine((data, ctx) => {
   const unit = getPaperQualityUnit(data.paperQuality as PaperQualityType);
   if (data.paperQuality && unit === 'gsm' && (data.paperGsm === undefined || data.paperGsm <= 0)) {
@@ -448,16 +450,15 @@ export type InventoryAdjustment = {
   quantityChange: number;
   reason: InventoryAdjustmentReasonValue;
   reference?: string;
-  userId?: string; // Could be added in future for audit trail
+  userId?: string;
   notes?: string;
-  vendorName?: string; // Only relevant for 'PURCHASE_RECEIVED' or 'RETURN_TO_SUPPLIER'
-  purchaseBillNo?: string; // Only relevant for 'PURCHASE_RECEIVED'
+  vendorName?: string;
+  purchaseBillNo?: string;
 };
 
-// Schema for a single item in the adjustment list on the new page
 export const InventoryAdjustmentItemSchema = z.object({
   inventoryItemId: z.string().min(1, "Inventory Item ID is required"),
-  itemNameFull: z.string(), // For display in the list
+  itemNameFull: z.string(),
   quantityChange: z.number().refine(val => val !== 0, "Quantity change cannot be zero"),
   reason: z.enum(INVENTORY_ADJUSTMENT_REASONS.map(r => r.value) as [string, ...string[]])
           .refine(val => val !== undefined && val !== '', "Reason for adjustment is required"),
@@ -479,13 +480,13 @@ export type SubCategoryFinishFilterValue = ArtPaperFinishFilterValue | KappaFini
 export type PaperSubCategory = {
   name: string;
   filterValue: PaperSubCategoryFilterValue;
-  qualityValues: PaperQualityType[]; 
+  qualityValues: PaperQualityType[];
   predefinedSpecs?: number[];
   specUnit?: 'GSM' | 'mm';
   subFinishes?: Array<{
     name: string;
     finishFilterValue: SubCategoryFinishFilterValue;
-    actualQualityValue: PaperQualityType; 
+    actualQualityValue: PaperQualityType;
     predefinedSpecs: number[];
     specUnit: 'GSM' | 'mm';
     icon: LucideIcon;
@@ -582,7 +583,6 @@ export const COLOR_PROFILES = [
 export type ColorProfileValue = typeof COLOR_PROFILES[number]['value'];
 
 
-// Design Submission Schemas and Types (Input and Output for AI Flow)
 export const SubmitDesignInputSchema = z.object({
   pdfName: z.string().describe("The original name of the PDF file."),
   jobName: z.string().describe("The name of the job this design is for."),
@@ -611,22 +611,20 @@ export const SubmitDesignOutputSchema = z.object({
 });
 export type SubmitDesignOutput = z.infer<typeof SubmitDesignOutputSchema>;
 
-// Design Submission Data Structure (for storing in our mock DB and using on frontend)
 export interface DesignSubmission {
-  id: string; // Unique ID generated by our mock DB
+  id: string;
   pdfName: string;
   jobName: string;
   customerName: string;
-  uploader: string; // For now, can be "Current User" or "AI Flow"
-  date: string; // ISO string date of submission
+  uploader: string;
+  date: string;
   status: "pending" | "approved" | "rejected";
-  pdfDataUri?: string; 
+  pdfDataUri?: string;
   plateType: PlateTypeValue;
   colorProfile?: ColorProfileValue;
   otherColorProfileDetail?: string;
 }
 
-// --- Send Plate Email Flow Schemas and Types ---
 export const SendPlateEmailInputSchema = z.object({
   jobName: z.string().describe("Name of the job."),
   customerName: z.string().describe("Name of the customer."),
@@ -635,7 +633,7 @@ export const SendPlateEmailInputSchema = z.object({
   colorProfile: z.enum(['cmyk', 'cmyk_white', 'other']).optional().describe("Color profile for the plates."),
   otherColorProfileDetail: z.string().optional().describe("Details if color profile is 'other'."),
   plateType: z.enum(['new', 'old']).default('new').describe("Plate type, typically 'new' for this flow."),
-  jobCardNumber: z.string().optional().describe("Job card number, if available."), 
+  jobCardNumber: z.string().optional().describe("Job card number, if available."),
 });
 export type SendPlateEmailInput = z.infer<typeof SendPlateEmailInputSchema>;
 
@@ -645,13 +643,11 @@ export const SendPlateEmailOutputSchema = z.object({
   messageId: z.string().optional().describe("The message ID from the email provider if successful."),
 });
 export type SendPlateEmailOutput = z.infer<typeof SendPlateEmailOutputSchema>;
-// --- End Send Plate Email Flow Schemas and Types ---
 
-// Country Code Definitions
 export interface CountryCode {
   name: string;
-  code: string; // ISO 3166-1 alpha-2 code, e.g., "IN"
-  dialCode: string; // e.g., "+91"
+  code: string;
+  dialCode: string;
 }
 
 export const COUNTRY_CODES: CountryCode[] = [
@@ -660,18 +656,51 @@ export const COUNTRY_CODES: CountryCode[] = [
   { name: "United Kingdom", code: "GB", dialCode: "+44" },
   { name: "Canada", code: "CA", dialCode: "+1" },
   { name: "Australia", code: "AU", dialCode: "+61" },
-  // Add more countries as needed.
-  // Consider using a more comprehensive list from a library for a production app.
 ];
 
-// User Data for Mock User Management
 export type UserRole = "Admin" | "Manager" | "Departmental" | "Customer";
 
 export interface UserData {
-  id: string; // UID from Firebase Auth or a mock ID
+  id: string;
   email: string;
   displayName?: string;
   role: UserRole;
-  // We don't store passwords in the client-accessible mock store
 }
+
+// Customer Data Structure and Schema
+export const CustomerAddressSchema = z.object({
+  street: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  zipCode: z.string().optional(),
+  country: z.string().optional(),
+});
+export type CustomerAddress = z.infer<typeof CustomerAddressSchema>;
+
+export const CustomerPhoneNumberSchema = z.object({
+  countryCode: z.string().optional(), // e.g., "+91"
+  number: z.string().optional(), // e.g., "9876543210"
+});
+export type CustomerPhoneNumber = z.infer<typeof CustomerPhoneNumberSchema>;
+
+export const CustomerDataSchema = z.object({
+  id: z.string().optional(), // Firestore document ID
+  fullName: z.string().min(1, "Full name is required"),
+  email: z.string().email("Invalid email address").optional().or(z.literal("")), // Optional, but must be valid email if provided
+  phoneNumber: CustomerPhoneNumberSchema.optional(),
+  address: CustomerAddressSchema.optional(),
+  createdAt: z.string().optional(), // ISO date string
+  updatedAt: z.string().optional(), // ISO date string
+});
+export type CustomerData = z.infer<typeof CustomerDataSchema>;
+export type CustomerFormValues = Omit<CustomerData, 'id' | 'createdAt' | 'updatedAt'>;
+
+export const CustomerListItemSchema = z.object({
+  id: z.string(),
+  fullName: z.string(),
+});
+export type CustomerListItem = z.infer<typeof CustomerListItemSchema>;
+
+export { UserRoundPlus }; // Exporting new icon
+
     
