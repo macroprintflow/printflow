@@ -225,17 +225,17 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
     const value = e.target.value;
     setCustomerInputValue(value);
     fieldOnChange(value); 
-    form.setValue("customerId", undefined); // Clear customerId if user types
+    form.setValue("customerId", undefined); 
 
     if (value) {
       const filtered = allCustomers.filter(customer =>
         customer.fullName.toLowerCase().includes(value.toLowerCase())
       );
       setCustomerSuggestions(filtered);
-      setIsCustomerPopoverOpen(filtered.length > 0 || value.length > 0);
+      setIsCustomerPopoverOpen(true); // Open if there's text, content will show suggestions or "no results"
     } else {
-      setCustomerSuggestions([]);
-      setIsCustomerPopoverOpen(false);
+      setCustomerSuggestions(allCustomers.slice(0, 10)); // Show initial if input cleared
+      setIsCustomerPopoverOpen(true); // Keep open to show initial list
       setJobsForCustomer([]);
       setJobInputValue("");
       setSelectedPastJobId("");
@@ -262,10 +262,13 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
         (job.jobCardNumber && job.jobCardNumber.toLowerCase().includes(value.toLowerCase()))
       );
       setJobSuggestions(filtered);
-      setIsJobPopoverOpen(filtered.length > 0);
+      setIsJobPopoverOpen(true); // Open if there's text
+    } else if (!value && jobsForCustomer.length > 0) {
+        setJobSuggestions(jobsForCustomer.slice(0,10));
+        setIsJobPopoverOpen(true); // Open to show initial list for customer
     } else {
       setJobSuggestions([]);
-      setIsJobPopoverOpen(false);
+      setIsJobPopoverOpen(false); // Close if no text and no base suggestions for customer
       setSelectedPastJobId("");
     }
   };
@@ -275,7 +278,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
     setSelectedPastJobId(job.id!);
     setIsJobPopoverOpen(false);
     setCurrentPdfDataUri(job.pdfDataUri);
-    setCustomerInputValue(job.customerName); // Update customer input value
+    setCustomerInputValue(job.customerName); 
 
     const pastJobPaperQuality = job.paperQuality || "";
     const pastJobUnit = getPaperQualityUnit(pastJobPaperQuality as PaperQualityType);
@@ -482,22 +485,32 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
                               <Input
                                 ref={customerInputRef}
                                 placeholder={isLoadingCustomers ? "Loading customers..." : "Type or select customer"}
-                                value={customerInputValue}
+                                {...field} // RHF field props spread here
+                                value={customerInputValue} // Local state controls displayed value
                                 onChange={(e) => handleCustomerInputChange(e, field.onChange)}
                                 onFocus={() => {
-                                  if (customerInputValue && customerSuggestions.length > 0) setIsCustomerPopoverOpen(true);
-                                  else if (!customerInputValue && allCustomers.length > 0) {
-                                      setCustomerSuggestions(allCustomers.slice(0,10)); // Show some initial suggestions
-                                      setIsCustomerPopoverOpen(true);
+                                  if (!isLoadingCustomers) {
+                                    if (!customerInputValue && allCustomers.length > 0) {
+                                      setCustomerSuggestions(allCustomers.slice(0,10));
+                                    } else if (customerInputValue) {
+                                       const filtered = allCustomers.filter(c => c.fullName.toLowerCase().includes(customerInputValue.toLowerCase()));
+                                       setCustomerSuggestions(filtered);
+                                    }
+                                    setIsCustomerPopoverOpen(true);
                                   }
                                 }}
                                 className="pl-10 font-body"
                                 disabled={isLoadingCustomers}
+                                autoComplete="off"
                               />
                             </div>
                           </FormControl>
                         </PopoverTrigger>
-                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                        <PopoverContent 
+                            className="w-[--radix-popover-trigger-width] p-0" 
+                            align="start"
+                            onOpenAutoFocus={(e) => e.preventDefault()}
+                        >
                           <ScrollArea className="h-[200px]">
                             {customerSuggestions.length > 0 ? (
                               customerSuggestions.map(customer => (
@@ -512,7 +525,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
                               ))
                             ) : (
                               <p className="p-4 text-sm text-muted-foreground font-body">
-                                {isLoadingCustomers ? "Loading..." : customerInputValue ? "No matching customers." : "Type to search."}
+                                {isLoadingCustomers ? "Loading..." : customerInputValue ? "No matching customers." : "Type to search or select from list."}
                               </p>
                             )}
                           </ScrollArea>
@@ -523,65 +536,74 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
                   )}
                 />
 
-                <Popover open={isJobPopoverOpen} onOpenChange={setIsJobPopoverOpen}>
-                  <PopoverTrigger asChild>
-                     <FormItem> {/* Added FormItem for label association */}
-                        <FormLabel>Past Job for {form.getValues('customerName') || 'Selected Customer'}</FormLabel>
+                <FormItem> 
+                    <FormLabel>Past Job for {form.getValues('customerName') || 'Selected Customer'}</FormLabel>
+                    <Popover open={isJobPopoverOpen} onOpenChange={setIsJobPopoverOpen}>
+                      <PopoverTrigger asChild>
                         <div className="relative">
-                          <BriefcaseIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                          {isLoadingJobsForCustomer && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
-                          <Input
-                            ref={jobInputRef}
-                            type="text"
-                            placeholder={
-                              isLoadingJobsForCustomer ? "Loading jobs..." :
-                              !form.getValues('customerId') ? "Select customer first" :
-                              jobsForCustomer.length === 0 && form.getValues('customerId') ? "No past jobs for this customer" :
-                              "Type to search past job"
-                            }
-                            value={jobInputValue}
-                            onChange={handleJobInputChange}
-                            onFocus={() => {
-                               if (jobInputValue && jobSuggestions.length > 0) setIsJobPopoverOpen(true);
-                               else if (!jobInputValue && jobsForCustomer.length > 0) {
-                                   setJobSuggestions(jobsForCustomer.slice(0,10));
-                                   setIsJobPopoverOpen(true);
-                               }
-                            }}
-                            className="pl-10 font-body"
-                            disabled={!form.getValues('customerId') || isLoadingJobsForCustomer}
-                          />
+                            <BriefcaseIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            {isLoadingJobsForCustomer && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
+                            <Input
+                                ref={jobInputRef}
+                                type="text"
+                                placeholder={
+                                isLoadingJobsForCustomer ? "Loading jobs..." :
+                                !form.getValues('customerId') ? "Select customer first" :
+                                jobsForCustomer.length === 0 && form.getValues('customerId') ? "No past jobs for this customer" :
+                                "Type to search past job"
+                                }
+                                value={jobInputValue}
+                                onChange={handleJobInputChange}
+                                onFocus={() => {
+                                    if (!isLoadingJobsForCustomer && form.getValues('customerId')) {
+                                        if (!jobInputValue && jobsForCustomer.length > 0) {
+                                            setJobSuggestions(jobsForCustomer.slice(0,10));
+                                        } else if (jobInputValue) {
+                                            const filtered = jobsForCustomer.filter(j => j.jobName.toLowerCase().includes(jobInputValue.toLowerCase()) || (j.jobCardNumber && j.jobCardNumber.toLowerCase().includes(jobInputValue.toLowerCase())));
+                                            setJobSuggestions(filtered);
+                                        }
+                                        setIsJobPopoverOpen(true);
+                                    }
+                                }}
+                                className="pl-10 font-body"
+                                disabled={!form.getValues('customerId') || isLoadingJobsForCustomer}
+                                autoComplete="off"
+                            />
                         </div>
-                     </FormItem>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                     <ScrollArea className="h-[200px]">
-                      {jobSuggestions.length > 0 ? (
-                        jobSuggestions.map(job => (
-                          <Button
-                            key={job.id}
-                            variant="ghost"
-                            className="w-full justify-start font-normal font-body h-auto py-2 text-left"
-                            onClick={() => handleJobSuggestionClick(job)}
-                          >
-                            <div>
-                                <div>{job.jobName}</div>
-                                <div className="text-xs text-muted-foreground">{job.jobCardNumber || job.id} - {new Date(job.date).toLocaleDateString()}</div>
-                            </div>
-                          </Button>
-                        ))
-                      ) : (
-                         <p className="p-4 text-sm text-muted-foreground font-body">
-                            {!form.getValues('customerId') ? "Select a customer to see past jobs." : 
-                             jobsForCustomer.length === 0 && !isLoadingJobsForCustomer ? "No past jobs found for this customer." :
-                             jobInputValue ? "No jobs match your search." :
-                             "Type to search for jobs."
-                            }
-                        </p>
-                      )}
-                    </ScrollArea>
-                  </PopoverContent>
-                </Popover>
+                      </PopoverTrigger>
+                      <PopoverContent 
+                        className="w-[--radix-popover-trigger-width] p-0" 
+                        align="start"
+                        onOpenAutoFocus={(e) => e.preventDefault()}
+                      >
+                        <ScrollArea className="h-[200px]">
+                        {jobSuggestions.length > 0 ? (
+                            jobSuggestions.map(job => (
+                            <Button
+                                key={job.id}
+                                variant="ghost"
+                                className="w-full justify-start font-normal font-body h-auto py-2 text-left"
+                                onClick={() => handleJobSuggestionClick(job)}
+                            >
+                                <div>
+                                    <div>{job.jobName}</div>
+                                    <div className="text-xs text-muted-foreground">{job.jobCardNumber || job.id} - {new Date(job.date).toLocaleDateString()}</div>
+                                </div>
+                            </Button>
+                            ))
+                        ) : (
+                            <p className="p-4 text-sm text-muted-foreground font-body">
+                                {!form.getValues('customerId') ? "Select a customer to see past jobs." : 
+                                jobsForCustomer.length === 0 && !isLoadingJobsForCustomer ? "No past jobs found for this customer." :
+                                jobInputValue ? "No jobs match your search." :
+                                "Type to search for jobs."
+                                }
+                            </p>
+                        )}
+                        </ScrollArea>
+                      </PopoverContent>
+                    </Popover>
+                </FormItem>
               </div>
           </CardContent>
         </Card>
@@ -598,11 +620,10 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
                 <FormMessage />
               </FormItem>
             )} />
-            {/* Customer Name field is now handled by the Popover input above, but ensure validation still works if needed */}
              <FormItem>
                 <FormLabel>Selected Customer</FormLabel>
                 <Input value={form.watch('customerName') || "N/A (Select above)"} readOnly className="font-body bg-muted"/>
-                <FormMessage />
+                {/* FormMessage for customerName is handled by the Popover field */}
              </FormItem>
           </CardContent>
         </Card>
