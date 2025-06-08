@@ -160,11 +160,20 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       });
 
 
-      if (!isCurrentPathAllowedOrSubPath && pathname !== roleDefaultRoute && !pathname.startsWith('/login') && !pathname.startsWith('/signup') && !pathname.startsWith('/profile')) {
+      if (!isCurrentPathAllowedOrSubPath && 
+          pathname !== roleDefaultRoute && 
+          !pathname.startsWith('/login') && 
+          !pathname.startsWith('/signup') && 
+          !pathname.startsWith('/profile') && 
+          !pathname.startsWith('/settings') // Added /settings here
+         ) {
         const isDefaultRouteVisible = visibleNavItems.some(item => item.href === roleDefaultRoute || (item.href === '#jobs-trigger' && roleDefaultRoute.startsWith('/jobs')) || (item.href === '#customers-trigger' && roleDefaultRoute.startsWith('/customers')));
         if (isDefaultRouteVisible) {
           router.replace(roleDefaultRoute);
         } else {
+          // This case implies the user's default route isn't even in their visible items,
+          // which could happen if roles change and permissions become misaligned.
+          // Logging out is a safe fallback.
           handleLogout();
         }
       }
@@ -178,7 +187,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       await signOut(auth);
       toast({ title: 'Logged Out', description: 'You have been successfully logged out.' });
       setIsRoleFromDevTool(false);
-      setEffectiveUserRole("Customer");
+      setEffectiveUserRole("Customer"); // Reset to a default non-privileged role
       router.push('/login');
     } catch (error) {
       console.error("Logout error:", error);
@@ -188,8 +197,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const handleRoleSwitch = (newRole: UserRole) => {
     setEffectiveUserRole(newRole);
-    setIsRoleFromDevTool(true);
+    setIsRoleFromDevTool(true); // Mark that the role was changed via dev tool
     toast({ title: 'Dev Tool: Role Switched', description: `Viewing as ${newRole}. (Session only)`});
+    // No immediate redirect here; let the main useEffect handle it based on the new role.
   };
 
   if (loading || isLoadingRole || (!user && pathname !== '/login' && pathname !== '/signup')) {
@@ -201,13 +211,28 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   if (!user && (pathname === '/login' || pathname === '/signup')) {
+     // User is not logged in, but is on login/signup page. Render children (the login/signup page).
      return <ClientOnlyWrapper>{children}</ClientOnlyWrapper>;
   }
+
+  // If user is somehow null here AND not on login/signup, they should have been redirected by the effect.
+  // This check is more of a safeguard.
+  if (!user) {
+      // Fallback if the effect somehow didn't catch it - unlikely but good practice.
+      router.replace('/login');
+      return (
+          <div className="flex h-screen w-screen items-center justify-center bg-background">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+          </div>
+      );
+  }
+
 
   const userDisplayName = user?.displayName || user?.email?.split('@')[0] || "User";
   const userEmailDisplay = user?.email || "No email";
   const userRoleDisplay = effectiveUserRole;
   const isDesignatedAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
+
 
   return (
     <ClientOnlyWrapper>
@@ -337,10 +362,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                           <SidebarMenuButton
                             asChild
                             isActive={pathname === item.href || (
-                              item.href !== '/dashboard' &&
-                              item.href !== '/tasks' &&
-                              item.href !== '/customer/my-jobs' &&
-                              pathname.startsWith(item.href)
+                              item.href !== '/dashboard' && // Strict match for dashboard
+                              item.href !== '/tasks' && // Strict match for tasks
+                              item.href !== '/customer/my-jobs' && // Strict match for my-jobs
+                              pathname.startsWith(item.href) // StartsWith for others like /inventory/*
                             )}
                           >
                             <Link href={item.href}>
@@ -400,7 +425,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
-                {isDesignatedAdmin && (
+                {isDesignatedAdmin && ( // Only the designated admin can switch roles
                   <>
                     <RadixDropdownMenuSub>
                       <RadixDropdownMenuSubTrigger>
@@ -446,7 +471,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             setIsOpen={setIsAddCustomerDialogOpen}
             onCustomerAdded={() => {
                 // Minimal callback, just log for now.
-                console.log("AddCustomerDialog's onCustomerAdded callback fired.");
+                console.log("AddCustomerDialog's onCustomerAdded callback fired from layout.");
             }}
         />
       )}
@@ -454,4 +479,3 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   );
 }
 
-    
