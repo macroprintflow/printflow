@@ -8,16 +8,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { useState, useEffect } from "react";
 import type { UserData, UserRole } from "@/lib/definitions";
-import { getAllUsersMock, updateUserRoleMock, deleteUserMock } from "@/lib/actions/userActions"; // Assuming updateUserRoleMock and deleteUserMock exist and are simple
+import { getAllUsersMock, updateUserRoleMock, deleteUserMock } from "@/lib/actions/userActions";
 import { useToast } from "@/hooks/use-toast";
-// Placeholder for a future "Link User to Customer" modal
-// import { LinkUserToCustomerDialog } from "@/components/settings/LinkUserToCustomerDialog";
+import { LinkUserToCustomerDialog } from "@/components/settings/LinkUserToCustomerDialog"; // Import the new dialog
 
 export default function SettingsPage() {
   const [users, setUsers] = useState<UserData[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
-  // const [isLinkUserDialogOpen, setIsLinkUserDialogOpen] = useState(false);
-  // const [selectedUserForLinking, setSelectedUserForLinking] = useState<UserData | null>(null);
+  const [isLinkUserDialogOpen, setIsLinkUserDialogOpen] = useState(false);
+  const [selectedUserForLinking, setSelectedUserForLinking] = useState<UserData | null>(null);
   const { toast } = useToast();
 
   const fetchUsers = async () => {
@@ -35,21 +34,20 @@ export default function SettingsPage() {
 
   useEffect(() => {
     fetchUsers();
-  }, [toast]); // Removed toast from deps as it's stable
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Removed toast from deps as it's stable
 
   const handleRoleChange = async (userId: string, newRole: UserRole) => {
-    // This is a simplified version for the mock. A real implementation would involve a select dropdown or modal.
     const result = await updateUserRoleMock(userId, newRole);
     if (result.success) {
       toast({ title: "Mock Role Updated", description: result.message });
-      fetchUsers(); // Re-fetch to show updated role
+      fetchUsers(); 
     } else {
       toast({ title: "Error", description: result.message || "Failed to update mock role.", variant: "destructive" });
     }
   };
   
   const handleDeleteUser = async (userId: string, userName: string) => {
-     // Basic confirmation for mock
     if (confirm(`Are you sure you want to delete mock user "${userName}"? This action only affects the mock list.`)) {
       const result = await deleteUserMock(userId);
       if (result.success) {
@@ -61,10 +59,10 @@ export default function SettingsPage() {
     }
   };
 
-  // const openLinkUserDialog = (user: UserData) => {
-  //   setSelectedUserForLinking(user);
-  //   setIsLinkUserDialogOpen(true);
-  // };
+  const openLinkUserDialog = (user: UserData) => {
+    setSelectedUserForLinking(user);
+    setIsLinkUserDialogOpen(true);
+  };
 
   return (
     <div className="space-y-8">
@@ -91,7 +89,7 @@ export default function SettingsPage() {
             <Users className="mr-2 h-6 w-6 text-primary" /> Mock User Management
           </CardTitle>
           <CardDescription className="font-body">
-            View and manage mock users. These users are for UI demonstration and do not reflect actual Firebase Auth users yet.
+            View and manage mock users. These users are for UI demonstration.
             Role changes here are temporary and only affect the mock list display.
           </CardDescription>
         </CardHeader>
@@ -120,7 +118,7 @@ export default function SettingsPage() {
                     <TableCell className="font-body">
                       {user.linkedCustomerId ? (
                         <Badge variant="outline" className="text-green-600 border-green-600">
-                          Linked ({user.linkedCustomerId.substring(0,6)}...)
+                          Linked ({user.linkedCustomerId.substring(0,8)}...)
                         </Badge>
                       ) : (
                         <Badge variant="outline">Not Linked</Badge>
@@ -130,14 +128,11 @@ export default function SettingsPage() {
                       <Button 
                         variant="outline" 
                         size="sm" 
-                        onClick={() => alert(`Link functionality for ${user.displayName} coming soon.`)}
-                        // onClick={() => openLinkUserDialog(user)}
-                        disabled // Disabled until dialog is implemented
+                        onClick={() => openLinkUserDialog(user)}
                         title="Link to Customer Account"
                       >
                         <LinkIcon className="mr-1 h-3 w-3" /> Link
                       </Button>
-                       {/* Simplified role change for mock - A real UI would use a Select dropdown */}
                       <Button 
                         variant="outline" 
                         size="sm" 
@@ -167,7 +162,7 @@ export default function SettingsPage() {
             variant="secondary" 
             className="mt-4 font-body" 
             onClick={() => alert("Adding new mock users directly here is a placeholder. Real user signup is via the /signup page.")}
-            disabled // Disabled as real signup is separate
+            disabled 
           >
             Add New Mock User (Placeholder)
           </Button>
@@ -185,16 +180,14 @@ export default function SettingsPage() {
         </CardFooter>
       </Card>
       
-      {/* 
       {selectedUserForLinking && (
         <LinkUserToCustomerDialog
           isOpen={isLinkUserDialogOpen}
           setIsOpen={setIsLinkUserDialogOpen}
           user={selectedUserForLinking}
-          onLinkUpdated={fetchUsers} // Re-fetch users after linking
+          onLinkUpdated={fetchUsers} 
         />
       )}
-      */}
     </div>
   );
 }

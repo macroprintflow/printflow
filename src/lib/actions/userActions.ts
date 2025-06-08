@@ -18,7 +18,7 @@ if (global.__usersStore__ === undefined) {
   global.__usersStore__ = [
     { id: 'admin-user-mock-id', email: ADMIN_EMAIL_FOR_MOCK_STORE, displayName: 'Kuvam Sharma (Admin)', role: 'Admin' },
     { id: 'manager-user-mock-id', email: 'manager@example.com', displayName: 'Manager User', role: 'Manager' },
-    { id: 'dept-user-mock-id', email: 'dept@example.com', displayName: 'Departmental User', role: 'Departmental' },
+    { id: 'dept-user-mock-id', email: 'dept@example.com', displayName: 'Departmental User', role: 'Departmental', linkedCustomerId: 'cust-mock-123' }, // Example link
     { id: 'customer-user-mock-id', email: 'customer@example.com', displayName: 'Customer User', role: 'Customer' },
   ];
 }
@@ -90,14 +90,22 @@ export async function deleteUserMock(userId: string): Promise<{ success: boolean
   return { success: true, message: `Mock user ${user.displayName} deleted.` };
 }
 
-// These Firestore-specific functions are no longer needed for mock user management.
-// They are kept here commented out or removed if they were placeholders.
-// export async function getUsersFromFirestore(): Promise<UserData[]> { /* ... */ }
-// export async function updateUserRoleInFirestore(userId: string, newRole: UserRole): Promise<{ success: boolean; message?: string; user?: UserData }> { /* ... */ }
-// export async function createNewUserWithFirestoreRecord(...) { /* ... */ }
-// export async function deleteUserAndFirestoreRecord(userId: string): Promise<{ success: boolean; message?: string }> { /* ... */ }
-// export async function getUserRoleFromFirestore(userId: string): Promise<UserRole | null> { /* ... */ }
-// export async function createUserDocumentInFirestore(user: FirebaseUser, roleOverride?: UserRole): Promise<UserData | null> { /* ... */ }
+export async function linkUserToCustomerMock(userId: string, customerId: string): Promise<{ success: boolean; message?: string; user?: UserData }> {
+  console.log(`[MockUserActions] Attempting to link userId: ${userId} to customerId: ${customerId}`);
+  const userIndex = global.__usersStore__!.findIndex(u => u.id === userId);
+  if (userIndex === -1) {
+    return { success: false, message: "User not found in mock store." };
+  }
+  global.__usersStore__![userIndex].linkedCustomerId = customerId === "" ? undefined : customerId;
+  revalidatePath('/settings');
+  const action = customerId === "" ? "unlinked from customer" : `linked to customer ID ${customerId}`;
+  console.log(`[MockUserActions] User ${global.__usersStore__![userIndex].displayName} ${action} in mock store.`);
+  return { 
+    success: true, 
+    message: `User ${action}.`, 
+    user: global.__usersStore__![userIndex] 
+  };
+}
 
 
 // This function remains for actual Firebase Auth signup.
