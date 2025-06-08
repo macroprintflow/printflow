@@ -67,29 +67,42 @@ export async function optimizeInventory(input: OptimizeInventoryInput): Promise<
 }
 
 // Helper for specialized "staggered" layout.
-function calculateSpecialStaggeredUpsInternal(jobW_current: number, jobH_current: number, sheetW: number, sheetH: number) {
-  // Main grid (jobs not rotated relative to jobW_current, jobH_current)
-  const cols = Math.floor(sheetW / jobW_current);
-  const rows = Math.floor(sheetH / jobH_current);
-  const upsMain = cols * rows;
-  const usedH = rows * jobH_current;
-  const leftoverH = sheetH - usedH;
-  let staggeredUps = 0;
-  let description = `${cols}x${rows} main grid`;
+function calculateSpecialStaggeredUpsInternal(jobW: number, jobH: number, sheetW: number, sheetH: number) {
+  // Try both: "main row as job" and "main row as rotated job"
+  let bestUps = 0;
+  let bestDesc = "";
 
-  // For the staggered layer, the job is rotated.
-  // Its effective width becomes jobH_current and height becomes jobW_current.
-  if (leftoverH >= jobW_current) { // Can the *rotated* job's height (jobW_current) fit in leftoverH?
-    // How many rotated jobs fit across sheetW? Rotated job width is jobH_current.
-    const numStaggeredCols = Math.floor(sheetW / jobH_current);
-    if (numStaggeredCols > 0) {
-      staggeredUps = numStaggeredCols; // Assuming only one "row" of staggered items based on user's logic.
-                                      // The "height" of this staggered row is jobW_current.
-      description += ` + ${staggeredUps} rotated in leftover height`;
-    }
+  // CASE 1: Main row is not rotated, leftover fits rotated jobs
+  const mainCols1 = Math.floor(sheetW / jobW);
+  const mainRows1 = 1; // Assuming a single main row for this specific staggered logic
+  const usedH1 = jobH; // Height used by the main row
+  const leftoverH1 = sheetH - usedH1;
+  let extra1 = 0;
+  if (leftoverH1 >= jobW) { // Can fit rotated job height (jobW) in leftover space
+    extra1 = Math.floor(sheetW / jobH); // How many rotated jobs (jobH as width) fit across sheet width
   }
-  
-  return { ups: upsMain + staggeredUps, description: description };
+  let ups1 = mainCols1 * mainRows1 + extra1;
+  if (ups1 > bestUps) {
+    bestUps = ups1;
+    bestDesc = `${mainCols1}x${mainRows1} (main row) + ${extra1} rotated in leftover`;
+  }
+
+  // CASE 2: Main row is rotated, leftover fits normal jobs
+  const mainCols2 = Math.floor(sheetW / jobH); // Main row items are rotated (jobH as width)
+  const mainRows2 = 1; // Assuming a single main row
+  const usedH2 = jobW; // Height used by the rotated main row (jobW as height)
+  const leftoverH2 = sheetH - usedH2;
+  let extra2 = 0;
+  if (leftoverH2 >= jobH) { // Can fit normal job height (jobH) in leftover space
+    extra2 = Math.floor(sheetW / jobW); // How many normal jobs (jobW as width) fit across sheet width
+  }
+  let ups2 = mainCols2 * mainRows2 + extra2;
+  if (ups2 > bestUps) {
+    bestUps = ups2;
+    bestDesc = `${mainCols2}x${mainRows2} (main row, rotated) + ${extra2} normal in leftover`;
+  }
+
+  return { ups: bestUps, description: bestDesc };
 }
 
 
@@ -176,7 +189,7 @@ function calculateMaxGuillotineUps(jobW: number, jobH: number, sheetW: number, s
     }
     
     // Strategy 3: Check Special Staggered Layout (as per user's new logic)
-    // This uses the current 'orient' for the main grid, then tries to fit rotated jobs in leftover height.
+    // This uses the current 'orient' for the main grid, then tries to fit jobs in leftover height.
     const staggeredResult = calculateSpecialStaggeredUpsInternal(orient.w, orient.h, sheetW, sheetH);
     if (staggeredResult.ups > maxUps) {
         maxUps = staggeredResult.ups;
