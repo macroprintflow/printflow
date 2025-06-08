@@ -230,12 +230,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     isActive={pathname === item.href || (item.href !== '/dashboard' && item.href !== '/tasks' && item.href !== '/customer/my-jobs' && pathname.startsWith(item.href))}
                     tooltip={{ children: item.label, className: "font-body" }}
                   >
-                    <Link href={item.href}>
-                      <span className="flex items-center gap-2 w-full">
-                        <item.icon />
-                        <span>{item.label}</span>
-                         <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-sidebar-foreground/60 group-data-[active=true]:text-sidebar-primary group-data-[collapsible=icon]:hidden" />
-                      </span>
+                    <Link href={item.href} className="flex items-center gap-2 w-full">
+                      <item.icon className="h-4 w-4 shrink-0" /> {/* Ensure icon size is controlled if needed */}
+                      <span className="truncate">{item.label}</span>
+                      <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-sidebar-foreground/60 group-data-[active=true]:text-sidebar-primary group-data-[collapsible=icon]:hidden" />
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -252,8 +250,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                       <AvatarFallback>{userDisplayName.charAt(0).toUpperCase()}</AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col items-start group-data-[collapsible=icon]:hidden">
-                      <span className="text-sm font-medium text-white">{userDisplayName}</span>
-                      <span className="text-xs text-white/70">{userRoleDisplay}</span>
+                      <span className="text-sm font-medium text-sidebar-foreground">{userDisplayName}</span>
+                      <span className="text-xs text-sidebar-foreground/70">{userRoleDisplay}</span>
                     </div>
                 </Button>
               </DropdownMenuTrigger>
@@ -325,3 +323,5 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     </ClientOnlyWrapper>
   );
 }
+
+    
