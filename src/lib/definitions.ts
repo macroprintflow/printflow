@@ -665,6 +665,7 @@ export interface UserData {
   email: string;
   displayName?: string;
   role: UserRole;
+  linkedCustomerId?: string; // Added for linking user to a customer account
 }
 
 // Customer Data Structure and Schema
