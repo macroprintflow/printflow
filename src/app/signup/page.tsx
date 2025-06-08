@@ -17,7 +17,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { useToast } from '@/hooks/use-toast';
 import { UserPlus, Loader2, Eye, EyeOff } from 'lucide-react';
 import AppLogo from '@/components/AppLogo';
-// createUserDocumentInFirestore import removed
 
 export default function SignupPage() {
   const [displayName, setDisplayName] = useState('');
@@ -36,9 +35,16 @@ export default function SignupPage() {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const firebaseUser = userCredential.user;
       
-      if (firebaseUser && displayName.trim() !== '') {
+      let finalDisplayName = displayName.trim();
+      if (!finalDisplayName && firebaseUser.email) {
+        finalDisplayName = firebaseUser.email.split('@')[0];
+      } else if (!finalDisplayName) {
+        finalDisplayName = "User";
+      }
+
+      if (firebaseUser && finalDisplayName) {
         try {
-          await updateProfile(firebaseUser as User, { displayName: displayName.trim() });
+          await updateProfile(firebaseUser as User, { displayName: finalDisplayName });
         } catch (profileError: any) {
             console.error("Profile update error:", profileError);
             toast({
@@ -49,8 +55,30 @@ export default function SignupPage() {
         }
       }
 
-      // Removed call to createUserDocumentInFirestore
-      // The user's role for UI purposes will be determined by layout.tsx logic
+      // After successful Firebase Auth user creation, add to mock list
+      if (firebaseUser) {
+        try {
+          const response = await fetch('/api/add-mock-user', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              uid: firebaseUser.uid,
+              email: firebaseUser.email,
+              displayName: finalDisplayName,
+            }),
+          });
+          const result = await response.json();
+          if (response.ok) {
+            console.log('Successfully added/updated user in mock list:', result.message);
+          } else {
+            console.warn('Failed to add/update user in mock list:', result.message);
+            // Optionally, show a non-critical toast to the user if this step fails
+            // toast({ title: 'Mock List Sync Issue', description: 'Could not sync with local user list.', variant: 'default' });
+          }
+        } catch (mockAddError) {
+          console.warn('Error calling /api/add-mock-user:', mockAddError);
+        }
+      }
 
       toast({ title: 'Signup Successful', description: 'Your account has been created!' });
       router.push('/dashboard'); 
@@ -155,3 +183,4 @@ export default function SignupPage() {
     </div>
   );
 }
+
