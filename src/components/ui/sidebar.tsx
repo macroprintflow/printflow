@@ -504,7 +504,7 @@ const SidebarMenu = React.forwardRef<
   <ul
     ref={ref}
     data-sidebar="menu"
-    className={cn("flex w-full min-w-0 flex-col gap-1.5", className)} // Slightly reduced gap from gap-2 to gap-1.5
+    className={cn("flex w-full min-w-0 flex-col gap-2", className)} // Changed gap-1.5 to gap-2
     {...props}
   />
 ))
@@ -524,18 +524,18 @@ const SidebarMenuItem = React.forwardRef<
 SidebarMenuItem.displayName = "SidebarMenuItem"
 
 const sidebarMenuButtonVariants = cva(
-  "peer/menu-button flex w-full items-center gap-2.5 overflow-hidden rounded-lg p-3 text-left text-sm outline-none ring-sidebar-ring transition-all focus-visible:ring-2 active:shadow-sm disabled:pointer-events-none disabled:opacity-50 group-has-[[data-sidebar=menu-action]]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground group-data-[collapsible=icon]:!size-9 group-data-[collapsible=icon]:!p-2 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 font-semibold",
+  "peer/menu-button flex w-full items-center gap-2.5 overflow-hidden rounded-lg p-3 text-left text-sm outline-none ring-sidebar-ring transition-all focus-visible:ring-2 active:shadow-sm disabled:pointer-events-none disabled:opacity-50 group-has-[[data-sidebar=menu-action]]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground group-data-[collapsible=icon]:!size-9 group-data-[collapsible=icon]:!p-2 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 font-semibold", // Added font-semibold
   {
     variants: {
       variant: {
-        default: "bg-transparent text-sidebar-foreground border border-transparent shadow-none hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground hover:shadow-sm data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-primary data-[active=true]:shadow-md data-[active=true]:border-sidebar-border/70",
-        outline: // Keeping outline variant distinct if needed, but default is now more aligned
+        default: "bg-transparent text-white border border-sidebar-border shadow-md hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground hover:shadow-lg data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-primary data-[active=true]:shadow-lg data-[active=true]:border-sidebar-border/70", // Adjusted for light sidebar
+        outline: 
           "bg-transparent shadow-[0_0_0_1px_hsl(var(--sidebar-border))_inset] hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground hover:shadow-[0_0_0_1px_hsl(var(--sidebar-accent))_inset]",
       },
-      size: { // Base size increased for more breathing room
-        default: "h-11 text-sm", // Increased from h-8
-        sm: "h-9 text-xs",    // Increased from h-7
-        lg: "h-12 text-sm group-data-[collapsible=icon]:!p-0", // Kept lg as is, adjust if needed
+      size: { 
+        default: "h-12 text-sm", // Increased from h-11, added p-3 in base
+        sm: "h-10 text-xs",    // Increased from h-9
+        lg: "h-14 text-sm group-data-[collapsible=icon]:!p-0", 
       },
     },
     defaultVariants: {
@@ -561,7 +561,7 @@ const SidebarMenuButton = React.forwardRef<
       size = "default",
       tooltip,
       className,
-      children, // Destructure children
+      children,
       ...props
     },
     ref
@@ -569,28 +569,22 @@ const SidebarMenuButton = React.forwardRef<
     const Comp = asChild ? Slot : "button"
     const { isMobile, state } = useSidebar()
 
-    const buttonContent = (
-      <>
-        {children}
-        <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-sidebar-foreground/60 group-data-[active=true]:text-sidebar-primary group-data-[collapsible=icon]:hidden" />
-      </>
-    );
-
-    const button = (
+    const buttonElement = (
       <Comp
         ref={ref}
         data-sidebar="menu-button"
         data-size={size}
         data-active={isActive}
-        className={cn(sidebarMenuButtonVariants({ variant, size }), className)}
+        className={cn(sidebarMenuButtonVariants({ variant, size, className }))}
         {...props}
       >
-        {buttonContent}
+        {children}
+        <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-sidebar-foreground/60 group-data-[active=true]:text-sidebar-primary group-data-[collapsible=icon]:hidden" />
       </Comp>
     )
 
     if (!tooltip) {
-      return button
+      return buttonElement
     }
 
     if (typeof tooltip === "string") {
@@ -601,7 +595,7 @@ const SidebarMenuButton = React.forwardRef<
 
     return (
       <Tooltip>
-        <TooltipTrigger asChild>{button}</TooltipTrigger>
+        <TooltipTrigger asChild>{buttonElement}</TooltipTrigger>
         <TooltipContent
           side="right"
           align="center"
@@ -681,7 +675,7 @@ const SidebarMenuSkeleton = React.forwardRef<
     <div
       ref={ref}
       data-sidebar="menu-skeleton"
-      className={cn("rounded-md h-11 flex gap-2.5 px-3 items-center", className)} // Adjusted height and padding
+      className={cn("rounded-md h-12 flex gap-2.5 px-3 items-center", className)} // Adjusted height and padding
       {...props}
     >
       {showIcon && (
@@ -783,6 +777,3 @@ export {
   SidebarTrigger,
   useSidebar,
 }
-
-
-    
