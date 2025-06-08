@@ -524,11 +524,11 @@ const SidebarMenuItem = React.forwardRef<
 SidebarMenuItem.displayName = "SidebarMenuItem"
 
 const sidebarMenuButtonVariants = cva(
-  "peer/menu-button flex w-full items-center gap-2.5 overflow-hidden rounded-lg p-3 text-left text-sm outline-none ring-sidebar-ring transition-all focus-visible:ring-2 active:shadow-sm disabled:pointer-events-none disabled:opacity-50 group-has-[[data-sidebar=menu-action]]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground group-data-[collapsible=icon]:!size-9 group-data-[collapsible=icon]:!p-2 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 font-semibold", // Added font-semibold
+  "peer/menu-button flex w-full items-center gap-2.5 overflow-hidden rounded-lg p-3 text-left text-sm outline-none ring-sidebar-ring transition-all focus-visible:ring-2 active:shadow-sm disabled:pointer-events-none disabled:opacity-50 group-has-[[data-sidebar=menu-action]]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground group-data-[collapsible=icon]:!size-9 group-data-[collapsible=icon]:!p-2 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 font-semibold",
   {
     variants: {
       variant: {
-        default: "bg-transparent text-sidebar-foreground border border-sidebar-border shadow-md hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground hover:shadow-lg data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-primary data-[active=true]:shadow-lg data-[active=true]:border-sidebar-border/70",
+        default: "bg-transparent text-sidebar-foreground border border-transparent shadow-none hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground hover:shadow-md data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-primary data-[active=true]:shadow-md data-[active=true]:border-sidebar-border/70",
         outline: 
           "bg-transparent shadow-[0_0_0_1px_hsl(var(--sidebar-border))_inset] hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground hover:shadow-[0_0_0_1px_hsl(var(--sidebar-accent))_inset]",
       },
@@ -779,4 +779,3 @@ export {
   SidebarTrigger,
   useSidebar,
 }
-
