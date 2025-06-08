@@ -65,7 +65,7 @@ export async function optimizeInventory(input: OptimizeInventoryInput): Promise<
   return optimizeInventoryFlow(input);
 }
 
-// New improved guillotine cut calculation function
+// New improved guillotine cut calculation function (Provided by User)
 function calculateMaxGuillotineUps(jobW: number, jobH: number, sheetW: number, sheetH: number) {
   let maxUps = 0;
   let bestLayout = "";
@@ -84,10 +84,12 @@ function calculateMaxGuillotineUps(jobW: number, jobH: number, sheetW: number, s
       const strip1Rows = Math.floor(strip1Height / orient.h);
       const upsInStrip1 = colsInStrip1 * strip1Rows;
 
+      // Remaining strip (right side)
       const remainderW = sheetW - strip1Width;
       let upsInRemainder = 0;
       let remainderDesc = "";
       if (remainderW >= Math.min(jobW, jobH)) { // Check if remainder can fit at least one job in any orientation
+        // Try both orientations in the remainder
         for (const remOrient of orientations) {
           if (remOrient.w > 0 && remOrient.h > 0) { // Ensure valid dimensions for remainder orientation
             const remCols = Math.floor(remainderW / remOrient.w);
@@ -95,7 +97,7 @@ function calculateMaxGuillotineUps(jobW: number, jobH: number, sheetW: number, s
             const remUps = remCols * remRows;
             if (remUps > upsInRemainder) {
               upsInRemainder = remUps;
-              remainderDesc = ` + ${remCols}x${remRows} ${remOrient.label} (R)`;
+              remainderDesc = ` + ${remCols}x${remRows} ${remOrient.label} (remainder)`;
             }
           }
         }
@@ -114,6 +116,7 @@ function calculateMaxGuillotineUps(jobW: number, jobH: number, sheetW: number, s
       const strip1Cols = Math.floor(strip1Width / orient.w);
       const upsInStrip1 = strip1Cols * rowsInStrip1;
 
+      // Remaining strip (bottom)
       const remainderH = sheetH - strip1Height;
       let upsInRemainder = 0;
       let remainderDesc = "";
@@ -125,7 +128,7 @@ function calculateMaxGuillotineUps(jobW: number, jobH: number, sheetW: number, s
             const remUps = remCols * remRows;
             if (remUps > upsInRemainder) {
               upsInRemainder = remUps;
-              remainderDesc = ` + ${remCols}x${remRows} ${remOrient.label} (R)`;
+              remainderDesc = ` + ${remCols}x${remRows} ${remOrient.label} (remainder)`;
             }
           }
         }
@@ -185,7 +188,7 @@ const optimizeInventoryFlow = ai.defineFlow(
           continue;
         }
       } else {
-        continue;
+        continue; // Mismatched quality types (e.g., trying to compare GSM with mm based)
       }
 
       let bestUpsForThisSheet = 0;
@@ -199,14 +202,18 @@ const optimizeInventoryFlow = ai.defineFlow(
       }
       
       // Calculate for rotated master sheet orientation
-      const resRot = calculateMaxGuillotineUps(jobSizeWidth, jobSizeHeight, sheet.masterSheetSizeHeight, sheet.masterSheetSizeWidth); // Note: H, W swapped
-      if (resRot.ups > bestUpsForThisSheet) {
-        bestUpsForThisSheet = resRot.ups;
-        bestLayoutDesc = `${resRot.description} (Master Landscape)`;
+      // Only rotate if width and height are different to avoid redundant calculation
+      if (sheet.masterSheetSizeWidth !== sheet.masterSheetSizeHeight) {
+        const resRot = calculateMaxGuillotineUps(jobSizeWidth, jobSizeHeight, sheet.masterSheetSizeHeight, sheet.masterSheetSizeWidth); // Note: H, W swapped for sheet
+        if (resRot.ups > bestUpsForThisSheet) {
+          bestUpsForThisSheet = resRot.ups;
+          bestLayoutDesc = `${resRot.description} (Master Landscape)`;
+        }
       }
 
+
       if (bestUpsForThisSheet === 0) {
-        console.log(`[InventoryOptimization TS Flow] Sheet ID ${sheet.id} yields 0 ups after all calculations. Skipping.`);
+        console.log(`[InventoryOptimization TS Flow] Sheet ID ${sheet.id} (${sheet.name}) yields 0 ups after all calculations. Skipping.`);
         continue;
       }
 
@@ -230,6 +237,7 @@ const optimizeInventoryFlow = ai.defineFlow(
       });
     }
 
+    // Sort suggestions: Primary by sheetsPerMasterSheet (desc), secondary by wastagePercentage (asc), tertiary by totalMasterSheetsNeeded (asc)
     allSuggestions.sort((a, b) => {
       if (b.sheetsPerMasterSheet !== a.sheetsPerMasterSheet) {
         return b.sheetsPerMasterSheet - a.sheetsPerMasterSheet;
