@@ -4,7 +4,7 @@
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { VariantProps, cva } from "class-variance-authority"
-import { PanelLeft, ChevronRight } from "lucide-react" 
+import { PanelLeft, ChevronRight, ChevronDown } from "lucide-react" 
 
 import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
@@ -197,7 +197,7 @@ const Sidebar = React.forwardRef<
           <SheetContent
             data-sidebar="sidebar"
             data-mobile="true"
-            className={cn("w-[--sidebar-width] p-0 bg-card text-card-foreground [&>button]:hidden", className)} // Standard card background for mobile sheet
+            className={cn("w-[--sidebar-width] p-0 bg-card text-card-foreground [&>button]:hidden", className)} 
             style={
               {
                 "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
@@ -224,7 +224,7 @@ const Sidebar = React.forwardRef<
       >
         <div
           className={cn(
-            "duration-200 relative h-svh w-[--sidebar-width] bg-transparent transition-[width] ease-linear", // Changed bg-card to bg-transparent
+            "duration-200 relative h-svh w-[--sidebar-width] bg-transparent transition-[width] ease-linear", 
             "group-data-[collapsible=offcanvas]:w-0",
             "group-data-[side=right]:rotate-180",
             variant === "floating" || variant === "inset"
@@ -247,7 +247,7 @@ const Sidebar = React.forwardRef<
         >
           <div
             data-sidebar="sidebar"
-            className="bg-card text-card-foreground flex h-full w-full flex-col group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:border-border group-data-[variant=floating]:shadow" // Standard card background
+            className="bg-card text-card-foreground flex h-full w-full flex-col group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:border-border group-data-[variant=floating]:shadow" 
           >
             {children}
           </div>
@@ -438,7 +438,7 @@ const SidebarGroupLabel = React.forwardRef<
       ref={ref}
       data-sidebar="group-label"
       className={cn(
-        "duration-200 flex h-8 shrink-0 items-center rounded-md px-2 text-xs font-medium text-muted-foreground outline-none ring-ring transition-[margin,opa] ease-linear focus-visible:ring-2 [&>svg]:size-4 [&>svg]:shrink-0",
+        "duration-200 flex h-8 shrink-0 items-center rounded-md px-2 text-sm font-semibold text-muted-foreground outline-none ring-ring transition-[margin,opa] ease-linear focus-visible:ring-2 [&>svg]:size-4 [&>svg]:shrink-0",
         "group-data-[collapsible=icon]:-mt-8 group-data-[collapsible=icon]:opacity-0",
         className
       )}
@@ -510,18 +510,18 @@ const SidebarMenuItem = React.forwardRef<
 SidebarMenuItem.displayName = "SidebarMenuItem"
 
 const sidebarMenuButtonVariants = cva(
-  "peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left outline-none ring-ring transition-all focus-visible:ring-2 active:shadow-sm disabled:pointer-events-none disabled:opacity-50 group-has-[[data-sidebar=menu-action]]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[state=open]:bg-accent data-[state=open]:text-accent-foreground group-data-[collapsible=icon]:!size-9 group-data-[collapsible=icon]:!p-2 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0",
+  "peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md p-3 font-semibold text-left outline-none ring-ring transition-all focus-visible:ring-2 active:shadow-sm disabled:pointer-events-none disabled:opacity-50 group-has-[[data-sidebar=menu-action]]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[state=open]:bg-accent data-[state=open]:text-accent-foreground group-data-[collapsible=icon]:!size-10 group-data-[collapsible=icon]:!p-2 [&>span:last-child]:truncate [&>svg]:size-5 [&>svg]:shrink-0",
   {
-    variants: {
-      variant: { // Reverted to standard theme colors
+    variants: { 
+      variant: { 
         default: "bg-transparent text-foreground hover:bg-accent hover:text-accent-foreground data-[active=true]:bg-primary data-[active=true]:text-primary-foreground",
         outline: 
           "bg-transparent shadow-[0_0_0_1px_hsl(var(--border))_inset] hover:bg-accent hover:text-accent-foreground",
       },
       size: { 
-        default: "h-10 text-sm", 
-        sm: "h-9 text-xs",    
-        lg: "h-11 text-sm group-data-[collapsible=icon]:!p-0", 
+        default: "h-12 text-base", 
+        sm: "h-10 text-sm",    
+        lg: "h-14 text-base group-data-[collapsible=icon]:!p-0", 
       },
     },
     defaultVariants: {
@@ -531,7 +531,6 @@ const sidebarMenuButtonVariants = cva(
   }
 )
 
-// Simplified SidebarMenuButton, externalizing Tooltip
 const SidebarMenuButton = React.forwardRef<
   HTMLButtonElement,
   React.ComponentProps<"button"> & {
@@ -542,8 +541,6 @@ const SidebarMenuButton = React.forwardRef<
   const Comp = asChild ? Slot : "button";
 
   if (asChild) {
-    // When asChild is true, Comp is Slot. It expects a single child from the usage site (e.g., <Link>),
-    // and it will merge its props (className, data-*) onto that child.
     return (
       <Comp
         ref={ref}
@@ -558,7 +555,6 @@ const SidebarMenuButton = React.forwardRef<
     );
   }
 
-  // When asChild is false, Comp is "button". We render a regular button.
   return (
     <button
       ref={ref}
@@ -569,7 +565,6 @@ const SidebarMenuButton = React.forwardRef<
       {...props}
     >
       {children}
-      {/* Chevron is only rendered if it's a real button, not a Slot */}
       <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-muted-foreground group-data-[active=true]:text-primary-foreground group-data-[collapsible=icon]:hidden" />
     </button>
   );
@@ -705,7 +700,7 @@ const SidebarMenuSubButton = React.forwardRef<
       data-size={size}
       data-active={isActive}
       className={cn(
-        "flex h-7 min-w-0 -translate-x-px items-center gap-2 overflow-hidden rounded-md px-2 text-foreground outline-none ring-ring hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 active:bg-accent active:text-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-accent-foreground",
+        "flex h-9 min-w-0 -translate-x-px items-center gap-2 overflow-hidden rounded-md px-2 font-medium text-foreground outline-none ring-ring hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 active:bg-accent active:text-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-accent-foreground",
         "data-[active=true]:bg-accent data-[active=true]:text-accent-foreground",
         size === "sm" && "text-xs",
         size === "md" && "text-sm",
@@ -744,3 +739,4 @@ export {
   SidebarTrigger,
   useSidebar,
 }
+
