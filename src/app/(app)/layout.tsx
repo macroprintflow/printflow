@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/sidebar';
 import AppLogo from '@/components/AppLogo';
 import { Header } from '@/components/layout/Header';
-import { LayoutDashboard, Briefcase, FileUp, FilePlus2, CalendarCheck2, ClipboardList, UserCircle, Settings, Archive, LogOut, type LucideIcon, ShoppingBag, Check, Loader2, ChevronRight, ListChecks, ChevronDown, UserRoundPlus, Users } from 'lucide-react'; // Added Users
+import { LayoutDashboard, Briefcase, FileUp, FilePlus2, CalendarCheck2, ClipboardList, UserCircle, Settings, Archive, LogOut, type LucideIcon, ShoppingBag, Check, Loader2, ChevronRight, ListChecks, ChevronDown, Users, UserRoundPlus } from 'lucide-react'; // Added Users, UserRoundPlus
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -44,8 +44,7 @@ import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase/clientApp';
 import { useToast } from '@/hooks/use-toast';
 import type { UserRole } from '@/lib/definitions';
-// Import AddCustomerDialog if it exists, or prepare for it
-// import { AddCustomerDialog } from '@/components/customer/AddCustomerDialog';
+import { AddCustomerDialog } from '@/components/customer/AddCustomerDialog';
 
 interface NavItem {
   href: string;
@@ -58,7 +57,7 @@ interface NavItem {
 const allNavItems: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, allowedRoles: ['Admin', 'Manager'] },
   { href: '#jobs-trigger', label: 'Jobs', icon: Briefcase, allowedRoles: ['Admin', 'Manager'], isSubmenuTrigger: true },
-  { href: '#customers-trigger', label: 'Customers', icon: Users, allowedRoles: ['Admin', 'Manager'], isSubmenuTrigger: true }, // New Customers menu
+  { href: '#customers-trigger', label: 'Customers', icon: Users, allowedRoles: ['Admin', 'Manager'], isSubmenuTrigger: true },
   { href: '/for-approval', label: 'For Approval', icon: FileUp, allowedRoles: ['Admin', 'Manager'] },
   { href: '/planning', label: 'Production Planning', icon: CalendarCheck2, allowedRoles: ['Admin', 'Manager'] },
   { href: '/tasks', label: 'Departmental Tasks', icon: ClipboardList, allowedRoles: ['Admin', 'Manager', 'Departmental'] },
@@ -82,8 +81,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const isDeterminingRoleRef = React.useRef(false);
 
   const [isJobsSubmenuOpen, setIsJobsSubmenuOpen] = React.useState(pathname.startsWith('/jobs'));
-  const [isCustomersSubmenuOpen, setIsCustomersSubmenuOpen] = React.useState(pathname.startsWith('/customers')); // State for Customers submenu
-  const [isAddCustomerDialogOpen, setIsAddCustomerDialogOpen] = React.useState(false); // State for AddCustomerDialog
+  const [isCustomersSubmenuOpen, setIsCustomersSubmenuOpen] = React.useState(pathname.startsWith('/customers') || pathname === ('/customers/new'));
+  const [isAddCustomerDialogOpen, setIsAddCustomerDialogOpen] = React.useState(false);
 
   React.useEffect(() => {
     setIsClient(true);
@@ -155,7 +154,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       const isCurrentPathAllowedOrSubPath = visibleNavItems.some(item => {
         if (item.href === '#jobs-trigger') return pathname.startsWith('/jobs');
-        if (item.href === '#customers-trigger') return pathname.startsWith('/customers') || isAddCustomerDialogOpen; // Consider dialog open state
+        if (item.href === '#customers-trigger') return pathname.startsWith('/customers') || isAddCustomerDialogOpen;
         return pathname.startsWith(item.href);
       });
 
@@ -225,9 +224,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <SidebarMenu>
               {visibleNavItems.map((item, index) => (
                 <React.Fragment key={item.href}>
-                  {/* Add Separator between logical groups */}
                   {index > 0 && !item.isSubmenuTrigger && !visibleNavItems[index-1].isSubmenuTrigger &&
-                   (item.label === "For Approval" || item.label === "Inventory" || item.label === "My Jobs") && // Logic for separators
+                   (item.label === "For Approval" || item.label === "Inventory" || item.label === "My Jobs") &&
                     <SidebarSeparator className="my-1" />
                   }
 
@@ -283,7 +281,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     </SidebarMenuItem>
                   )}
 
-                  {item.href === '#customers-trigger' && ( // New Customers Menu
+                  {item.href === '#customers-trigger' && (
                     <SidebarMenuItem>
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -317,7 +315,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <SidebarMenuSubButton asChild isActive={pathname === '/customers'}>
-                                  <Link href="/customers"> {/* Placeholder link */}
+                                  <Link href="/customers">
                                     <Users className="h-4 w-4 shrink-0" />
                                     <span className="truncate">View Customers</span>
                                   </Link>
@@ -340,7 +338,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                             isActive={pathname === item.href || (item.href !== '/dashboard' && item.href !== '/tasks' && item.href !== '/customer/my-jobs' && pathname.startsWith(item.href))}
                           >
                             <Link href={item.href}>
-                              <span className="flex items-center gap-2 w-full">
+                               <span className="flex items-center gap-2 w-full">
                                 <item.icon className="h-5 w-5 shrink-0" />
                                 <span className="truncate">{item.label}</span>
                                 <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-muted-foreground group-data-[active=true]:text-primary-foreground group-data-[collapsible=icon]:hidden" />
@@ -437,13 +435,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </main>
         </SidebarInset>
       </SidebarProvider>
-      {/* Conditionally render AddCustomerDialog if the component exists
-      {isClient && effectiveUserRole === 'Admin' && AddCustomerDialog && (
-        <AddCustomerDialog isOpen={isAddCustomerDialogOpen} setIsOpen={setIsAddCustomerDialogOpen} />
+      {isClient && (effectiveUserRole === 'Admin' || effectiveUserRole === 'Manager') && (
+        <AddCustomerDialog 
+            isOpen={isAddCustomerDialogOpen} 
+            setIsOpen={setIsAddCustomerDialogOpen} 
+            onCustomerAdded={() => {
+                // Optionally refresh customer list in job card form if it's visible or needs update
+                // This might involve a more complex state management or context if direct refresh is needed
+                console.log("Customer added, dialog closed.");
+            }}
+        />
       )}
-      */}
     </ClientOnlyWrapper>
   );
 }
-
-    
