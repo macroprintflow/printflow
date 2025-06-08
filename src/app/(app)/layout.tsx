@@ -221,6 +221,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             )}
           </SidebarHeader>
           <SidebarContent>
+            {/* Relevant JSX block starts here */}
             <SidebarMenu>
               {visibleNavItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
@@ -228,7 +229,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     asChild
                     isActive={pathname === item.href || (item.href !== '/dashboard' && item.href !== '/tasks' && item.href !== '/customer/my-jobs' && pathname.startsWith(item.href))}
                     tooltip={{ children: item.label, className: "font-body" }}
-                    className="font-body"
                   >
                     <Link href={item.href}>
                       <span className="flex items-center gap-2 w-full">
@@ -241,6 +241,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
+            {/* Relevant JSX block ends here */}
           </SidebarContent>
           <SidebarFooter className="p-4">
             <DropdownMenu>
