@@ -22,6 +22,7 @@ import { CalendarIcon, Wand2, Link2, PlusCircle, Loader2, RotateCcw, ListOrdered
 import { format } from "date-fns";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { InventoryOptimizationModal } from "./InventoryOptimizationModal";
+import { LinkJobsModal } from "./LinkJobsModal"; // Import the new modal
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -61,6 +62,8 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
   const customerInputRef = useRef<HTMLInputElement>(null);
   const jobInputRef = useRef<HTMLInputElement>(null);
 
+  const [isLinkJobsModalOpen, setIsLinkJobsModalOpen] = useState(false); // State for the link jobs modal
+
   const form = useForm<JobCardFormValues>({
     resolver: zodResolver(JobCardSchema),
     defaultValues: initialJobData ? 
@@ -99,6 +102,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
       remarks: initialJobData.remarks,
       dispatchDate: initialJobData.dispatchDate ? new Date(initialJobData.dispatchDate).toISOString() : undefined,
       workflowSteps: initialJobData.workflowSteps || [],
+      linkedJobCardIds: initialJobData.linkedJobCardIds || [], // Initialize linkedJobCardIds
       pdfDataUri: initialJobData.pdfDataUri,
     }
     : { 
@@ -136,6 +140,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
       remarks: "",
       dispatchDate: undefined,
       workflowSteps: [],
+      linkedJobCardIds: [], // Initialize linkedJobCardIds
       pdfDataUri: undefined,
     },
   });
@@ -166,6 +171,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
       form.reset({
         ...initialJobData,
         dispatchDate: initialJobData.dispatchDate ? new Date(initialJobData.dispatchDate).toISOString() : undefined,
+        linkedJobCardIds: initialJobData.linkedJobCardIds || [],
       }); 
       setCustomerInputValue(initialJobData.customerName);
       setCurrentPdfDataUri(initialJobData.pdfDataUri);
@@ -181,6 +187,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
         fetchJobsForThisCustomer(initialCustomerName);
       }
       setCurrentPdfDataUri(undefined);
+      form.setValue("linkedJobCardIds", []);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialJobData, initialJobName, initialCustomerName, form, applyWorkflow]);
@@ -232,10 +239,10 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
         customer.fullName.toLowerCase().includes(value.toLowerCase())
       );
       setCustomerSuggestions(filtered);
-      setIsCustomerPopoverOpen(true); // Open if there's text, content will show suggestions or "no results"
+      setIsCustomerPopoverOpen(true);
     } else {
-      setCustomerSuggestions(allCustomers.slice(0, 10)); // Show initial if input cleared
-      setIsCustomerPopoverOpen(true); // Keep open to show initial list
+      setCustomerSuggestions(allCustomers.slice(0, 10));
+      setIsCustomerPopoverOpen(true);
       setJobsForCustomer([]);
       setJobInputValue("");
       setSelectedPastJobId("");
@@ -262,13 +269,13 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
         (job.jobCardNumber && job.jobCardNumber.toLowerCase().includes(value.toLowerCase()))
       );
       setJobSuggestions(filtered);
-      setIsJobPopoverOpen(true); // Open if there's text
+      setIsJobPopoverOpen(true);
     } else if (!value && jobsForCustomer.length > 0) {
         setJobSuggestions(jobsForCustomer.slice(0,10));
-        setIsJobPopoverOpen(true); // Open to show initial list for customer
+        setIsJobPopoverOpen(true);
     } else {
       setJobSuggestions([]);
-      setIsJobPopoverOpen(false); // Close if no text and no base suggestions for customer
+      setIsJobPopoverOpen(false);
       setSelectedPastJobId("");
     }
   };
@@ -318,6 +325,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
       remarks: job.remarks,
       dispatchDate: undefined, 
       workflowSteps: job.workflowSteps || [],
+      linkedJobCardIds: job.linkedJobCardIds || [],
       pdfDataUri: job.pdfDataUri,
     });
     applyWorkflow(job);
@@ -371,6 +379,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
     const valuesToSubmit = {
       ...values,
       workflowSteps: currentWorkflowSteps.map(s => ({ stepSlug: s.slug, order: s.order })),
+      linkedJobCardIds: form.getValues('linkedJobCardIds') || [],
       pdfDataUri: currentPdfDataUri,
     };
     const result = await createJobCard(valuesToSubmit);
@@ -416,6 +425,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
         remarks: "",
         dispatchDate: undefined,
         workflowSteps: [],
+        linkedJobCardIds: [],
         pdfDataUri: undefined,
       });
       setCurrentWorkflowSteps([]);
@@ -448,6 +458,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
     { name: "printingFront", label: "Printing Front", options: PRINTING_MACHINE_OPTIONS },
     { name: "printingBack", label: "Printing Back", options: PRINTING_MACHINE_OPTIONS },
     { name: "coating", label: "Coating", options: COATING_OPTIONS },
+    { name: "specialInks", label: "Special Inks (Pantone Code)", type: "input" },
     { name: "die", label: "Die", options: DIE_OPTIONS },
     { name: "assignedDieMachine", label: "Assign Die Machine", options: DIE_MACHINE_OPTIONS },
     { name: "hotFoilStamping", label: "Hot Foil Stamping", options: HOT_FOIL_OPTIONS },
@@ -459,6 +470,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
   const cuttingLayoutDescription = form.watch("cuttingLayoutDescription");
   const selectedMasterSheetQuality = form.watch("selectedMasterSheetQuality");
   const selectedMasterSheetUnit = getPaperQualityUnit(selectedMasterSheetQuality as PaperQualityType);
+  const linkedJobCardIds = form.watch('linkedJobCardIds') || [];
 
   return (
     <Form {...form}>
@@ -485,8 +497,8 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
                               <Input
                                 ref={customerInputRef}
                                 placeholder={isLoadingCustomers ? "Loading customers..." : "Type or select customer"}
-                                {...field} // RHF field props spread here
-                                value={customerInputValue} // Local state controls displayed value
+                                {...field}
+                                value={customerInputValue}
                                 onChange={(e) => handleCustomerInputChange(e, field.onChange)}
                                 onFocus={() => {
                                   if (!isLoadingCustomers) {
@@ -509,7 +521,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
                         <PopoverContent 
                             className="w-[--radix-popover-trigger-width] p-0" 
                             align="start"
-                            onOpenAutoFocus={(e) => e.preventDefault()}
+                            onOpenAutoFocus={(e) => e.preventDefault()} 
                         >
                           <ScrollArea className="h-[200px]">
                             {customerSuggestions.length > 0 ? (
@@ -623,7 +635,6 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
              <FormItem>
                 <FormLabel>Selected Customer</FormLabel>
                 <Input value={form.watch('customerName') || "N/A (Select above)"} readOnly className="font-body bg-muted"/>
-                {/* FormMessage for customerName is handled by the Popover field */}
              </FormItem>
           </CardContent>
         </Card>
@@ -876,34 +887,45 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
              <CardDescription className="font-body">These can be pre-filled by selecting a past job.</CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {processFields.map(item => (
-              <FormField
-                key={item.name}
-                control={form.control}
-                name={item.name as keyof JobCardFormValues}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{item.label}</FormLabel>
-                    <Select onValueChange={field.onChange} value={String(field.value || "")}>
-                      <FormControl><SelectTrigger className="font-body"><SelectValue placeholder={`Select ${item.label.toLowerCase()}`} /></SelectTrigger></FormControl>
-                      <SelectContent>
-                        {item.options.filter(opt => opt.value !== "").map(option => (
-                          <SelectItem key={option.value} value={option.value} className="font-body">{option.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            ))}
-            <FormField control={form.control} name="specialInks" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Special Inks (Pantone Code)</FormLabel>
-                <FormControl><Input placeholder="e.g., Pantone 185 C" {...field} value={field.value ?? ""} className="font-body"/></FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
+            {processFields.map(item => {
+              if (item.type === 'input') {
+                return (
+                  <FormField
+                    key={item.name}
+                    control={form.control}
+                    name={item.name as keyof JobCardFormValues}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{item.label}</FormLabel>
+                        <FormControl><Input placeholder="e.g., Pantone 185 C" {...field} value={field.value as string ?? ""} className="font-body"/></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                );
+              }
+              return (
+                <FormField
+                  key={item.name}
+                  control={form.control}
+                  name={item.name as keyof JobCardFormValues}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{item.label}</FormLabel>
+                      <Select onValueChange={field.onChange} value={String(field.value || "")}>
+                        <FormControl><SelectTrigger className="font-body"><SelectValue placeholder={`Select ${item.label.toLowerCase()}`} /></SelectTrigger></FormControl>
+                        <SelectContent>
+                          {item.options.filter(opt => opt.value !== "").map(option => (
+                            <SelectItem key={option.value} value={option.value} className="font-body">{option.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              );
+            })}
           </CardContent>
         </Card>
 
@@ -945,11 +967,36 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
                 <CardDescription className="font-body">Link this job card with others for complex projects (e.g., rigid boxes).</CardDescription>
             </CardHeader>
             <CardContent>
-                <Button type="button" variant="outline" disabled className="font-body">
-                    <Link2 className="mr-2 h-4 w-4" /> Link Job Cards (Coming Soon)
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setIsLinkJobsModalOpen(true)} 
+                  className="font-body"
+                >
+                    <Link2 className="mr-2 h-4 w-4" /> Link Job Cards
                 </Button>
+                {linkedJobCardIds.length > 0 && (
+                    <p className="text-sm text-muted-foreground mt-2 font-body">
+                        Linked to: {linkedJobCardIds.length} job(s)
+                    </p>
+                )}
             </CardContent>
         </Card>
+
+        {isLinkJobsModalOpen && (
+          <LinkJobsModal
+            isOpen={isLinkJobsModalOpen}
+            setIsOpen={setIsLinkJobsModalOpen}
+            currentLinkedJobIds={linkedJobCardIds}
+            onConfirmLinks={(selectedIds) => {
+              form.setValue('linkedJobCardIds', selectedIds, { shouldValidate: true });
+            }}
+          />
+        )}
+        <FormField control={form.control} name="linkedJobCardIds" render={({ field }) => (
+          <FormItem className="hidden"><FormMessage /></FormItem> /* Hidden field to hold and validate the array */
+        )} />
+
 
         <div className="flex justify-end gap-4">
           <Button type="button" variant="outline" onClick={() => { 
@@ -988,6 +1035,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
                     remarks: "",
                     dispatchDate: undefined,
                     workflowSteps: [],
+                    linkedJobCardIds: [],
                     pdfDataUri: undefined,
                 }); 
                 setCurrentWorkflowSteps([]); 
@@ -1008,5 +1056,4 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
     </Form>
   );
 }
-
     
