@@ -23,126 +23,78 @@
 
 /* iOS 18 Theme CSS */
 :root {
-  --ios-bg: rgba(242, 242, 247, 0.8); /* Light mode background with opacity for glassmorphism */
-  --ios-text: #1c1c1e; /* Nearly black for text */
-  --ios-blue: #007aff; /* Standard iOS blue */
-  --ios-gray: #f2f2f7; /* Light gray for solid backgrounds (like body) */
+  --ios-bg: rgba(28, 28, 30, 0.75); /* Dark mode background with opacity */
+  --ios-text: #ffffff;
+  --ios-blue: #007aff; /* Standard iOS blue - can be adjusted for dark if needed */
   --ios-dark-gray-bg: #1c1c1e; /* Dark gray for solid backgrounds in dark mode */
-  --ios-border: rgba(60, 60, 67, 0.29); /* Subtle border color */
+  --ios-border: rgba(84, 84, 88, 0.65); /* Subtle dark border */
   --ios-radius: 20px;
-  --ios-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  --ios-shadow: 0 10px 25px rgba(0, 0, 0, 0.1); /* Shadow might need adjustment for dark theme if too strong */
   --ios-transition: all 0.3s ease;
   --ios-font: 'Glacial Indifference', -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
 
-  /* ShadCN HSL Variables - Mapped to iOS Theme where appropriate */
-  --background: 220 13% 96%; /* Maps to --ios-gray for body background */
-  --foreground: 240 2% 12%; /* Maps to --ios-text */
+  /* ShadCN HSL Variables - FORCED DARK MODE */
+  --background: 240 4% 9%; /* Maps to a dark gray for body background */
+  --foreground: 0 0% 95%; /* Maps to --ios-text */
   
-  --card: 0 0% 100%; /* Solid card fallback, but glassmorphism will override */
-  --card-foreground: 240 2% 12%;
+  --card: 240 4% 12%; 
+  --card-foreground: 0 0% 95%;
 
-  --popover: 0 0% 100%; /* Solid popover fallback */
-  --popover-foreground: 240 2% 12%;
+  --popover: 240 4% 12%;
+  --popover-foreground: 0 0% 95%;
 
-  --primary: 212 100% 50%; /* Maps to --ios-blue */
-  --primary-foreground: 0 0% 100%; /* White text on blue */
+  --primary: 212 100% 58%; /* Brighter blue for dark mode */
+  --primary-foreground: 0 0% 100%;
 
-  --secondary: 220 14% 90%; 
-  --secondary-foreground: 240 2% 30%;
+  --secondary: 240 4% 15%; 
+  --secondary-foreground: 0 0% 70%;
 
-  --muted: 220 14% 90%;
-  --muted-foreground: 240 2% 45%;
+  --muted: 240 4% 15%;
+  --muted-foreground: 240 2% 60%;
 
-  --accent: 212 100% 50%; /* Maps to --ios-blue for accents */
+  --accent: 212 100% 58%;
   --accent-foreground: 0 0% 100%;
 
-  --destructive: 0 84% 60%;
+  --destructive: 0 70% 55%;
   --destructive-foreground: 0 0% 100%;
 
-  --border: 220 10% 85%; /* Maps to --ios-border conceptually */
-  --input: 0 0% 100%; 
-  --ring: 212 100% 50%; /* Focus ring blue */
+  --border: 240 2% 23%; /* Maps to --ios-border conceptually */
+  --input: 240 4% 18%; 
+  --ring: 212 100% 58%; /* Focus ring blue */
   
-  --chart-1: 12 76% 61%;
-  --chart-2: 173 58% 39%;
-  --chart-3: 197 37% 24%;
-  --chart-4: 43 74% 66%;
-  --chart-5: 27 87% 67%;
+  --chart-1: 220 70% 50%;
+  --chart-2: 160 60% 45%;
+  --chart-3: 30 80% 55%;
+  --chart-4: 280 65% 60%;
+  --chart-5: 340 75% 55%;
   
   --radius: 20px; /* Maps to --ios-radius */
 
-  /* iOS-inspired Sidebar Light Theme (for Light App Mode) */
-  --sidebar-background: hsl(220 15% 94% / 0.85); /* Whitish, 85% opaque, slightly more opaque */
-  --sidebar-foreground: hsl(240 3% 20%);  /* Darker gray text for better contrast */
-  --sidebar-primary: hsl(212 100% 48%); /* Active item text color (slightly darker blue) */
-  --sidebar-accent: hsl(220 20% 88% / 0.6); /* Active/Hover item background (light gray, semi-transparent) */
-  --sidebar-accent-foreground: hsl(212 95% 45%); /* Hover item text color (vibrant blue) */
-  --sidebar-border: hsl(220 10% 82% / 0.4); /* More subtle border */
+  /* iOS-inspired Sidebar (Light Theme - these are specific for sidebar and will be used when html.dark is active) */
+  /* The app theme is dark, but sidebar aims for a light appearance */
+  --sidebar-background: hsl(220 15% 94% / 0.85); 
+  --sidebar-foreground: hsl(240 3% 20%);  
+  --sidebar-primary: hsl(212 100% 48%); 
+  --sidebar-accent: hsl(220 20% 88% / 0.6); 
+  --sidebar-accent-foreground: hsl(212 95% 45%); 
+  --sidebar-border: hsl(220 10% 82% / 0.4); 
   --sidebar-ring: hsl(212 100% 50%);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --ios-bg: rgba(28, 28, 30, 0.75); /* Dark mode background with opacity */
-    --ios-text: #ffffff;
-    /* --ios-gray: #1c1c1e; // This was for solid dark bg, now handled by HSL */
-    --ios-border: rgba(84, 84, 88, 0.65); /* Subtle dark border */
+/* This block is no longer needed for main theme variables as dark mode is default in :root */
+/* @media (prefers-color-scheme: dark) { ... } */
 
-    /* ShadCN HSL Variables - Dark Mode */
-    --background: 240 4% 9%; /* Maps to a dark gray for body background */
-    --foreground: 0 0% 95%; /* Maps to --ios-text */
 
-    --card: 240 4% 12%; 
-    --card-foreground: 0 0% 95%;
-
-    --popover: 240 4% 12%;
-    --popover-foreground: 0 0% 95%;
-
-    --primary: 212 100% 58%; /* Brighter blue for dark mode */
-    --primary-foreground: 0 0% 100%;
-
-    --secondary: 240 4% 15%; 
-    --secondary-foreground: 0 0% 70%;
-
-    --muted: 240 4% 15%;
-    --muted-foreground: 240 2% 60%;
-
-    --accent: 212 100% 58%;
-    --accent-foreground: 0 0% 100%;
-
-    --destructive: 0 70% 55%;
-    --destructive-foreground: 0 0% 100%;
-
-    --border: 240 2% 23%; /* Maps to --ios-border conceptually */
-    --input: 240 4% 18%; 
-    --ring: 212 100% 58%;
-    
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
-
-    /* iOS-inspired Sidebar (Light for Dark App Mode) */
-    --sidebar-background: hsl(0 0% 12% / 0.75); /* Darker glassmorphic background for dark mode sidebar */
-    --sidebar-foreground: hsl(0 0% 85%); /* Light gray text for dark sidebar */
-    --sidebar-primary: hsl(210 100% 70%); /* Active item text color (brighter blue for dark sidebar) */
-    --sidebar-accent: hsl(0 0% 20% / 0.6); /* Active/Hover item background (darker gray, semi-transparent) */
-    --sidebar-accent-foreground: hsl(210 100% 75%); /* Hover item text color (brighter blue) */
-    --sidebar-border: hsl(0 0% 25% / 0.5); /* Subtle border for dark sidebar */
-    --sidebar-ring: hsl(212 100% 58%);
-  }
-}
-
-/* Ensure that if <html> has .dark, the dark mode sidebar variables are used */
+/* Sidebar variables for html.dark to ensure light sidebar on dark app theme */
 html.dark {
-    --sidebar-background: hsl(0 0% 12% / 0.75); /* Darker glassmorphic background */
-    --sidebar-foreground: hsl(0 0% 85%); /* Light gray text */
-    --sidebar-primary: hsl(210 100% 70%); /* Active item text color (brighter blue) */
-    --sidebar-accent: hsl(0 0% 20% / 0.6); /* Active/Hover item background (darker gray) */
-    --sidebar-accent-foreground: hsl(210 100% 75%); /* Hover item text color (brighter blue) */
-    --sidebar-border: hsl(0 0% 25% / 0.5); /* Subtle border */
-    --sidebar-ring: hsl(212 100% 58%);
+    /* These ensure the sidebar remains light even when the app is forced dark */
+    --sidebar-background: hsl(220 15% 94% / 0.85); 
+    --sidebar-foreground: hsl(240 3% 20%); 
+    --sidebar-primary: hsl(212 100% 48%); 
+    --sidebar-accent: hsl(220 20% 88% / 0.6);
+    --sidebar-accent-foreground: hsl(212 95% 45%); 
+    --sidebar-border: hsl(220 10% 82% / 0.4); 
+    --sidebar-ring: hsl(212 100% 50%);
 }
 
 
@@ -152,16 +104,16 @@ html.dark {
   }
   body {
     font-family: var(--ios-font);
-    color: var(--ios-text);
+    color: var(--ios-text); /* Uses --ios-text (white for dark mode) */
     margin: 0;
     padding: 0;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     transition: var(--ios-transition);
-    @apply text-foreground; /* Apply text color, removed bg-background */
+    @apply text-foreground; /* Apply text color from HSL variable */
     
-    /* Fallback background color for body */
-    background-color: var(--ios-gray); /* Light mode solid fallback */
+    /* Fallback background color for body - now uses dark mode value by default */
+    background-color: var(--ios-dark-gray-bg); 
 
     /* Custom background image */
     background-image: url('/images/189271609765514.jpg');
@@ -171,24 +123,20 @@ html.dark {
     background-attachment: fixed;
   }
 
-  @media (prefers-color-scheme: dark) {
-    body {
-      background-color: var(--ios-dark-gray-bg); /* Dark mode solid fallback */
-    }
-  }
+  /* This ensures body background is dark when html.dark is active (which is always now) */
   html.dark body {
-    background-color: var(--ios-dark-gray-bg); /* Ensure dark body for html.dark */
+    background-color: var(--ios-dark-gray-bg); 
   }
 }
 
 /* iOS-style Card / Glass Panel */
 .ios-card {
-  background-color: var(--ios-bg); /* Note: Tailwind's bg-opacity might be needed if using Tailwind bg classes directly */
+  background-color: var(--ios-bg); /* Uses dark --ios-bg by default */
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-radius: var(--ios-radius);
   box-shadow: var(--ios-shadow);
-  border: 1px solid var(--ios-border);
+  border: 1px solid var(--ios-border); /* Uses dark --ios-border by default */
   padding: 1.5rem;
   transition: var(--ios-transition);
 }
@@ -198,7 +146,7 @@ html.dark {
   position: fixed;
   bottom: 24px;
   right: 24px;
-  background-color: rgba(0, 122, 255, 0.8);
+  background-color: rgba(0, 122, 255, 0.8); /* iOS blue, adjust if needed for dark contrast */
   color: white;
   border-radius: 50%;
   width: 56px;
@@ -224,10 +172,10 @@ html.dark {
 .ios-navbar {
   position: sticky;
   top: 0;
-  background-color: var(--ios-bg);
+  background-color: var(--ios-bg); /* Uses dark --ios-bg */
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1px solid var(--ios-border);
+  border-bottom: 1px solid var(--ios-border); /* Uses dark --ios-border */
   padding: 1rem 2rem;
   display: flex;
   justify-content: space-between;
@@ -239,7 +187,7 @@ html.dark {
 
 /* iOS-style Buttons */
 .ios-button {
-  background-color: var(--ios-blue);
+  background-color: var(--ios-blue); /* Primary blue, ensure good contrast on dark theme */
   color: white;
   border: none;
   border-radius: 12px; /* Specific radius for these buttons */
@@ -257,7 +205,7 @@ html.dark {
 
 /* iOS-style Modal */
 .ios-modal {
-  background-color: var(--ios-bg);
+  background-color: var(--ios-bg); /* Uses dark --ios-bg */
   backdrop-filter: blur(30px);
   -webkit-backdrop-filter: blur(30px);
   border-radius: var(--ios-radius);
@@ -265,7 +213,7 @@ html.dark {
   max-width: 500px;
   margin: auto;
   box-shadow: var(--ios-shadow);
-  border: 1px solid var(--ios-border);
+  border: 1px solid var(--ios-border); /* Uses dark --ios-border */
   transition: var(--ios-transition);
 }
 
@@ -304,10 +252,9 @@ html.dark {
 
 /* Tailwind CSS Animate Keyframes (from ShadCN) */
 @layer base {
-  :root {
-    /* ... existing HSL variables ... */
-  }
+  /* :root HSL variables are now dark mode by default */
 
+  /* .dark class is always on <html>, so these specific dark mode variables are not strictly needed here IF Tailwind handles it, but kept for clarity or direct CSS usage */
   .dark {
     /* ... existing dark HSL variables ... */
   }
@@ -336,7 +283,7 @@ html.dark {
   appearance: none;
   width: 42px;
   height: 26px;
-  background: var(--ios-border);
+  background: var(--ios-border); /* Uses dark --ios-border */
   border-radius: 13px;
   position: relative;
   transition: background-color 0.2s;
@@ -344,7 +291,7 @@ html.dark {
 }
 
 .ios-toggle:checked {
-  background: var(--ios-blue);
+  background: var(--ios-blue); /* Ensure this blue contrasts well on dark backgrounds */
 }
 
 .ios-toggle::before {
@@ -362,6 +309,6 @@ html.dark {
 .ios-toggle:checked::before {
   transform: translateX(16px);
 }
-
+    
 
     
