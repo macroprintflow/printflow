@@ -25,7 +25,7 @@ function NewJobPageContent() {
   const [prefillCustomerName, setPrefillCustomerName] = useState<string | undefined>(undefined);
   const [initialJobDataForForm, setInitialJobDataForForm] = useState<JobCardData | undefined>(undefined);
   const [isLoadingJobForPrefill, setIsLoadingJobForPrefill] = useState(false);
-  const [selectedDesignPdfUri, setSelectedDesignPdfUri] = useState<string | undefined>(initialJobData?.pdfDataUri);
+  const [selectedDesignPdfUri, setSelectedDesignPdfUri] = useState<string | undefined>(undefined);
 
   const { toast } = useToast();
   const jobFormCardRef = useRef<HTMLDivElement>(null);
@@ -76,6 +76,7 @@ function NewJobPageContent() {
             setInitialJobDataForForm(reorderJobData);
             setPrefillJobName(reorderJobData.jobName);
             setPrefillCustomerName(reorderJobData.customerName);
+            setSelectedDesignPdfUri(jobData.pdfDataUri); // Set the PDF URI here
             setActiveTab("create-new"); 
             toast({
               title: "Prefilling Form for Re-order",
@@ -96,7 +97,7 @@ function NewJobPageContent() {
     }
     fetchJobForPrefill();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fromCustomerJobId, toast]); // Removed setActiveTab from deps as it's set internally
+  }, [fromCustomerJobId, toast]); 
 
 
   const handleCreateFromDesign = (design: DesignSubmission) => {
@@ -133,9 +134,6 @@ function NewJobPageContent() {
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
-        {/* Page title is handled by Header.tsx, so this h1 can be removed or simplified if needed for other content */}
-        {/* <h1 className="text-3xl font-headline font-semibold text-foreground">Start a New Job</h1> */}
-        {/* This div could be a CardHeader if we decide to wrap the entire page in a Card again, but for now, it's standalone */}
          <div>
             <h2 className="text-2xl font-headline font-semibold text-foreground">New Job Card Options</h2>
             <p className="text-sm text-muted-foreground font-body">
@@ -182,7 +180,7 @@ function NewJobPageContent() {
                     Choosing a design will pre-fill Job Name, Customer Name, and link the PDF to the new job card.
                 </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-6">
               {isLoadingDesigns ? (
                 <div className="flex justify-center items-center py-10">
                   <Loader2 className="mr-2 h-8 w-8 animate-spin text-primary" />
@@ -248,7 +246,7 @@ function NewJobPageContent() {
                     }
                 </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-6">
               <JobCardForm 
                 key={initialJobDataForForm?.id || fromCustomerJobId || 'new-job'}
                 initialJobName={initialJobDataForForm?.jobName || prefillJobName} 
