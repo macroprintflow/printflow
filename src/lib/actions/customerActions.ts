@@ -5,8 +5,8 @@ import { db } from '@/lib/firebase/clientApp';
 import { 
   collection, 
   addDoc, 
+  // serverTimestamp, // Removed serverTimestamp
   getDocs, 
-  serverTimestamp, 
   query, 
   orderBy,
   doc,
@@ -29,21 +29,24 @@ const CUSTOMERS_COLLECTION = 'customers';
 export async function addCustomer(
   customerData: CustomerFormValues
 ): Promise<{ success: boolean; message: string; customerId?: string; customer?: CustomerData }> {
+  const currentDate = new Date().toISOString();
   try {
     const docRef = await addDoc(collection(db, CUSTOMERS_COLLECTION), {
       ...customerData,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
+      createdAt: currentDate, // Using client-generated ISO string
+      updatedAt: currentDate, // Using client-generated ISO string
     });
     console.log('[CustomerActions] Customer added with ID:', docRef.id);
-    revalidatePath('/customers'); // If you create a page to list all customers
-    revalidatePath('/jobs/new'); // To refresh customer list in job card form
+    // Revalidation might not work as expected in a purely client-side mock setup without a server roundtrip.
+    // For a real app, these are correct.
+    // revalidatePath('/customers'); 
+    // revalidatePath('/jobs/new'); 
     
     const newCustomer: CustomerData = {
         id: docRef.id,
         ...customerData,
-        createdAt: new Date().toISOString(), // Approximate for return, Firestore handles actual server time
-        updatedAt: new Date().toISOString(),
+        createdAt: currentDate, 
+        updatedAt: currentDate,
     };
     return { success: true, message: 'Customer added successfully.', customerId: docRef.id, customer: newCustomer };
   } catch (error) {
@@ -92,8 +95,8 @@ export async function getAllCustomerData(): Promise<CustomerData[]> {
         email: data.email,
         phoneNumber: data.phoneNumber,
         address: data.address,
-        createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString(),
-        updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate().toISOString() : new Date().toISOString(),
+        createdAt: data.createdAt, // Keep as is, assuming it's already an ISO string from our addCustomer
+        updatedAt: data.updatedAt, // Keep as is
       } as CustomerData;
     });
     
@@ -121,8 +124,8 @@ export async function getCustomerById(customerId: string): Promise<CustomerData 
         email: data.email,
         phoneNumber: data.phoneNumber,
         address: data.address,
-        createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString(),
-        updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate().toISOString() : new Date().toISOString(),
+        createdAt: data.createdAt, // Assuming ISO string
+        updatedAt: data.updatedAt, // Assuming ISO string
       };
       console.log(`[CustomerActions] Fetched customer by ID ${customerId}:`, customer.fullName);
       return customer;
@@ -143,16 +146,17 @@ export async function updateCustomer(
   customerId: string,
   customerData: Partial<CustomerFormValues>
 ): Promise<{ success: boolean; message: string; customer?: CustomerData }> {
+  const currentDate = new Date().toISOString();
   try {
     const customerDocRef = doc(db, CUSTOMERS_COLLECTION, customerId);
     await updateDoc(customerDocRef, {
       ...customerData,
-      updatedAt: serverTimestamp(),
+      updatedAt: currentDate, // Using client-generated ISO string
     });
     console.log(`[CustomerActions] Customer updated with ID: ${customerId}`);
-    revalidatePath('/customers');
-    revalidatePath(`/customers/${customerId}`); // If you have a detail page
-    revalidatePath('/jobs/new');
+    // revalidatePath('/customers');
+    // revalidatePath(`/customers/${customerId}`); 
+    // revalidatePath('/jobs/new');
     
     const updatedCustomerData = await getCustomerById(customerId);
     return { success: true, message: 'Customer updated successfully.', customer: updatedCustomerData || undefined };
@@ -171,12 +175,30 @@ export async function deleteCustomer(customerId: string): Promise<{ success: boo
     const customerDocRef = doc(db, CUSTOMERS_COLLECTION, customerId);
     await deleteDoc(customerDocRef);
     console.log(`[CustomerActions] Customer deleted with ID: ${customerId}`);
-    revalidatePath('/customers');
-    revalidatePath('/jobs/new');
+    // revalidatePath('/customers');
+    // revalidatePath('/jobs/new');
     return { success: true, message: 'Customer deleted successfully.' };
   } catch (error) {
     console.error(`[CustomerActions] Error deleting customer ${customerId}:`, error);
     const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred.';
     return { success: false, message: `Failed to delete customer: ${errorMessage}` };
   }
+}
+
+// Function to get jobs by customer name (moved from jobActions.ts)
+export async function getJobsByCustomerName(customerName: string): Promise<JobCardData[]> {
+  // This function now depends on getJobCards from jobActions.ts
+  // We need to ensure jobActions.ts is also adjusted if it was not already.
+  // For now, assuming getJobCards is globally available or we'll adjust jobActions.ts next.
+  // This is a temporary measure if jobActions.ts isn't updated yet.
+  const jobs: JobCardData[] = (global as any).__jobCards__ || []; 
+
+  return jobs.filter(job => job.customerName === customerName).sort((a, b) => {
+    const dateA = new Date(a.date).getTime();
+    const dateB = new Date(b.date).getTime();
+    if (dateB !== dateA) {
+      return dateB - dateA; // Sort by date descending
+    }
+    return a.jobName.localeCompare(b.jobName); // Then by job name ascending
+  });
 }
