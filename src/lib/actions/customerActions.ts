@@ -4,7 +4,7 @@
 import { db } from '@/lib/firebase/clientApp';
 import { 
   collection, 
-  addDoc, 
+  // addDoc, // Commenting out actual Firestore write
   getDocs, 
   query, 
   orderBy,
@@ -19,14 +19,16 @@ import type {
   CustomerListItem,
   JobCardData
 } from '@/lib/definitions';
-// import { revalidatePath } from 'next/cache'; // Commented out as it's not effective in this client-side mock setup
-import { getJobCards } from '@/lib/actions/jobActions';
+// import { revalidatePath } from 'next/cache'; 
 
 
 const CUSTOMERS_COLLECTION = 'customers';
 
 /**
- * Adds a new customer to the Firestore 'customers' collection.
+ * Adds a new customer.
+ * WARNING: This version is modified to SIMULATE a successful Firestore write.
+ * The actual addDoc call is bypassed to unblock UI development due to persistent hanging issues.
+ * This DOES NOT write to the actual Firestore database.
  */
 export async function addCustomer(
   customerData: CustomerFormValues
@@ -38,14 +40,33 @@ export async function addCustomer(
     console.error('[CustomerActions] CRITICAL: Firestore db instance is NOT initialized or available! This is a problem in clientApp.ts or Firebase setup.');
     return { success: false, message: 'Database connection error. Firestore instance is not available.' };
   }
-  console.log('[CustomerActions] db instance appears to be available. Proceeding to addDoc.');
+  console.log('[CustomerActions] db instance appears to be available.');
+  
+  const docDataPayload = {
+    ...customerData,
+    createdAt: currentDate,
+    updatedAt: currentDate,
+  };
+  console.log('[CustomerActions] Payload prepared:', JSON.stringify(docDataPayload, null, 2));
 
-  try {
-    const docDataPayload = {
+  // --- SIMULATION START ---
+  console.warn('[CustomerActions] SIMULATING Firestore addDoc success. No data will be written to actual Firestore.');
+  const mockCustomerId = `mock-${Date.now()}`;
+  const newCustomer: CustomerData = {
+      id: mockCustomerId,
       ...customerData,
-      createdAt: currentDate,
+      createdAt: currentDate, 
       updatedAt: currentDate,
-    };
+  };
+  // global.__mockCustomersStore__ = global.__mockCustomersStore__ || []; // If using a global mock store
+  // global.__mockCustomersStore__.push(newCustomer);
+  // revalidatePath('/customers'); 
+  // revalidatePath('/jobs/new'); 
+  return { success: true, message: 'Customer added successfully (SIMULATED).', customerId: mockCustomerId, customer: newCustomer };
+  // --- SIMULATION END ---
+
+  /* Original Firestore write attempt - currently bypassed
+  try {
     console.log('[CustomerActions] Attempting addDoc to collection:', CUSTOMERS_COLLECTION, 'with payload:', JSON.stringify(docDataPayload, null, 2));
     
     const docRef = await addDoc(collection(db, CUSTOMERS_COLLECTION), docDataPayload);
@@ -66,7 +87,7 @@ export async function addCustomer(
     let errorMessage = 'An unexpected error occurred while adding the customer.';
     if (error instanceof Error) {
         errorMessage = error.message;
-        if ('code' in error) { // Check if it's a FirebaseError-like object
+        if ('code' in error) { 
             console.error('[CustomerActions] Firebase Error Code:', (error as any).code);
             errorMessage += ` (Code: ${(error as any).code})`;
         }
@@ -74,6 +95,7 @@ export async function addCustomer(
     console.error('[CustomerActions] Full error object:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
     return { success: false, message: `Failed to add customer: ${errorMessage}` };
   }
+  */
 }
 
 /**
@@ -85,6 +107,15 @@ export async function getCustomersList(): Promise<CustomerListItem[]> {
     console.error('[CustomerActions] CRITICAL: Firestore db instance is NOT initialized for getCustomersList.');
     return [];
   }
+
+  // --- SIMULATION FOR getCustomersList IF REAL FETCH FAILS ---
+  // This part can be enabled if getDocs also hangs. For now, assuming reads might work.
+  // if (global.__mockCustomersStore__ && global.__mockCustomersStore__.length > 0) {
+  //   console.warn('[CustomerActions] SIMULATING getCustomersList from mock store.');
+  //   return global.__mockCustomersStore__.map(c => ({ id: c.id!, fullName: c.fullName }));
+  // }
+  // --- END SIMULATION ---
+
   try {
     const customersCollection = collection(db, CUSTOMERS_COLLECTION);
     const q = query(customersCollection, orderBy('fullName', 'asc'));
@@ -198,7 +229,7 @@ export async function updateCustomer(
     // revalidatePath(`/customers/${customerId}`); 
     // revalidatePath('/jobs/new');
     
-    const updatedCustomerData = await getCustomerById(customerId); // Fetch the updated data to return
+    const updatedCustomerData = await getCustomerById(customerId); 
     return { success: true, message: 'Customer updated successfully.', customer: updatedCustomerData || undefined };
   } catch (error) {
     console.error(`[CustomerActions] Error updating customer ${customerId}:`, error);
@@ -233,7 +264,10 @@ export async function deleteCustomer(customerId: string): Promise<{ success: boo
 export async function getJobsByCustomerName(customerName: string): Promise<JobCardData[]> {
   console.log(`[CustomerActions] getJobsByCustomerName called for: ${customerName}`);
   try {
-    const allJobs = await getJobCards(); // Assumes getJobCards is working and available
+    // Assuming getJobCards is in jobActions.ts and is working.
+    // This import might need adjustment if getJobCards itself is problematic.
+    const { getJobCards } = await import('@/lib/actions/jobActions');
+    const allJobs = await getJobCards(); 
     const customerJobs = allJobs.filter(job => job.customerName.toLowerCase() === customerName.toLowerCase());
     customerJobs.sort((a, b) => {
       const dateA = new Date(a.date).getTime();
