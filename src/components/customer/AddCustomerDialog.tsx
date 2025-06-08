@@ -128,7 +128,7 @@ export function AddCustomerDialog({ isOpen, setIsOpen, onCustomerAdded }: AddCus
                       <FormControl>
                          <div className="relative">
                             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input type="email" placeholder="e.g., john.doe@example.com" {...field} className="pl-10"/>
+                            <Input type="email" placeholder="e.g., john.doe@example.com" {...field} value={field.value ?? ""} className="pl-10"/>
                          </div>
                       </FormControl>
                       <FormMessage />
@@ -140,10 +140,19 @@ export function AddCustomerDialog({ isOpen, setIsOpen, onCustomerAdded }: AddCus
                   <FormField
                     control={form.control}
                     name="phoneNumber.countryCode"
-                    render={({ field }) => (
+                    render={({ field }) => ( // field.value here is the dialCode from the form state
                       <FormItem className="md:col-span-1">
                         <FormLabel>Country Code</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select
+                          onValueChange={(selectedItemValue) => { // selectedItemValue is cc.code
+                            const selectedCountry = COUNTRY_CODES.find(c => c.code === selectedItemValue);
+                            if (selectedCountry) {
+                              field.onChange(selectedCountry.dialCode); // Update form with dialCode
+                            }
+                          }}
+                          // Convert the form's dialCode (field.value) back to a cc.code for the Select's value
+                          value={COUNTRY_CODES.find(c => c.dialCode === field.value)?.code || ""}
+                        >
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Select code" />
@@ -151,7 +160,8 @@ export function AddCustomerDialog({ isOpen, setIsOpen, onCustomerAdded }: AddCus
                           </FormControl>
                           <SelectContent>
                             {COUNTRY_CODES.map(cc => (
-                              <SelectItem key={cc.code} value={cc.dialCode}>
+                              // Use unique cc.code as the SelectItem's value
+                              <SelectItem key={cc.code} value={cc.code}> 
                                 {cc.name} ({cc.dialCode})
                               </SelectItem>
                             ))}
@@ -170,7 +180,7 @@ export function AddCustomerDialog({ isOpen, setIsOpen, onCustomerAdded }: AddCus
                         <FormControl>
                           <div className="relative">
                             <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input type="tel" placeholder="e.g., 9876543210" {...field} className="pl-10" />
+                            <Input type="tel" placeholder="e.g., 9876543210" {...field} value={field.value ?? ""} className="pl-10" />
                           </div>
                         </FormControl>
                         <FormMessage />
@@ -188,7 +198,7 @@ export function AddCustomerDialog({ isOpen, setIsOpen, onCustomerAdded }: AddCus
                         <FormItem>
                         <FormLabel className="text-xs text-muted-foreground pl-1">Street Address</FormLabel>
                         <FormControl>
-                            <Textarea placeholder="e.g., 123 Main St, Apt 4B" {...field} rows={2}/>
+                            <Textarea placeholder="e.g., 123 Main St, Apt 4B" {...field} value={field.value ?? ""} rows={2}/>
                         </FormControl>
                         <FormMessage />
                         </FormItem>
@@ -202,7 +212,7 @@ export function AddCustomerDialog({ isOpen, setIsOpen, onCustomerAdded }: AddCus
                         <FormItem>
                             <FormLabel className="text-xs text-muted-foreground pl-1">City</FormLabel>
                             <FormControl>
-                            <Input placeholder="e.g., New Delhi" {...field} />
+                            <Input placeholder="e.g., New Delhi" {...field} value={field.value ?? ""} />
                             </FormControl>
                             <FormMessage />
                         </FormItem>
@@ -215,7 +225,7 @@ export function AddCustomerDialog({ isOpen, setIsOpen, onCustomerAdded }: AddCus
                         <FormItem>
                             <FormLabel className="text-xs text-muted-foreground pl-1">State / Province</FormLabel>
                             <FormControl>
-                            <Input placeholder="e.g., Delhi" {...field} />
+                            <Input placeholder="e.g., Delhi" {...field} value={field.value ?? ""} />
                             </FormControl>
                             <FormMessage />
                         </FormItem>
@@ -228,7 +238,7 @@ export function AddCustomerDialog({ isOpen, setIsOpen, onCustomerAdded }: AddCus
                         <FormItem>
                             <FormLabel className="text-xs text-muted-foreground pl-1">ZIP / Postal Code</FormLabel>
                             <FormControl>
-                            <Input placeholder="e.g., 110001" {...field} />
+                            <Input placeholder="e.g., 110001" {...field} value={field.value ?? ""} />
                             </FormControl>
                             <FormMessage />
                         </FormItem>
@@ -241,14 +251,17 @@ export function AddCustomerDialog({ isOpen, setIsOpen, onCustomerAdded }: AddCus
                         render={({ field }) => (
                         <FormItem>
                              <FormLabel className="text-xs text-muted-foreground pl-1">Country</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <Select 
+                              onValueChange={field.onChange} 
+                              value={field.value || "India"} // Default to India if undefined
+                            >
                             <FormControl>
                                 <SelectTrigger>
                                 <SelectValue placeholder="Select country" />
                                 </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                                {COUNTRY_CODES.map(cc => ( // Using same list for simplicity, can be expanded
+                                {COUNTRY_CODES.map(cc => (
                                 <SelectItem key={cc.code} value={cc.name}> 
                                     {cc.name}
                                 </SelectItem>
@@ -284,3 +297,5 @@ export function AddCustomerDialog({ isOpen, setIsOpen, onCustomerAdded }: AddCus
     </Dialog>
   );
 }
+
+    
