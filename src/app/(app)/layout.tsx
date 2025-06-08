@@ -211,7 +211,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <ClientOnlyWrapper>
       <SidebarProvider defaultOpen>
-        <Sidebar variant="sidebar" collapsible="icon" className="bg-sidebar/80 backdrop-blur-lg">
+        <Sidebar variant="sidebar" collapsible="icon" className="bg-card text-card-foreground">
           <SidebarHeader className="p-4 justify-between items-center">
             <AppLogo />
             {isClient && (
@@ -230,11 +230,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     tooltip={{ children: item.label, className: "font-body" }}
                   >
                     <Link href={item.href}>
-                       <span className="flex items-center gap-2 w-full">
                         <item.icon className="h-4 w-4 shrink-0" />
                         <span className="truncate">{item.label}</span>
-                        <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-sidebar-foreground/60 group-data-[active=true]:text-sidebar-primary group-data-[collapsible=icon]:hidden" />
-                      </span>
+                        {/* ChevronRight is rendered by SidebarMenuButton when asChild is false */}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -250,8 +248,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                       <AvatarFallback>{userDisplayName.charAt(0).toUpperCase()}</AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col items-start group-data-[collapsible=icon]:hidden">
-                      <span className="text-sm font-medium text-sidebar-foreground">{userDisplayName}</span>
-                      <span className="text-xs text-sidebar-foreground/70">{userRoleDisplay}</span>
+                      <span className="text-sm font-medium text-foreground">{userDisplayName}</span>
+                      <span className="text-xs text-muted-foreground">{userRoleDisplay}</span>
                     </div>
                 </Button>
               </DropdownMenuTrigger>
@@ -323,3 +321,4 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     </ClientOnlyWrapper>
   );
 }
+

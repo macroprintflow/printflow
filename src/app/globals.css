@@ -21,21 +21,10 @@
 }
 
 
-/* iOS 18 Theme CSS */
+/* ShadCN HSL Variables - FORCED DARK MODE */
 :root {
-  --ios-bg: rgba(28, 28, 30, 0.75); /* Dark mode background with opacity */
-  --ios-text: #ffffff;
-  --ios-blue: #007aff; /* Standard iOS blue - can be adjusted for dark if needed */
-  --ios-dark-gray-bg: #1c1c1e; /* Dark gray for solid backgrounds in dark mode */
-  --ios-border: rgba(84, 84, 88, 0.65); /* Subtle dark border */
-  --ios-radius: 20px;
-  --ios-shadow: 0 10px 25px rgba(0, 0, 0, 0.1); /* Shadow might need adjustment for dark theme if too strong */
-  --ios-transition: all 0.3s ease;
-  --ios-font: 'Glacial Indifference', -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
-
-  /* ShadCN HSL Variables - FORCED DARK MODE */
   --background: 240 4% 9%; /* Maps to a dark gray for body background */
-  --foreground: 0 0% 95%; /* Maps to --ios-text */
+  --foreground: 0 0% 95%; 
   
   --card: 240 4% 12%; 
   --card-foreground: 0 0% 95%;
@@ -52,13 +41,13 @@
   --muted: 240 4% 15%;
   --muted-foreground: 240 2% 60%;
 
-  --accent: 212 100% 58%;
+  --accent: 212 100% 58%; /* Using primary blue as accent for dark mode */
   --accent-foreground: 0 0% 100%;
 
   --destructive: 0 70% 55%;
   --destructive-foreground: 0 0% 100%;
 
-  --border: 240 2% 23%; /* Maps to --ios-border conceptually */
+  --border: 240 2% 23%; 
   --input: 240 4% 18%; 
   --ring: 212 100% 58%; /* Focus ring blue */
   
@@ -68,53 +57,24 @@
   --chart-4: 280 65% 60%;
   --chart-5: 340 75% 55%;
   
-  --radius: 20px; /* Maps to --ios-radius */
-
-  /* iOS-inspired Sidebar (Light Theme - these are specific for sidebar and will be used when html.dark is active) */
-  /* The app theme is dark, but sidebar aims for a light appearance */
-  --sidebar-background: hsl(220 15% 94% / 0.85); 
-  --sidebar-foreground: hsl(240 3% 20%);  
-  --sidebar-primary: hsl(212 100% 48%); 
-  --sidebar-accent: hsl(220 20% 88% / 0.6); 
-  --sidebar-accent-foreground: hsl(212 95% 45%); 
-  --sidebar-border: hsl(220 10% 82% / 0.4); 
-  --sidebar-ring: hsl(212 100% 50%);
-}
-
-/* This block is no longer needed for main theme variables as dark mode is default in :root */
-/* @media (prefers-color-scheme: dark) { ... } */
-
-
-/* Sidebar variables for html.dark to ensure light sidebar on dark app theme */
-html.dark {
-    /* These ensure the sidebar remains light even when the app is forced dark */
-    --sidebar-background: hsl(220 15% 94% / 0.85); 
-    --sidebar-foreground: hsl(240 3% 20%); 
-    --sidebar-primary: hsl(212 100% 48%); 
-    --sidebar-accent: hsl(220 20% 88% / 0.6);
-    --sidebar-accent-foreground: hsl(212 95% 45%); 
-    --sidebar-border: hsl(220 10% 82% / 0.4); 
-    --sidebar-ring: hsl(212 100% 50%);
+  --radius: 20px; 
 }
 
 
 @layer base {
   * {
-    @apply border-border; /* Uses the HSL --border variable through Tailwind */
+    @apply border-border; 
   }
   body {
-    font-family: var(--ios-font);
-    color: var(--ios-text); /* Uses --ios-text (white for dark mode) */
+    font-family: 'Glacial Indifference', -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    color: hsl(var(--foreground)); 
     margin: 0;
     padding: 0;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    transition: var(--ios-transition);
-    @apply text-foreground; /* Apply text color from HSL variable */
+    transition: all 0.3s ease;
+    @apply bg-background text-foreground; 
     
-    /* Fallback background color for body - now uses dark mode value by default */
-    background-color: var(--ios-dark-gray-bg); 
-
     /* Custom background image */
     background-image: url('/images/189271609765514.jpg');
     background-size: cover;
@@ -122,117 +82,7 @@ html.dark {
     background-repeat: no-repeat;
     background-attachment: fixed;
   }
-
-  /* This ensures body background is dark when html.dark is active (which is always now) */
-  html.dark body {
-    background-color: var(--ios-dark-gray-bg); 
-  }
 }
-
-/* iOS-style Card / Glass Panel */
-.ios-card {
-  background-color: var(--ios-bg); /* Uses dark --ios-bg by default */
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-radius: var(--ios-radius);
-  box-shadow: var(--ios-shadow);
-  border: 1px solid var(--ios-border); /* Uses dark --ios-border by default */
-  padding: 1.5rem;
-  transition: var(--ios-transition);
-}
-
-/* iOS-style Floating Button */
-.ios-floating-button {
-  position: fixed;
-  bottom: 24px;
-  right: 24px;
-  background-color: rgba(0, 122, 255, 0.8); /* iOS blue, adjust if needed for dark contrast */
-  color: white;
-  border-radius: 50%;
-  width: 56px;
-  height: 56px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
-  border: none;
-  font-size: 24px;
-  z-index: 999;
-  backdrop-filter: blur(10px) saturate(180%);
-  -webkit-backdrop-filter: blur(10px) saturate(180%);
-  transition: transform 0.3s cubic-bezier(0.33, 1, 0.68, 1), background-color 0.25s ease;
-}
-
-.ios-floating-button:hover {
-  transform: scale(1.05);
-  background-color: #339aff; /* Slightly lighter blue on hover */
-}
-
-/* iOS-style Navigation Bar */
-.ios-navbar {
-  position: sticky;
-  top: 0;
-  background-color: var(--ios-bg); /* Uses dark --ios-bg */
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1px solid var(--ios-border); /* Uses dark --ios-border */
-  padding: 1rem 2rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  z-index: 1000;
-  font-weight: 600;
-  transition: var(--ios-transition);
-}
-
-/* iOS-style Buttons */
-.ios-button {
-  background-color: var(--ios-blue); /* Primary blue, ensure good contrast on dark theme */
-  color: white;
-  border: none;
-  border-radius: 12px; /* Specific radius for these buttons */
-  padding: 0.75rem 1.5rem;
-  font-size: 16px;
-  font-weight: 500;
-  box-shadow: var(--ios-shadow);
-  transition: transform 0.3s cubic-bezier(0.33, 1, 0.68, 1), background-color 0.25s ease;
-}
-
-.ios-button:hover {
-  background-color: #339aff;
-  transform: scale(1.02);
-}
-
-/* iOS-style Modal */
-.ios-modal {
-  background-color: var(--ios-bg); /* Uses dark --ios-bg */
-  backdrop-filter: blur(30px);
-  -webkit-backdrop-filter: blur(30px);
-  border-radius: var(--ios-radius);
-  padding: 2rem;
-  max-width: 500px;
-  margin: auto;
-  box-shadow: var(--ios-shadow);
-  border: 1px solid var(--ios-border); /* Uses dark --ios-border */
-  transition: var(--ios-transition);
-}
-
-/* Modal entrance animation */
-.ios-modal.fade-in {
-  animation: iosModalIn 0.4s ease forwards;
-}
-
-@keyframes iosModalIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95) translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-}
-
 
 /* Original Transitions */
 .fade-in {
@@ -253,16 +103,11 @@ html.dark {
 /* Tailwind CSS Animate Keyframes (from ShadCN) */
 @layer base {
   /* :root HSL variables are now dark mode by default */
-
-  /* .dark class is always on <html>, so these specific dark mode variables are not strictly needed here IF Tailwind handles it, but kept for clarity or direct CSS usage */
-  .dark {
-    /* ... existing dark HSL variables ... */
-  }
 }
 
 @keyframes accordion-down {
   from {
-    height: 0px; /* Use 0px instead of 0 for keyframes */
+    height: 0px; 
   }
   to {
     height: var(--radix-accordion-content-height);
@@ -274,41 +119,7 @@ html.dark {
     height: var(--radix-accordion-content-height);
   }
   to {
-    height: 0px; /* Use 0px instead of 0 for keyframes */
+    height: 0px; 
   }
 }
-
-/* Optional iOS toggle switch style - Added from user prompt */
-.ios-toggle {
-  appearance: none;
-  width: 42px;
-  height: 26px;
-  background: var(--ios-border); /* Uses dark --ios-border */
-  border-radius: 13px;
-  position: relative;
-  transition: background-color 0.2s;
-  cursor: pointer;
-}
-
-.ios-toggle:checked {
-  background: var(--ios-blue); /* Ensure this blue contrasts well on dark backgrounds */
-}
-
-.ios-toggle::before {
-  content: "";
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 20px;
-  height: 20px;
-  background: white;
-  border-radius: 50%;
-  transition: transform 0.2s;
-}
-
-.ios-toggle:checked::before {
-  transform: translateX(16px);
-}
-    
-
     
