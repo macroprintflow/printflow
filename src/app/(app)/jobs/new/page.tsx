@@ -27,6 +27,7 @@ function NewJobPageContent() {
   const [isLoadingJobForPrefill, setIsLoadingJobForPrefill] = useState(false);
   const [selectedDesignPdfUri, setSelectedDesignPdfUri] = useState<string | undefined>(undefined);
 
+
   const { toast } = useToast();
   const jobFormCardRef = useRef<HTMLDivElement>(null);
   const [isViewAllJobsModalOpen, setIsViewAllJobsModalOpen] = useState(false);
@@ -76,13 +77,13 @@ function NewJobPageContent() {
             setInitialJobDataForForm(reorderJobData);
             setPrefillJobName(reorderJobData.jobName);
             setPrefillCustomerName(reorderJobData.customerName);
-            setSelectedDesignPdfUri(jobData.pdfDataUri); // Set the PDF URI here
+            setSelectedDesignPdfUri(jobData.pdfDataUri); 
             setActiveTab("create-new"); 
             toast({
               title: "Prefilling Form for Re-order",
               description: `Using details from job: ${jobData.jobCardNumber || jobData.jobName}`,
             });
-            // Scroll after a short delay to ensure the tab content is rendered
+            
             setTimeout(() => jobFormCardRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
           } else {
             toast({ title: "Error", description: "Could not find job to pre-fill.", variant: "destructive" });
@@ -118,7 +119,7 @@ function NewJobPageContent() {
       title: "Prefilling Form",
       description: `Using details from design: ${design.pdfName}`,
     });
-    // Scroll after a short delay to ensure the tab content is rendered
+    
     setTimeout(() => jobFormCardRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
   };
 
@@ -160,12 +161,12 @@ function NewJobPageContent() {
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 mb-6">
-          <TabsTrigger value="from-design" className="font-body">
-            <FileCheck2 className="mr-2 h-4 w-4" /> Start from Approved Design
+        <TabsList className="grid w-full grid-cols-2 mb-6 h-14">
+          <TabsTrigger value="from-design" className="font-body text-base py-3">
+            <FileCheck2 className="mr-2 h-5 w-5" /> Start from Approved Design
           </TabsTrigger>
-          <TabsTrigger value="create-new" className="font-body">
-            <FilePlus2 className="mr-2 h-4 w-4" /> Create New Blank Job Card
+          <TabsTrigger value="create-new" className="font-body text-base py-3">
+            <FilePlus2 className="mr-2 h-5 w-5" /> Create New Blank Job Card
           </TabsTrigger>
         </TabsList>
 
