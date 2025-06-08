@@ -1,16 +1,16 @@
 
 "use client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Settings, AlertTriangle, Users, Link2 as LinkIcon, Trash2, Edit } from "lucide-react"; 
+import { Settings, AlertTriangle, Users, Link2 as LinkIcon, Trash2, Edit, UserPlus } from "lucide-react"; 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useState, useEffect } from "react";
 import type { UserData, UserRole } from "@/lib/definitions";
-import { getAllUsersMock, updateUserRoleMock, deleteUserMock } from "@/lib/actions/userActions";
+import { getAllUsersMock, updateUserRoleMock, deleteUserMock, createNewUserMock } from "@/lib/actions/userActions"; // Added createNewUserMock
 import { useToast } from "@/hooks/use-toast";
-import { LinkUserToCustomerDialog } from "@/components/settings/LinkUserToCustomerDialog"; // Import the new dialog
+import { LinkUserToCustomerDialog } from "@/components/settings/LinkUserToCustomerDialog"; 
 
 export default function SettingsPage() {
   const [users, setUsers] = useState<UserData[]>([]);
@@ -35,7 +35,7 @@ export default function SettingsPage() {
   useEffect(() => {
     fetchUsers();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Removed toast from deps as it's stable
+  }, []); 
 
   const handleRoleChange = async (userId: string, newRole: UserRole) => {
     const result = await updateUserRoleMock(userId, newRole);
@@ -64,6 +64,28 @@ export default function SettingsPage() {
     setIsLinkUserDialogOpen(true);
   };
 
+  const handleAddMockUser = async () => {
+    const email = prompt("Enter email for the new mock user:");
+    if (!email) return;
+
+    const displayName = prompt("Enter display name for the mock user (optional):") || "";
+    
+    const roleInput = prompt("Enter role (Admin, Manager, Departmental, Customer):");
+    if (!roleInput || !['Admin', 'Manager', 'Departmental', 'Customer'].includes(roleInput)) {
+      toast({ title: "Invalid Role", description: "Please enter a valid role.", variant: "destructive" });
+      return;
+    }
+    const role = roleInput as UserRole;
+
+    const result = await createNewUserMock({ email, displayName, role });
+    if (result.success) {
+      toast({ title: "Mock User Added", description: result.message });
+      fetchUsers();
+    } else {
+      toast({ title: "Error", description: result.message || "Failed to add mock user.", variant: "destructive" });
+    }
+  };
+
   return (
     <div className="space-y-8">
       <Card>
@@ -89,8 +111,7 @@ export default function SettingsPage() {
             <Users className="mr-2 h-6 w-6 text-primary" /> Mock User Management
           </CardTitle>
           <CardDescription className="font-body">
-            View and manage mock users. These users are for UI demonstration.
-            Role changes here are temporary and only affect the mock list display.
+            View and manage entries in the **mock user list**. This list is for UI demonstration and testing roles.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -161,20 +182,22 @@ export default function SettingsPage() {
           <Button 
             variant="secondary" 
             className="mt-4 font-body" 
-            onClick={() => alert("Adding new mock users directly here is a placeholder. Real user signup is via the /signup page.")}
-            disabled 
+            onClick={handleAddMockUser}
           >
-            Add New Mock User (Placeholder)
+            <UserPlus className="mr-2 h-4 w-4" /> Add User to Mock List
           </Button>
         </CardContent>
          <CardFooter>
             <Alert variant="default" className="bg-blue-50 border-blue-300 dark:bg-blue-900/30 dark:border-blue-700 w-full">
                 <AlertTriangle className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                <AlertTitle className="font-headline text-blue-700 dark:text-blue-300">User & Role Management</AlertTitle>
+                <AlertTitle className="font-headline text-blue-700 dark:text-blue-300">Important Note on User Management</AlertTitle>
                 <AlertDescription className="text-blue-600 dark:text-blue-400 font-body">
-                  This section currently displays **mock user data** for UI development and testing different views.
-                  Actual Firebase user authentication and role management are handled separately.
-                  For testing different UI views as Admin, use the "Switch Role (Dev)" tool in the user profile dropdown (bottom of the sidebar).
+                  This "Mock User Management" section displays and manages a **local, in-memory list of mock users**.
+                  It is intended for UI development, testing different roles, and demonstrating features like linking users to customers.
+                  <br />- Users created via the main <strong>Signup page</strong> are actual Firebase Authentication users but will <strong>not automatically appear</strong> in this mock list.
+                  <br />- Users created in the <strong>Firebase Console</strong> are also real Firebase Auth users and will <strong>not automatically appear</strong> here.
+                  <br />- To test with representations of real users in this mock list (e.g., for linking to customers), you can use the "Add User to Mock List" button above to manually create corresponding entries. These manual additions are only to this mock list and do not affect real Firebase Auth users.
+                  <br />- For switching your *own* view for testing roles like Admin, use the "Switch Role (Dev)" tool in the user profile dropdown (bottom of the sidebar if you are logged in as the designated admin).
                 </AlertDescription>
             </Alert>
         </CardFooter>
