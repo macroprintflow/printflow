@@ -3,10 +3,10 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import type { JobCardFormValues, InventorySuggestion, JobTemplateData, PaperQualityType, WorkflowProcessStepDefinition, JobCardData, WorkflowStep, DesignSubmission } from "@/lib/definitions";
+import type { JobCardFormValues, InventorySuggestion, JobTemplateData, PaperQualityType, WorkflowProcessStepDefinition, JobCardData, WorkflowStep, DesignSubmission, CustomerListItem } from "@/lib/definitions";
 import { JobCardSchema, KINDS_OF_JOB_OPTIONS, PRINTING_MACHINE_OPTIONS, COATING_OPTIONS, DIE_OPTIONS, DIE_MACHINE_OPTIONS, HOT_FOIL_OPTIONS, YES_NO_OPTIONS, BOX_MAKING_OPTIONS, PAPER_QUALITY_OPTIONS, getPaperQualityLabel, getPaperQualityUnit, PRODUCTION_PROCESS_STEPS } from "@/lib/definitions";
-import { createJobCard, getUniqueCustomerNames, getJobsByCustomerName } from "@/lib/actions/jobActions";
-import { handlePrintJobCard } from "@/lib/printUtils"; // Import from printUtils
+import { createJobCard, getCustomersList, getJobsByCustomerName } from "@/lib/actions/jobActions";
+import { handlePrintJobCard } from "@/lib/printUtils"; 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
@@ -24,7 +24,6 @@ import { InventoryOptimizationModal } from "./InventoryOptimizationModal";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { ScrollArea } from "@/components/ui/scroll-area";
-// QRCode import removed as it's handled in printUtils
 
 interface DisplayWorkflowStep extends WorkflowProcessStepDefinition {
   order: number;
@@ -44,12 +43,10 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
   const [currentWorkflowSteps, setCurrentWorkflowSteps] = useState<DisplayWorkflowStep[]>([]);
   const [currentPdfDataUri, setCurrentPdfDataUri] = useState<string | undefined>(initialJobData?.pdfDataUri);
 
-
-  const [allCustomers, setAllCustomers] = useState<string[]>([]);
+  const [allCustomers, setAllCustomers] = useState<CustomerListItem[]>([]);
   const [customerInputValue, setCustomerInputValue] = useState(initialJobData?.customerName || initialCustomerName || "");
-  const [customerSuggestions, setCustomerSuggestions] = useState<string[]>([]);
+  const [customerSuggestions, setCustomerSuggestions] = useState<CustomerListItem[]>([]);
   const [isCustomerPopoverOpen, setIsCustomerPopoverOpen] = useState(false);
-  const [selectedCustomer, setSelectedCustomer] = useState<string>(initialJobData?.customerName || initialCustomerName || "");
   
   const [jobsForCustomer, setJobsForCustomer] = useState<JobCardData[]>([]);
   const [jobInputValue, setJobInputValue] = useState("");
@@ -63,13 +60,13 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
   const customerInputRef = useRef<HTMLInputElement>(null);
   const jobInputRef = useRef<HTMLInputElement>(null);
 
-
   const form = useForm<JobCardFormValues>({
     resolver: zodResolver(JobCardSchema),
     defaultValues: initialJobData ? 
     { 
       jobName: initialJobData.jobName,
       customerName: initialJobData.customerName,
+      customerId: initialJobData.customerId,
       jobSizeWidth: initialJobData.jobSizeWidth,
       jobSizeHeight: initialJobData.jobSizeHeight,
       netQuantity: initialJobData.netQuantity,
@@ -101,11 +98,12 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
       remarks: initialJobData.remarks,
       dispatchDate: initialJobData.dispatchDate ? new Date(initialJobData.dispatchDate).toISOString() : undefined,
       workflowSteps: initialJobData.workflowSteps || [],
-      pdfDataUri: initialJobData.pdfDataUri, // Include pdfDataUri
+      pdfDataUri: initialJobData.pdfDataUri,
     }
     : { 
       jobName: initialJobName || "",
       customerName: initialCustomerName || "",
+      customerId: undefined,
       jobSizeWidth: undefined,
       jobSizeHeight: undefined,
       netQuantity: undefined,
@@ -137,49 +135,10 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
       remarks: "",
       dispatchDate: undefined,
       workflowSteps: [],
-      pdfDataUri: undefined, // Default pdfDataUri
+      pdfDataUri: undefined,
     },
   });
   
-  useEffect(() => {
-    if (initialJobData) {
-      form.reset(initialJobData); 
-      setCustomerInputValue(initialJobData.customerName);
-      setSelectedCustomer(initialJobData.customerName);
-      setCurrentPdfDataUri(initialJobData.pdfDataUri);
-      form.trigger("customerName"); 
-      applyWorkflow(initialJobData);
-    } else {
-      if (initialJobName) form.setValue("jobName", initialJobName);
-      if (initialCustomerName) {
-        form.setValue("customerName", initialCustomerName);
-        setCustomerInputValue(initialCustomerName);
-        setSelectedCustomer(initialCustomerName);
-        form.trigger("customerName");
-      }
-      setCurrentPdfDataUri(undefined); // Clear PDF URI if not prefilling from past job
-    }
-  }, [initialJobData, initialJobName, initialCustomerName, form]);
-
-
-  useEffect(() => {
-    async function fetchInitialData() {
-      setIsLoadingCustomers(true);
-      try {
-        const fetchedCustomers = await getUniqueCustomerNames();
-        setAllCustomers(fetchedCustomers);
-      } catch (error) {
-        toast({ title: "Error", description: "Could not fetch customer data.", variant: "destructive" });
-      } finally {
-        setIsLoadingCustomers(false);
-      }
-    }
-    fetchInitialData();
-  }, [toast]);
-
-  const watchedPaperQuality = form.watch("paperQuality");
-  const targetPaperUnit = getPaperQualityUnit(watchedPaperQuality as PaperQualityType);
-
   const applyWorkflow = useCallback((workflowSource?: { workflowSteps?: { stepSlug: string; order: number }[] } ) => {
     let sourceWorkflow: { stepSlug: string; order: number }[] | undefined;
 
@@ -200,50 +159,97 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
       setCurrentWorkflowSteps([]);
     }
   }, []);
-  
+
+  useEffect(() => {
+    if (initialJobData) {
+      form.reset({
+        ...initialJobData,
+        dispatchDate: initialJobData.dispatchDate ? new Date(initialJobData.dispatchDate).toISOString() : undefined,
+      }); 
+      setCustomerInputValue(initialJobData.customerName);
+      setCurrentPdfDataUri(initialJobData.pdfDataUri);
+      if(initialJobData.customerName) {
+        fetchJobsForThisCustomer(initialJobData.customerName);
+      }
+      applyWorkflow(initialJobData);
+    } else {
+      form.setValue("jobName", initialJobName || "");
+      if (initialCustomerName) {
+        form.setValue("customerName", initialCustomerName);
+        setCustomerInputValue(initialCustomerName);
+        fetchJobsForThisCustomer(initialCustomerName);
+      }
+      setCurrentPdfDataUri(undefined);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialJobData, initialJobName, initialCustomerName, form, applyWorkflow]);
+
+
+  useEffect(() => {
+    async function fetchInitialData() {
+      setIsLoadingCustomers(true);
+      try {
+        const fetchedCustomers = await getCustomersList();
+        setAllCustomers(fetchedCustomers);
+      } catch (error) {
+        toast({ title: "Error", description: "Could not fetch customer data.", variant: "destructive" });
+      } finally {
+        setIsLoadingCustomers(false);
+      }
+    }
+    fetchInitialData();
+  }, [toast]);
+
+  const watchedPaperQuality = form.watch("paperQuality");
+  const targetPaperUnit = getPaperQualityUnit(watchedPaperQuality as PaperQualityType);
+
+  const fetchJobsForThisCustomer = async (customerName: string) => {
+    if (!customerName) {
+      setJobsForCustomer([]);
+      return;
+    }
+    setIsLoadingJobsForCustomer(true);
+    try {
+      const jobs = await getJobsByCustomerName(customerName);
+      setJobsForCustomer(jobs);
+    } catch (error) {
+      toast({ title: "Error", description: `Could not fetch jobs for ${customerName}.`, variant: "destructive" });
+      setJobsForCustomer([]);
+    } finally {
+      setIsLoadingJobsForCustomer(false);
+    }
+  };
+
   const handleCustomerInputChange = (e: React.ChangeEvent<HTMLInputElement>, fieldOnChange: (value: string) => void) => {
     const value = e.target.value;
     setCustomerInputValue(value);
     fieldOnChange(value); 
+    form.setValue("customerId", undefined); // Clear customerId if user types
+
     if (value) {
-      setSelectedCustomer(value); 
       const filtered = allCustomers.filter(customer =>
-        customer.toLowerCase().includes(value.toLowerCase())
+        customer.fullName.toLowerCase().includes(value.toLowerCase())
       );
       setCustomerSuggestions(filtered);
-      setIsCustomerPopoverOpen(filtered.length > 0);
+      setIsCustomerPopoverOpen(filtered.length > 0 || value.length > 0);
     } else {
       setCustomerSuggestions([]);
       setIsCustomerPopoverOpen(false);
-      setSelectedCustomer("");
       setJobsForCustomer([]);
       setJobInputValue("");
       setSelectedPastJobId("");
     }
   };
 
-  const handleCustomerSuggestionClick = async (customerName: string) => {
-    setCustomerInputValue(customerName);
-    setSelectedCustomer(customerName);
-    form.setValue("customerName", customerName, { shouldValidate: true });
+  const handleCustomerSuggestionClick = (customer: CustomerListItem, fieldOnChange: (value: string) => void) => {
+    setCustomerInputValue(customer.fullName);
+    fieldOnChange(customer.fullName);
+    form.setValue("customerId", customer.id, { shouldValidate: true });
     setIsCustomerPopoverOpen(false);
+    setCustomerSuggestions([]);
     setJobInputValue(""); 
     setSelectedPastJobId("");
-
-    if (customerName) {
-      setIsLoadingJobsForCustomer(true);
-      try {
-        const jobs = await getJobsByCustomerName(customerName);
-        setJobsForCustomer(jobs);
-      } catch (error) {
-        toast({ title: "Error", description: `Could not fetch jobs for ${customerName}.`, variant: "destructive" });
-        setJobsForCustomer([]);
-      } finally {
-        setIsLoadingJobsForCustomer(false);
-      }
-    } else {
-      setJobsForCustomer([]);
-    }
+    fetchJobsForThisCustomer(customer.fullName);
   };
 
   const handleJobInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -267,7 +273,8 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
     setJobInputValue(`${job.jobName} (${job.jobCardNumber || job.id})`);
     setSelectedPastJobId(job.id!);
     setIsJobPopoverOpen(false);
-    setCurrentPdfDataUri(job.pdfDataUri); // Carry over PDF URI from past job
+    setCurrentPdfDataUri(job.pdfDataUri);
+    setCustomerInputValue(job.customerName); // Update customer input value
 
     const pastJobPaperQuality = job.paperQuality || "";
     const pastJobUnit = getPaperQualityUnit(pastJobPaperQuality as PaperQualityType);
@@ -275,6 +282,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
     form.reset({ 
       jobName: `Repeat - ${job.jobName}`, 
       customerName: job.customerName,
+      customerId: job.customerId,
       jobSizeWidth: job.jobSizeWidth,
       jobSizeHeight: job.jobSizeHeight,
       netQuantity: job.netQuantity,
@@ -306,14 +314,11 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
       remarks: job.remarks,
       dispatchDate: undefined, 
       workflowSteps: job.workflowSteps || [],
-      pdfDataUri: job.pdfDataUri, // Carry over PDF URI to form values
+      pdfDataUri: job.pdfDataUri,
     });
     applyWorkflow(job);
-    setCustomerInputValue(job.customerName); 
-    setSelectedCustomer(job.customerName); 
     form.trigger("customerName"); 
   };
-
 
   const handleWorkflowStepClick = (step: WorkflowProcessStepDefinition) => {
     setCurrentWorkflowSteps(prev => {
@@ -333,7 +338,6 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
   useEffect(() => {
     form.setValue('workflowSteps', currentWorkflowSteps.map(s => ({ stepSlug: s.slug, order: s.order })));
   }, [currentWorkflowSteps, form]);
-
 
   const handleSuggestionSelect = (suggestion: InventorySuggestion) => {
     form.setValue("masterSheetSizeWidth", suggestion.masterSheetSizeWidth);
@@ -358,14 +362,12 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
     form.setValue("grossQuantity", suggestion.totalMasterSheetsNeeded);
   };
 
-
   async function onSubmit(values: JobCardFormValues) {
     setIsSubmitting(true);
     const valuesToSubmit = {
       ...values,
-      customerName: selectedCustomer || values.customerName, 
       workflowSteps: currentWorkflowSteps.map(s => ({ stepSlug: s.slug, order: s.order })),
-      pdfDataUri: currentPdfDataUri, // Include the stored PDF URI
+      pdfDataUri: currentPdfDataUri,
     };
     const result = await createJobCard(valuesToSubmit);
     setIsSubmitting(false);
@@ -378,7 +380,8 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
       form.reset({ 
         jobName: initialJobName || "",
         customerName: initialCustomerName || "",
-         jobSizeWidth: undefined,
+        customerId: undefined,
+        jobSizeWidth: undefined,
         jobSizeHeight: undefined,
         netQuantity: undefined,
         grossQuantity: undefined,
@@ -409,15 +412,14 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
         remarks: "",
         dispatchDate: undefined,
         workflowSteps: [],
-        pdfDataUri: undefined, // Reset PDF URI
+        pdfDataUri: undefined,
       });
       setCurrentWorkflowSteps([]);
       setCustomerInputValue(initialJobData?.customerName || initialCustomerName || "");
-      setSelectedCustomer(initialJobData?.customerName || initialCustomerName || ""); 
       setJobInputValue("");
       setSelectedPastJobId("");
       setJobsForCustomer([]); 
-      setCurrentPdfDataUri(undefined); // Reset PDF URI state
+      setCurrentPdfDataUri(undefined);
       router.push(`/jobs`);
     } else {
       toast({
@@ -454,15 +456,6 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
   const selectedMasterSheetQuality = form.watch("selectedMasterSheetQuality");
   const selectedMasterSheetUnit = getPaperQualityUnit(selectedMasterSheetQuality as PaperQualityType);
 
-  // Function to be called from NewJobPage when a design is selected
-  const setPdfDataUriFromDesign = (uri: string | undefined) => {
-    setCurrentPdfDataUri(uri);
-    form.setValue("pdfDataUri", uri); // Also set in form if needed by schema directly
-  };
-
-  // Expose function if JobCardForm is used where NewJobPage can pass it down
-  // For now, this is handled by the parent NewJobPage component passing props.
-
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
@@ -473,68 +466,92 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
           </CardHeader>
           <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Popover open={isCustomerPopoverOpen} onOpenChange={setIsCustomerPopoverOpen}>
-                  <PopoverTrigger asChild>
-                    <div className="relative">
-                      <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                       {isLoadingCustomers && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
-                      <Input
-                        ref={customerInputRef}
-                        type="text"
-                        placeholder={isLoadingCustomers ? "Loading customers..." : "Type to search customer"}
-                        value={customerInputValue} 
-                        onChange={(e) => handleCustomerInputChange(e, (value) => form.setValue("customerName", value, { shouldValidate: true }))}
-                        onFocus={() => {
-                          if (customerInputValue && customerSuggestions.length > 0) setIsCustomerPopoverOpen(true);
-                        }}
-                        className="pl-10 font-body"
-                        disabled={isLoadingCustomers}
-                      />
-                    </div>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                    <ScrollArea className="h-[200px]">
-                      {customerSuggestions.length > 0 ? (
-                        customerSuggestions.map(name => (
-                          <Button
-                            key={name}
-                            variant="ghost"
-                            className="w-full justify-start font-normal font-body"
-                            onClick={() => handleCustomerSuggestionClick(name)}
-                          >
-                            {name}
-                          </Button>
-                        ))
-                      ) : (
-                        <p className="p-4 text-sm text-muted-foreground font-body">No customers found.</p>
-                      )}
-                    </ScrollArea>
-                  </PopoverContent>
-                </Popover>
+                <FormField
+                  control={form.control}
+                  name="customerName" 
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Customer Name</FormLabel>
+                      <Popover open={isCustomerPopoverOpen} onOpenChange={setIsCustomerPopoverOpen}>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <div className="relative">
+                              <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                              {isLoadingCustomers && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
+                              <Input
+                                ref={customerInputRef}
+                                placeholder={isLoadingCustomers ? "Loading customers..." : "Type or select customer"}
+                                value={customerInputValue}
+                                onChange={(e) => handleCustomerInputChange(e, field.onChange)}
+                                onFocus={() => {
+                                  if (customerInputValue && customerSuggestions.length > 0) setIsCustomerPopoverOpen(true);
+                                  else if (!customerInputValue && allCustomers.length > 0) {
+                                      setCustomerSuggestions(allCustomers.slice(0,10)); // Show some initial suggestions
+                                      setIsCustomerPopoverOpen(true);
+                                  }
+                                }}
+                                className="pl-10 font-body"
+                                disabled={isLoadingCustomers}
+                              />
+                            </div>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                          <ScrollArea className="h-[200px]">
+                            {customerSuggestions.length > 0 ? (
+                              customerSuggestions.map(customer => (
+                                <Button
+                                  key={customer.id}
+                                  variant="ghost"
+                                  className="w-full justify-start font-normal font-body"
+                                  onClick={() => handleCustomerSuggestionClick(customer, field.onChange)}
+                                >
+                                  {customer.fullName}
+                                </Button>
+                              ))
+                            ) : (
+                              <p className="p-4 text-sm text-muted-foreground font-body">
+                                {isLoadingCustomers ? "Loading..." : customerInputValue ? "No matching customers." : "Type to search."}
+                              </p>
+                            )}
+                          </ScrollArea>
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 <Popover open={isJobPopoverOpen} onOpenChange={setIsJobPopoverOpen}>
                   <PopoverTrigger asChild>
-                    <div className="relative">
-                      <BriefcaseIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      {isLoadingJobsForCustomer && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
-                      <Input
-                        ref={jobInputRef}
-                        type="text"
-                        placeholder={
-                          isLoadingJobsForCustomer ? "Loading jobs..." :
-                          !selectedCustomer ? "Select customer first" :
-                          jobsForCustomer.length === 0 && selectedCustomer ? "No past jobs for this customer" :
-                          "Type to search past job"
-                        }
-                        value={jobInputValue}
-                        onChange={handleJobInputChange}
-                        onFocus={() => {
-                           if (jobInputValue && jobSuggestions.length > 0) setIsJobPopoverOpen(true);
-                        }}
-                        className="pl-10 font-body"
-                        disabled={!selectedCustomer || isLoadingJobsForCustomer}
-                      />
-                    </div>
+                     <FormItem> {/* Added FormItem for label association */}
+                        <FormLabel>Past Job for {form.getValues('customerName') || 'Selected Customer'}</FormLabel>
+                        <div className="relative">
+                          <BriefcaseIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          {isLoadingJobsForCustomer && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
+                          <Input
+                            ref={jobInputRef}
+                            type="text"
+                            placeholder={
+                              isLoadingJobsForCustomer ? "Loading jobs..." :
+                              !form.getValues('customerId') ? "Select customer first" :
+                              jobsForCustomer.length === 0 && form.getValues('customerId') ? "No past jobs for this customer" :
+                              "Type to search past job"
+                            }
+                            value={jobInputValue}
+                            onChange={handleJobInputChange}
+                            onFocus={() => {
+                               if (jobInputValue && jobSuggestions.length > 0) setIsJobPopoverOpen(true);
+                               else if (!jobInputValue && jobsForCustomer.length > 0) {
+                                   setJobSuggestions(jobsForCustomer.slice(0,10));
+                                   setIsJobPopoverOpen(true);
+                               }
+                            }}
+                            className="pl-10 font-body"
+                            disabled={!form.getValues('customerId') || isLoadingJobsForCustomer}
+                          />
+                        </div>
+                     </FormItem>
                   </PopoverTrigger>
                   <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
                      <ScrollArea className="h-[200px]">
@@ -554,7 +571,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
                         ))
                       ) : (
                          <p className="p-4 text-sm text-muted-foreground font-body">
-                            {!selectedCustomer ? "Select a customer to see past jobs." : 
+                            {!form.getValues('customerId') ? "Select a customer to see past jobs." : 
                              jobsForCustomer.length === 0 && !isLoadingJobsForCustomer ? "No past jobs found for this customer." :
                              jobInputValue ? "No jobs match your search." :
                              "Type to search for jobs."
@@ -580,27 +597,12 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
                 <FormMessage />
               </FormItem>
             )} />
-            <FormField
-              control={form.control}
-              name="customerName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Customer Name</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="e.g., Chic Fragrances"
-                      value={field.value || ""}
-                      onChange={(e) => handleCustomerInputChange(e, field.onChange)}
-                      onFocus={() => {
-                        if (customerInputValue && customerSuggestions.length > 0) setIsCustomerPopoverOpen(true);
-                      }}
-                      className="font-body"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {/* Customer Name field is now handled by the Popover input above, but ensure validation still works if needed */}
+             <FormItem>
+                <FormLabel>Selected Customer</FormLabel>
+                <Input value={form.watch('customerName') || "N/A (Select above)"} readOnly className="font-body bg-muted"/>
+                <FormMessage />
+             </FormItem>
           </CardContent>
         </Card>
 
@@ -776,7 +778,6 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
                 </FormItem>
             )} />
 
-
             {cuttingLayoutDescription && (
               <div className="col-span-1 md:col-span-2 lg:col-span-3 mt-2 p-3 border rounded-md bg-muted/50">
                 <h4 className="font-medium mb-1 font-headline text-sm">Selected Cutting Layout:</h4>
@@ -877,7 +878,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
             <FormField control={form.control} name="specialInks" render={({ field }) => (
               <FormItem>
                 <FormLabel>Special Inks (Pantone Code)</FormLabel>
-                <FormControl><Input placeholder="e.g., Pantone 185 C" {...field} className="font-body"/></FormControl>
+                <FormControl><Input placeholder="e.g., Pantone 185 C" {...field} value={field.value ?? ""} className="font-body"/></FormControl>
                 <FormMessage />
               </FormItem>
             )} />
@@ -909,7 +910,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
             <FormField control={form.control} name="remarks" render={({ field }) => (
               <FormItem className="md:col-span-2">
                 <FormLabel>Remarks</FormLabel>
-                <FormControl><Textarea placeholder="Any additional notes or instructions for this job." {...field} className="font-body"/></FormControl>
+                <FormControl><Textarea placeholder="Any additional notes or instructions for this job." {...field} value={field.value ?? ""} className="font-body"/></FormControl>
                 <FormMessage />
               </FormItem>
             )} />
@@ -933,7 +934,8 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
                 form.reset({ 
                     jobName: initialJobName || "",
                     customerName: initialCustomerName || "",
-                     jobSizeWidth: undefined,
+                    customerId: undefined,
+                    jobSizeWidth: undefined,
                     jobSizeHeight: undefined,
                     netQuantity: undefined,
                     grossQuantity: undefined,
@@ -964,15 +966,14 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
                     remarks: "",
                     dispatchDate: undefined,
                     workflowSteps: [],
-                    pdfDataUri: undefined, // Reset PDF URI on cancel
+                    pdfDataUri: undefined,
                 }); 
                 setCurrentWorkflowSteps([]); 
                 setCustomerInputValue(initialJobData?.customerName || initialCustomerName || "");
-                setSelectedCustomer(initialJobData?.customerName || initialCustomerName || ""); 
                 setJobInputValue("");
                 setSelectedPastJobId(""); 
                 setJobsForCustomer([]); 
-                setCurrentPdfDataUri(undefined); // Reset PDF URI state
+                setCurrentPdfDataUri(undefined);
             }} disabled={isSubmitting} className="font-body">
             Cancel
           </Button>
@@ -985,3 +986,5 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
     </Form>
   );
 }
+
+    
