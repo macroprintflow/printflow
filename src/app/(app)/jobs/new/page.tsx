@@ -164,15 +164,15 @@ function NewJobPageContent() {
         <TabsList className="grid w-full grid-cols-2 mb-6 h-14">
           <TabsTrigger 
             value="from-design" 
-            className="font-body text-base py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg"
+            className="font-body text-base font-semibold py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg"
           >
-            <FileCheck2 className="mr-2 h-5 w-5" /> Start from Approved Design
+            <FileCheck2 className="mr-2 h-5 w-5" /> Create from Approved Design
           </TabsTrigger>
           <TabsTrigger 
             value="create-new" 
-            className="font-body text-base py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg"
+            className="font-body text-base font-semibold py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg"
           >
-            <FilePlus2 className="mr-2 h-5 w-5" /> Create New Blank Job Card
+            <FilePlus2 className="mr-2 h-5 w-5" /> Create New Job
           </TabsTrigger>
         </TabsList>
 
