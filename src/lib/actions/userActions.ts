@@ -77,8 +77,9 @@ async function saveMockUsersToFile(users: UserData[]): Promise<void> {
 
 
 export async function getAllUsersMock(): Promise<UserData[]> {
-  console.log('[UserActions] getAllUsersMock called (File Persistent - will re-read).');
+  console.log('[UserActions] getAllUsersMock called. Attempting to load users from file (File Persistent - will re-read).');
   const users = await loadMockUsersFromFile(); // Always read fresh
+  console.log(`[UserActions] getAllUsersMock loaded ${users.length} users from file.`);
   return [...(users || [])].sort((a, b) => (a.displayName || a.email).localeCompare(b.displayName || b.email));
 }
 
@@ -173,3 +174,4 @@ export async function createUserDocumentInAuth(user: any /* FirebaseUser */, rol
     role: determinedRole,
   };
 }
+
