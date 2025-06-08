@@ -35,7 +35,7 @@ import {
 import { Button } from '@/components/ui/button';
 import ClientOnlyWrapper from '@/components/ClientOnlyWrapper';
 import { useAuth } from '@/contexts/AuthContext';
-import { signOut } from 'firebase/auth'; 
+import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase/clientApp';
 import { useToast } from '@/hooks/use-toast';
 import type { UserRole } from '@/lib/definitions';
@@ -111,9 +111,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       } else if (userEmailLower === DEPARTMENTAL_EMAIL) {
         roleToSet = "Departmental";
       } else {
-        roleToSet = "Customer"; 
+        roleToSet = "Customer";
       }
-      
+
       console.log(`[Auth Role] Determined role: ${roleToSet} for ${user.email}`);
 
       if (effectiveUserRole !== roleToSet) {
@@ -128,7 +128,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, [user, loading, isRoleFromDevTool, router, effectiveUserRole, pathname]);
 
 
-  const visibleNavItems = React.useMemo(() => 
+  const visibleNavItems = React.useMemo(() =>
     allNavItems.filter(item =>
       item.allowedRoles.includes(effectiveUserRole)
     ), [effectiveUserRole]);
@@ -143,7 +143,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       };
 
       const roleDefaultRoute = defaultRoutes[effectiveUserRole];
-      
+
       const isCurrentPathAllowed = visibleNavItems.some(item => pathname.startsWith(item.href));
 
       if (!isCurrentPathAllowed && pathname !== roleDefaultRoute && !pathname.startsWith('/login') && !pathname.startsWith('/signup') && !pathname.startsWith('/profile')) {
@@ -153,12 +153,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           router.replace(roleDefaultRoute);
         } else {
           console.error(`[Auth Role Redirect] Critical: Default route ${roleDefaultRoute} for role ${effectiveUserRole} is not in visibleNavItems. This indicates a configuration error. Fallback to /login.`);
-          handleLogout(); 
+          handleLogout();
         }
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoadingRole, user, effectiveUserRole, pathname, router, visibleNavItems]); 
+  }, [isLoadingRole, user, effectiveUserRole, pathname, router, visibleNavItems]);
 
 
   const handleLogout = async () => {
@@ -166,7 +166,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       await signOut(auth);
       toast({ title: 'Logged Out', description: 'You have been successfully logged out.' });
       setIsRoleFromDevTool(false);
-      setEffectiveUserRole("Customer"); 
+      setEffectiveUserRole("Customer");
       router.push('/login');
     } catch (error) {
       console.error("Logout error:", error);
@@ -176,7 +176,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const handleRoleSwitch = (newRole: UserRole) => {
     setEffectiveUserRole(newRole);
-    setIsRoleFromDevTool(true); 
+    setIsRoleFromDevTool(true);
     toast({ title: 'Dev Tool: Role Switched', description: `Viewing as ${newRole}. (Session only)`});
   };
 
@@ -195,13 +195,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-  
+
   if (!user && (pathname === '/login' || pathname === '/signup')) {
      return <ClientOnlyWrapper>{children}</ClientOnlyWrapper>;
   }
 
   const userDisplayName = user?.displayName || user?.email?.split('@')[0] || "User";
-  const userEmailDisplay = user?.email || "No email"; 
+  const userEmailDisplay = user?.email || "No email";
 
   const userRoleDisplay = effectiveUserRole;
 
