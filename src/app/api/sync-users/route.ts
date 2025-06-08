@@ -1,26 +1,31 @@
 
-import { NextResponse, type NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import * as admin from 'firebase-admin';
-import fs from 'fs/promises';
-import path from 'path';
+import fs from 'fs/promises'; // Keep fs for writing mock-users.json
+import path from 'path'; // Keep path for constructing file path
 
-// Attempt to parse credentials and catch potential errors
-let serviceAccount: admin.ServiceAccount;
-try {
-  if (!process.env.FIREBASE_ADMIN_CREDENTIALS) {
-    throw new Error("FIREBASE_ADMIN_CREDENTIALS environment variable is not set.");
+let parsedServiceAccount: admin.ServiceAccount | undefined;
+
+// Try to parse credentials once at module load
+const serviceAccountJsonString = process.env.FIREBASE_ADMIN_CREDENTIALS;
+
+if (!serviceAccountJsonString) {
+  console.error('[API Sync Users] CRITICAL ERROR: FIREBASE_ADMIN_CREDENTIALS environment variable is not set.');
+} else {
+  try {
+    parsedServiceAccount = JSON.parse(serviceAccountJsonString) as admin.ServiceAccount;
+    console.log('[API Sync Users] Successfully parsed FIREBASE_ADMIN_CREDENTIALS. Project ID:', parsedServiceAccount.project_id);
+  } catch (error) {
+    console.error('[API Sync Users] CRITICAL ERROR parsing FIREBASE_ADMIN_CREDENTIALS:', error);
+    // parsedServiceAccount will remain undefined
   }
-  serviceAccount = JSON.parse(process.env.FIREBASE_ADMIN_CREDENTIALS) as admin.ServiceAccount;
-  console.log('[API Sync Users] Successfully parsed FIREBASE_ADMIN_CREDENTIALS. Project ID:', serviceAccount.project_id);
-} catch (error) {
-  console.error('[API Sync Users] CRITICAL ERROR parsing FIREBASE_ADMIN_CREDENTIALS:', error);
-  // serviceAccount will remain undefined or an error will be thrown, handled by later checks
 }
 
-if (serviceAccount! && !admin.apps.length) {
+// Initialize Firebase Admin SDK
+if (parsedServiceAccount && !admin.apps.length) {
   try {
     admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
+      credential: admin.credential.cert(parsedServiceAccount),
     });
     console.log('[API Sync Users] Firebase Admin SDK initialized successfully.');
   } catch (initError) {
@@ -28,36 +33,36 @@ if (serviceAccount! && !admin.apps.length) {
   }
 } else if (admin.apps.length) {
   console.log('[API Sync Users] Firebase Admin SDK already initialized.');
-} else {
-  // This block will be hit if serviceAccount parsing failed and it's still undefined,
-  // or if it was parsed but admin.apps.length was already > 0 (which is handled by the else if)
-  // The main concern here is if serviceAccount is undefined due to parsing failure.
-  console.error('[API Sync Users] CRITICAL ERROR: Service account not loaded or other initialization issue, Firebase Admin SDK cannot be reliably initialized.');
+} else if (!parsedServiceAccount) {
+  // This case is if parsing failed or env var was missing and SDK isn't already initialized
+  console.error('[API Sync Users] CRITICAL ERROR: Service account credentials not available for Firebase Admin SDK initialization, and SDK not already initialized.');
 }
 
+
 export async function GET(req: NextRequest) {
-  if (!admin.apps.length || !admin.app().name) { // More robust check
+  if (!admin.apps.length) {
     console.error("[API Sync Users] Firebase Admin SDK not initialized. Cannot process request.");
     return NextResponse.json({ status: 'error', message: 'Firebase Admin SDK not initialized. Check server logs for critical errors during startup.' }, { status: 500 });
   }
 
-  const users: admin.auth.UserRecord[] = [];
+  const usersList: admin.auth.UserRecord[] = [];
   let nextPageToken;
 
   try {
     console.log("[API Sync Users] Attempting to list Firebase Auth users...");
     do {
       const result = await admin.auth().listUsers(1000, nextPageToken);
-      users.push(...result.users);
+      usersList.push(...result.users);
       nextPageToken = result.pageToken;
     } while (nextPageToken);
-    console.log(`[API Sync Users] Successfully listed ${users.length} Firebase Auth users.`);
+    console.log(`[API Sync Users] Successfully listed ${usersList.length} Firebase Auth users.`);
 
-    const mockUsers = users.map((u) => ({
+    const mockUsers = usersList.map((u) => ({
       id: u.uid,
-      displayName: u.displayName || '',
+      displayName: u.displayName || u.email?.split('@')[0] || '', // Ensure displayName has a fallback
       email: u.email || '',
       role: 'Customer', // default role
+      // linkedCustomerId will be undefined by default
     }));
 
     const dataPath = path.join(process.cwd(), '.data/mock-users.json');
