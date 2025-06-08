@@ -57,7 +57,7 @@ interface NavItem {
 const allNavItems: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, allowedRoles: ['Admin', 'Manager'] },
   { href: '#jobs-trigger', label: 'Jobs', icon: Briefcase, allowedRoles: ['Admin', 'Manager'], isSubmenuTrigger: true },
-  { href: '#customers-trigger', label: 'Customers', icon: Users, allowedRoles: ['Admin', 'Manager'], isSubmenuTrigger: true }, // New Customers menu
+  { href: '#customers-trigger', label: 'Customers', icon: Users, allowedRoles: ['Admin', 'Manager'], isSubmenuTrigger: true },
   { href: '/for-approval', label: 'For Approval', icon: FileUp, allowedRoles: ['Admin', 'Manager'] },
   { href: '/planning', label: 'Production Planning', icon: CalendarCheck2, allowedRoles: ['Admin', 'Manager'] },
   { href: '/tasks', label: 'Departmental Tasks', icon: ClipboardList, allowedRoles: ['Admin', 'Manager', 'Departmental'] },
@@ -81,7 +81,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const isDeterminingRoleRef = React.useRef(false);
 
   const [isJobsSubmenuOpen, setIsJobsSubmenuOpen] = React.useState(pathname.startsWith('/jobs'));
-  const [isCustomersSubmenuOpen, setIsCustomersSubmenuOpen] = React.useState(pathname.startsWith('/customers') || pathname === ('/customers/new')); // Updated for '/customers/new'
+  const [isCustomersSubmenuOpen, setIsCustomersSubmenuOpen] = React.useState(pathname.startsWith('/customers') || pathname === ('/customers/new'));
   const [isAddCustomerDialogOpen, setIsAddCustomerDialogOpen] = React.useState(false);
 
 
@@ -155,7 +155,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       const isCurrentPathAllowedOrSubPath = visibleNavItems.some(item => {
         if (item.href === '#jobs-trigger') return pathname.startsWith('/jobs');
-        if (item.href === '#customers-trigger') return pathname.startsWith('/customers') || isAddCustomerDialogOpen; // Check for dialog open state
+        if (item.href === '#customers-trigger') return pathname.startsWith('/customers') || isAddCustomerDialogOpen;
         return pathname.startsWith(item.href);
       });
 
@@ -331,7 +331,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   )}
 
                   {item.href !== '#jobs-trigger' && item.href !== '#customers-trigger' && (
-                    <SidebarMenuItem key={item.href}>
+                     <SidebarMenuItem key={item.href}>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <SidebarMenuButton
@@ -344,10 +344,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                             )}
                           >
                             <Link href={item.href}>
-                              <span className="flex items-center gap-2 w-full">
+                               <span className="flex items-center gap-2 w-full">
                                 <item.icon className="h-5 w-5 shrink-0" />
                                 <span className="truncate">{item.label}</span>
-                                <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-muted-foreground group-data-[active=true]:text-primary-foreground group-data-[collapsible=icon]:hidden" />
                               </span>
                             </Link>
                           </SidebarMenuButton>
@@ -442,11 +441,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </SidebarInset>
       </SidebarProvider>
       {isClient && (effectiveUserRole === 'Admin' || effectiveUserRole === 'Manager') && (
-        <AddCustomerDialog 
-            isOpen={isAddCustomerDialogOpen} 
-            setIsOpen={setIsAddCustomerDialogOpen} 
+        <AddCustomerDialog
+            isOpen={isAddCustomerDialogOpen}
+            setIsOpen={setIsAddCustomerDialogOpen}
             onCustomerAdded={() => {
-                console.log("Customer added, dialog closed.");
+                // Minimal callback, just log for now.
+                console.log("AddCustomerDialog's onCustomerAdded callback fired.");
             }}
         />
       )}
