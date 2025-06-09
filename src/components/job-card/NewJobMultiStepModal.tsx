@@ -15,24 +15,24 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Label } from "@/components/ui/label"; // Keep Label if used directly, FormLabel is preferred within FormField
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"; // Added missing imports
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { cn } from "@/lib/utils";
 import { CalendarIcon, Loader2, ArrowRight, ArrowLeft, CheckCircle } from "lucide-react";
 import { format } from "date-fns";
 import type { JobCardData, PaperQualityType } from "@/lib/definitions";
-import { PAPER_QUALITY_OPTIONS, getPaperQualityUnit, KAPPA_MDF_QUALITIES, createJobCard } from "@/lib/definitions"; // Assuming createJobCard is from definitions for now
+import { PAPER_QUALITY_OPTIONS, getPaperQualityUnit, KAPPA_MDF_QUALITIES, createJobCard } from "@/lib/definitions";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 
 const Step1Schema = z.object({
   jobName: z.string().min(1, "Job name is required"),
-  customerName: z.string().min(1, "Customer name is required"), // Simplified for now
+  customerName: z.string().min(1, "Customer name is required"),
   dispatchDate: z.date().optional(),
 });
 
@@ -58,14 +58,13 @@ const Step3Schema = z.object({
   remarks: z.string().optional(),
 });
 
-// Combine all step schemas for the final form data type
 const MultiStepJobSchema = Step1Schema.merge(Step2Schema).merge(Step3Schema);
 type MultiStepJobFormValues = z.infer<typeof MultiStepJobSchema>;
 
 interface NewJobMultiStepModalProps {
   isOpen: boolean;
   setIsOpen: Dispatch<SetStateAction<boolean>>;
-  initialData?: Partial<JobCardData>; // For potential pre-filling later
+  initialData?: Partial<JobCardData>;
   onModalClose?: () => void;
 }
 
@@ -85,7 +84,7 @@ export function NewJobMultiStepModal({
         currentStep === 1 ? Step1Schema :
         currentStep === 2 ? Step2Schema :
         currentStep === 3 ? Step3Schema :
-        MultiStepJobSchema // For review step, or could be a different schema
+        MultiStepJobSchema
     ),
     defaultValues: {
       jobName: initialData?.jobName || "",
@@ -100,7 +99,7 @@ export function NewJobMultiStepModal({
       targetPaperThicknessMm: initialData?.targetPaperThicknessMm || undefined,
       remarks: initialData?.remarks || "",
     },
-    mode: "onChange", // Validate on change for better UX
+    mode: "onChange",
   });
 
   const watchedPaperQuality = form.watch("paperQuality");
@@ -149,11 +148,10 @@ export function NewJobMultiStepModal({
     setIsSubmitting(true);
     console.log("Multi-step form submitted:", data);
 
-    // Map to JobCardFormValues for the existing createJobCard action
     const jobCardPayload: JobCardData = {
       jobName: data.jobName,
-      customerName: data.customerName, // customerId would need to be handled if customer selection is implemented
-      date: new Date().toISOString().split('T')[0], // Assuming creation date
+      customerName: data.customerName, 
+      date: new Date().toISOString().split('T')[0],
       dispatchDate: data.dispatchDate ? format(data.dispatchDate, "yyyy-MM-dd") : undefined,
       jobSizeWidth: data.jobSizeWidth,
       jobSizeHeight: data.jobSizeHeight,
@@ -163,7 +161,6 @@ export function NewJobMultiStepModal({
       paperGsm: data.paperQuality && getPaperQualityUnit(data.paperQuality as PaperQualityType) === 'gsm' ? data.paperGsm : undefined,
       targetPaperThicknessMm: data.paperQuality && getPaperQualityUnit(data.paperQuality as PaperQualityType) === 'mm' ? data.targetPaperThicknessMm : undefined,
       remarks: data.remarks,
-      // Default other required fields or handle them if added to modal
       kindOfJob: "", 
       printingFront: "",
       printingBack: "",
@@ -173,38 +170,28 @@ export function NewJobMultiStepModal({
       emboss: "",
       pasting: "",
       boxMaking: "",
-      workflowSteps: [], // Or allow defining this in the modal
+      workflowSteps: [],
       linkedJobCardIds: [],
     };
-
-    // For now, just log and close. Replace with actual submission later.
-    // const result = await createJobCard(jobCardPayload); // This would be the actual call
-    // setIsSubmitting(false);
-    // if (result.success) {
-    //   toast({ title: "Job Created", description: "New job card created successfully via multi-step form." });
-    //   setIsOpen(false);
-    //   form.reset();
-    //   setCurrentStep(1);
-    //   router.push('/jobs'); // Or relevant page
-    // } else {
-    //   toast({ title: "Error", description: result.message || "Failed to create job card.", variant: "destructive" });
-    // }
     
-    setTimeout(() => { // Simulate API call
+    // Simulate API call for now
+    // In a real scenario, you'd call `await createJobCard(jobCardPayload);`
+    setTimeout(() => { 
         toast({ title: "Form Submitted (Placeholder)", description: "Data logged to console. Actual creation pending." });
         setIsSubmitting(false);
         setIsOpen(false);
         form.reset();
         setCurrentStep(1);
         if (onModalClose) onModalClose();
+        // router.push('/jobs'); // Potentially navigate after successful submission
     }, 1000);
   };
 
   const renderStepContent = () => {
     switch (currentStep) {
-      case 1: // Basic Info
+      case 1:
         return (
-          <Form {...form}> {/* Form provider added here */}
+          <Form {...form}>
             <form className="space-y-4">
               <FormField control={form.control} name="jobName" render={({ field }) => (
                 <FormItem>
@@ -246,24 +233,52 @@ export function NewJobMultiStepModal({
             </form>
           </Form>
         );
-      case 2: // Job Specifications
+      case 2:
         return (
-          <Form {...form}> {/* Form provider added here */}
+          <Form {...form}>
             <form className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                   <FormField control={form.control} name="jobSizeWidth" render={({ field }) => (
-                    <FormItem><FormLabel htmlFor="msJobSizeWidth">Job Width (in)</FormLabel><FormControl><Input id="msJobSizeWidth" type="number" {...field} placeholder="e.g., 8.5" /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel htmlFor="msJobSizeWidth">Job Width (in)</FormLabel><FormControl>
+                    <Input 
+                        id="msJobSizeWidth" type="number" {...field} 
+                        value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
+                        onChange={e => { const numValue = parseFloat(e.target.value); field.onChange(isNaN(numValue) ? undefined : numValue); }}
+                        placeholder="e.g., 8.5" 
+                    />
+                    </FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="jobSizeHeight" render={({ field }) => (
-                    <FormItem><FormLabel htmlFor="msJobSizeHeight">Job Height (in)</FormLabel><FormControl><Input id="msJobSizeHeight" type="number" {...field} placeholder="e.g., 11" /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel htmlFor="msJobSizeHeight">Job Height (in)</FormLabel><FormControl>
+                    <Input 
+                        id="msJobSizeHeight" type="number" {...field} 
+                        value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
+                        onChange={e => { const numValue = parseFloat(e.target.value); field.onChange(isNaN(numValue) ? undefined : numValue); }}
+                        placeholder="e.g., 11" 
+                    />
+                    </FormControl><FormMessage /></FormItem>
                   )} />
               </div>
                <div className="grid grid-cols-2 gap-4">
                   <FormField control={form.control} name="netQuantity" render={({ field }) => (
-                    <FormItem><FormLabel htmlFor="msNetQuantity">Net Quantity</FormLabel><FormControl><Input id="msNetQuantity" type="number" {...field} placeholder="e.g., 1000" /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel htmlFor="msNetQuantity">Net Quantity</FormLabel><FormControl>
+                    <Input 
+                        id="msNetQuantity" type="number" {...field} 
+                        value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
+                        onChange={e => { const numValue = parseFloat(e.target.value); field.onChange(isNaN(numValue) ? undefined : numValue); }}
+                        placeholder="e.g., 1000" 
+                    />
+                    </FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="grossQuantity" render={({ field }) => (
-                    <FormItem><FormLabel htmlFor="msGrossQuantity">Gross Quantity</FormLabel><FormControl><Input id="msGrossQuantity" type="number" {...field} placeholder="e.g., 1100" /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel htmlFor="msGrossQuantity">Gross Quantity</FormLabel><FormControl>
+                    <Input 
+                        id="msGrossQuantity" type="number" {...field} 
+                        value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
+                        onChange={e => { const numValue = parseFloat(e.target.value); field.onChange(isNaN(numValue) ? undefined : numValue); }}
+                        placeholder="e.g., 1100" 
+                    />
+                    </FormControl><FormMessage /></FormItem>
                   )} />
               </div>
               <FormField control={form.control} name="paperQuality" render={({ field }) => (
@@ -282,20 +297,34 @@ export function NewJobMultiStepModal({
               )} />
               {targetPaperUnit === 'gsm' && (
                 <FormField control={form.control} name="paperGsm" render={({ field }) => (
-                  <FormItem><FormLabel htmlFor="msPaperGsm">Target Paper GSM</FormLabel><FormControl><Input id="msPaperGsm" type="number" {...field} placeholder="e.g., 300" /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel htmlFor="msPaperGsm">Target Paper GSM</FormLabel><FormControl>
+                  <Input 
+                    id="msPaperGsm" type="number" {...field} 
+                    value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
+                    onChange={e => { const numValue = parseFloat(e.target.value); field.onChange(isNaN(numValue) ? undefined : numValue); }}
+                    placeholder="e.g., 300" 
+                  />
+                  </FormControl><FormMessage /></FormItem>
                 )} />
               )}
               {targetPaperUnit === 'mm' && (
                 <FormField control={form.control} name="targetPaperThicknessMm" render={({ field }) => (
-                  <FormItem><FormLabel htmlFor="msPaperThicknessMm">Target Paper Thickness (mm)</FormLabel><FormControl><Input id="msPaperThicknessMm" type="number" {...field} placeholder="e.g., 1.2" /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel htmlFor="msPaperThicknessMm">Target Paper Thickness (mm)</FormLabel><FormControl>
+                  <Input 
+                    id="msPaperThicknessMm" type="number" {...field} 
+                    value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
+                    onChange={e => { const numValue = parseFloat(e.target.value); field.onChange(isNaN(numValue) ? undefined : numValue); }}
+                    placeholder="e.g., 1.2" 
+                  />
+                  </FormControl><FormMessage /></FormItem>
                 )} />
               )}
             </form>
           </Form>
         );
-      case 3: // Additional Details
+      case 3:
         return (
-          <Form {...form}> {/* Form provider added here */}
+          <Form {...form}>
             <form className="space-y-4">
               <FormField control={form.control} name="remarks" render={({ field }) => (
                 <FormItem>
@@ -307,7 +336,7 @@ export function NewJobMultiStepModal({
             </form>
           </Form>
         );
-      case 4: // Review & Submit
+      case 4:
         const formData = form.getValues();
         return (
           <div className="space-y-3">
@@ -340,7 +369,7 @@ export function NewJobMultiStepModal({
   };
   
   const handleDialogClose = (openState: boolean) => {
-    if (!openState) { // If closing
+    if (!openState) {
         form.reset();
         setCurrentStep(1);
         if (onModalClose) {
@@ -349,7 +378,6 @@ export function NewJobMultiStepModal({
     }
     setIsOpen(openState);
   };
-
 
   return (
     <Dialog open={isOpen} onOpenChange={handleDialogClose}>
