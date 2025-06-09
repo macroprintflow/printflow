@@ -66,50 +66,72 @@ export async function optimizeInventory(input: OptimizeInventoryInput): Promise<
   return optimizeInventoryFlow(input);
 }
 
-// Helper for specialized "staggered" layout.
-function calculateSpecialStaggeredUpsInternal(jobW: number, jobH: number, sheetW: number, sheetH: number) {
+// Helper for generalized "row split" staggered layout.
+function calculateGeneralStaggeredUpsInternal(jobW: number, jobH: number, sheetW: number, sheetH: number) {
   let bestUps = 0;
   let bestDesc = "";
-  const epsilon = 1e-6; // Small fudge factor for floating point comparisons
+  const epsilon = 1e-6; // Fudge factor for floating point comparisons
 
-  // CASE 1: Main row is not rotated, leftover fits rotated jobs
-  const mainCols1 = Math.floor(sheetW / jobW + epsilon);
-  const mainRows1 = 1; // Assuming a single main row for this specific staggered logic
-  const usedH1 = jobH; // Height used by the main row
-  const leftoverH1 = sheetH - usedH1;
-  let extra1 = 0;
-  if (leftoverH1 >= jobW - epsilon) { // Can fit rotated job height (jobW) in leftover space
-    extra1 = Math.floor(sheetW / jobH + epsilon); // How many rotated jobs (jobH as width) fit across sheet width
-  }
-  let ups1 = mainCols1 * mainRows1 + extra1;
-  if (ups1 > bestUps) {
-    bestUps = ups1;
-    bestDesc = `${mainCols1}x${mainRows1} (main row) + ${extra1} rotated in leftover`;
-  }
+  // Try all possible numbers of portrait rows at the top
+  const maxPortraitRows = Math.floor(sheetH / jobH + epsilon);
+  for (let portraitRows = 0; portraitRows <= maxPortraitRows; ++portraitRows) {
+    const usedH = portraitRows * jobH;
+    if (usedH > sheetH + epsilon) continue; // Check with epsilon for safety
+    const remainingH = sheetH - usedH;
 
-  // CASE 2: Main row is rotated, leftover fits normal jobs
-  const mainCols2 = Math.floor(sheetW / jobH + epsilon); // Main row items are rotated (jobH as width)
-  const mainRows2 = 1; // Assuming a single main row
-  const usedH2 = jobW; // Height used by the rotated main row (jobW as height)
-  const leftoverH2 = sheetH - usedH2;
-  let extra2 = 0;
-  if (leftoverH2 >= jobH - epsilon) { // Can fit normal job height (jobH) in leftover space
-    extra2 = Math.floor(sheetW / jobW + epsilon); // How many normal jobs (jobW as width) fit across sheet width
-  }
-  let ups2 = mainCols2 * mainRows2 + extra2;
-  if (ups2 > bestUps) {
-    bestUps = ups2;
-    bestDesc = `${mainCols2}x${mainRows2} (main row, rotated) + ${extra2} normal in leftover`;
+    const cols = Math.floor(sheetW / jobW + epsilon);
+    const upsPortrait = portraitRows * cols;
+
+    let upsRotated = 0;
+    let rotatedRows = 0;
+    let rotatedCols = 0;
+    if (remainingH >= jobW - epsilon) { // Can fit at least one rotated job height
+      rotatedRows = Math.floor(remainingH / jobW + epsilon);
+      rotatedCols = Math.floor(sheetW / jobH + epsilon);
+      upsRotated = rotatedRows * rotatedCols;
+    }
+
+    const totalUps = upsPortrait + upsRotated;
+    if (totalUps > bestUps) {
+      bestUps = totalUps;
+      bestDesc = `${cols}x${portraitRows} portrait + ${rotatedCols}x${rotatedRows} rotated`;
+    }
   }
 
+  // Now swap: first rows of rotated jobs, then portrait
+  const maxRotatedRows = Math.floor(sheetH / jobW + epsilon);
+  for (let rotatedRowsIter = 0; rotatedRowsIter <= maxRotatedRows; ++rotatedRowsIter) {
+    const usedH = rotatedRowsIter * jobW;
+    if (usedH > sheetH + epsilon) continue; // Check with epsilon
+    const remainingH = sheetH - usedH;
+
+    const rotatedCols = Math.floor(sheetW / jobH + epsilon);
+    const upsRotated = rotatedRowsIter * rotatedCols;
+
+    let upsPortrait = 0;
+    let portraitRows = 0;
+    let cols = 0;
+    if (remainingH >= jobH - epsilon) { // Can fit at least one portrait job height
+      portraitRows = Math.floor(remainingH / jobH + epsilon);
+      cols = Math.floor(sheetW / jobW + epsilon);
+      upsPortrait = portraitRows * cols;
+    }
+
+    const totalUps = upsPortrait + upsRotated;
+    if (totalUps > bestUps) {
+      bestUps = totalUps;
+      bestDesc = `${rotatedCols}x${rotatedRowsIter} rotated + ${cols}x${portraitRows} portrait`;
+    }
+  }
   return { ups: bestUps, description: bestDesc };
 }
 
 
-// Improved Guillotine Cut Calculation (Provided by User, with staggered check added)
+// Improved Guillotine Cut Calculation
 function calculateMaxGuillotineUps(jobW: number, jobH: number, sheetW: number, sheetH: number) {
   let maxUps = 0;
   let bestLayout = "N/A";
+  const epsilon = 1e-6; // Fudge factor
 
   if (jobW <= 0 || jobH <=0 || sheetW <=0 || sheetH <= 0) {
       console.warn(`[calculateMaxGuillotineUps] Invalid zero or negative dimension detected. Job: ${jobW}x${jobH}, Sheet: ${sheetW}x${sheetH}. Returning 0 ups.`);
@@ -123,26 +145,22 @@ function calculateMaxGuillotineUps(jobW: number, jobH: number, sheetW: number, s
   ];
 
   for (const orient of orientations) {
-    if (orient.w <=0 || orient.h <=0) continue; // Skip invalid orientation (e.g. if jobW or jobH was 0)
+    if (orient.w <=0 || orient.h <=0) continue;
 
     // Strategy 1: Primary cut along width (vertical cuts first)
-    // Loop over possible number of job columns in the first strip
-    for (let colsInStrip1 = 1; colsInStrip1 <= Math.floor(sheetW / orient.w); colsInStrip1++) {
+    for (let colsInStrip1 = 1; colsInStrip1 <= Math.floor(sheetW / orient.w + epsilon); colsInStrip1++) {
       const strip1Width = colsInStrip1 * orient.w;
-      // This strip uses the full sheet height for job placement
-      const rowsInStrip1 = Math.floor(sheetH / orient.h);
+      const rowsInStrip1 = Math.floor(sheetH / orient.h + epsilon);
       const upsInStrip1 = colsInStrip1 * rowsInStrip1;
 
-      // Remainder (to the right)
       const remainderW = sheetW - strip1Width;
       let upsInRemainder = 0;
       let remainderLayoutDesc = "";
-      if (remainderW > 0 && remainderW >= Math.min(jobW, jobH)) { // Check if remainder can fit at least one job in any orientation
-        // Try both job orientations in the remainder
+      if (remainderW >= Math.min(jobW, jobH) - epsilon) {
         for (const remOrient of orientations) {
           if(remOrient.w <=0 || remOrient.h <=0) continue;
-          const remCols = Math.floor(remainderW / remOrient.w);
-          const remRows = Math.floor(sheetH / remOrient.h); // Remainder also uses full sheet height
+          const remCols = Math.floor(remainderW / remOrient.w + epsilon);
+          const remRows = Math.floor(sheetH / remOrient.h + epsilon);
           const currentRemainderUps = remCols * remRows;
           if (currentRemainderUps > upsInRemainder) {
             upsInRemainder = currentRemainderUps;
@@ -158,22 +176,19 @@ function calculateMaxGuillotineUps(jobW: number, jobH: number, sheetW: number, s
     }
 
     // Strategy 2: Primary cut along height (horizontal cuts first)
-    // Loop over possible number of job rows in the first strip
-    for (let rowsInStrip1 = 1; rowsInStrip1 <= Math.floor(sheetH / orient.h); rowsInStrip1++) {
+    for (let rowsInStrip1 = 1; rowsInStrip1 <= Math.floor(sheetH / orient.h + epsilon); rowsInStrip1++) {
       const strip1Height = rowsInStrip1 * orient.h;
-      // This strip uses the full sheet width for job placement
-      const colsInStrip1 = Math.floor(sheetW / orient.w);
+      const colsInStrip1 = Math.floor(sheetW / orient.w + epsilon);
       const upsInStrip1 = colsInStrip1 * rowsInStrip1;
 
-      // Remainder (at the bottom)
       const remainderH = sheetH - strip1Height;
       let upsInRemainder = 0;
       let remainderLayoutDesc = "";
-      if (remainderH > 0 && remainderH >= Math.min(jobW, jobH)) { // Check if remainder can fit at least one job
+      if (remainderH >= Math.min(jobW, jobH) - epsilon) {
         for (const remOrient of orientations) {
           if(remOrient.w <=0 || remOrient.h <=0) continue;
-          const remCols = Math.floor(sheetW / remOrient.w); // Remainder also uses full sheet width
-          const remRows = Math.floor(remainderH / remOrient.h);
+          const remCols = Math.floor(sheetW / remOrient.w + epsilon);
+          const remRows = Math.floor(remainderH / remOrient.h + epsilon);
           const currentRemainderUps = remCols * remRows;
           if (currentRemainderUps > upsInRemainder) {
             upsInRemainder = currentRemainderUps;
@@ -188,12 +203,11 @@ function calculateMaxGuillotineUps(jobW: number, jobH: number, sheetW: number, s
       }
     }
     
-    // Strategy 3: Check Special Staggered Layout (as per user's new logic)
-    // This uses the current 'orient' for the main grid, then tries to fit jobs in leftover height.
-    const staggeredResult = calculateSpecialStaggeredUpsInternal(orient.w, orient.h, sheetW, sheetH);
+    // Strategy 3: Check General Staggered Layout
+    const staggeredResult = calculateGeneralStaggeredUpsInternal(orient.w, orient.h, sheetW, sheetH);
     if (staggeredResult.ups > maxUps) {
         maxUps = staggeredResult.ups;
-        bestLayout = `${staggeredResult.description} (staggered ${orient.label})`;
+        bestLayout = `${staggeredResult.description} (general staggered ${orient.label})`;
     }
   }
   return { ups: maxUps, description: bestLayout };
@@ -224,7 +238,7 @@ const optimizeInventoryFlow = ai.defineFlow(
       netQuantity 
     } = input;
 
-    const allSuggestions: MasterSheetSuggestionSchema[] = [];
+    const allSuggestions: z.infer<typeof MasterSheetSuggestionSchema>[] = [];
 
     for (const sheet of input.availableMasterSheets) {
       const targetUnit = getPaperQualityUnit(targetPaperQuality as any);
@@ -234,12 +248,12 @@ const optimizeInventoryFlow = ai.defineFlow(
       if ((sheet.availableStock ?? 0) <= 0) continue;
 
       if (targetUnit === 'mm' && sheetUnit === 'mm') {
-        if (targetPaperThicknessMm === undefined || sheet.paperThicknessMm === undefined || Math.abs(sheet.paperThicknessMm - targetPaperThicknessMm) > 0.1) {
+        if (targetPaperThicknessMm === undefined || sheet.paperThicknessMm === undefined || Math.abs(sheet.paperThicknessMm - targetPaperThicknessMm) > 0.1) { // Using 0.1mm tolerance
           continue;
         }
       } else if (targetUnit === 'gsm' && sheetUnit === 'gsm') {
         if (targetPaperGsm === undefined || sheet.paperGsm === undefined) continue;
-        const gsmTolerance = targetPaperGsm * 0.05;
+        const gsmTolerance = targetPaperGsm * 0.05; // 5% tolerance
         if (Math.abs(sheet.paperGsm - targetPaperGsm) > gsmTolerance) {
           continue;
         }
@@ -257,18 +271,17 @@ const optimizeInventoryFlow = ai.defineFlow(
       if (resOrig.ups > bestUpsForThisSheet) {
         bestUpsForThisSheet = resOrig.ups;
         bestLayoutDesc = `${resOrig.description} (Master Portrait)`;
-        effectiveSheetW = sheet.masterSheetSizeWidth; // Store the dimensions that yielded this result
+        effectiveSheetW = sheet.masterSheetSizeWidth;
         effectiveSheetH = sheet.masterSheetSizeHeight;
       }
       
       // Calculate for rotated master sheet orientation
-      // Only rotate if width and height are different to avoid redundant calculation and maintain clarity
       if (sheet.masterSheetSizeWidth !== sheet.masterSheetSizeHeight) {
-        const resRot = calculateMaxGuillotineUps(jobSizeWidth, jobSizeHeight, sheet.masterSheetSizeHeight, sheet.masterSheetSizeWidth); // Note: H, W swapped for sheet
+        const resRot = calculateMaxGuillotineUps(jobSizeWidth, jobSizeHeight, sheet.masterSheetSizeHeight, sheet.masterSheetSizeWidth);
         if (resRot.ups > bestUpsForThisSheet) {
           bestUpsForThisSheet = resRot.ups;
           bestLayoutDesc = `${resRot.description} (Master Landscape)`;
-          effectiveSheetW = sheet.masterSheetSizeHeight; // Store the dimensions that yielded this result
+          effectiveSheetW = sheet.masterSheetSizeHeight;
           effectiveSheetH = sheet.masterSheetSizeWidth;
         }
       }
@@ -279,7 +292,6 @@ const optimizeInventoryFlow = ai.defineFlow(
       }
 
       const jobArea = jobSizeWidth * jobSizeHeight;
-      // Use the effective sheet dimensions that yielded the best ups for wastage calculation
       const masterSheetAreaUsedForLayout = effectiveSheetW * effectiveSheetH; 
       const usedArea = bestUpsForThisSheet * jobArea;
       const wastagePercentage = masterSheetAreaUsedForLayout > 0 ? Number(((1 - (usedArea / masterSheetAreaUsedForLayout)) * 100).toFixed(2)) : 100;
@@ -287,7 +299,7 @@ const optimizeInventoryFlow = ai.defineFlow(
       
       allSuggestions.push({
         sourceInventoryItemId: sheet.id,
-        masterSheetSizeWidth: sheet.masterSheetSizeWidth, // Report original inventory dimensions
+        masterSheetSizeWidth: sheet.masterSheetSizeWidth,
         masterSheetSizeHeight: sheet.masterSheetSizeHeight,
         paperGsm: sheet.paperGsm,
         paperThicknessMm: sheet.paperThicknessMm,
@@ -299,7 +311,6 @@ const optimizeInventoryFlow = ai.defineFlow(
       });
     }
 
-    // Sort suggestions: Primary by sheetsPerMasterSheet (desc), secondary by wastagePercentage (asc), tertiary by totalMasterSheetsNeeded (asc)
     allSuggestions.sort((a, b) => {
       if (b.sheetsPerMasterSheet !== a.sheetsPerMasterSheet) {
         return b.sheetsPerMasterSheet - a.sheetsPerMasterSheet;
