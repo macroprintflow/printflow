@@ -21,6 +21,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"; // Added missing imports
 import { cn } from "@/lib/utils";
 import { CalendarIcon, Loader2, ArrowRight, ArrowLeft, CheckCircle } from "lucide-react";
 import { format } from "date-fns";
@@ -203,96 +204,108 @@ export function NewJobMultiStepModal({
     switch (currentStep) {
       case 1: // Basic Info
         return (
-          <div className="space-y-4">
-            <FormField control={form.control} name="jobName" render={({ field }) => (
-              <FormItem>
-                <Label htmlFor="msJobName">Job Name</Label>
-                <Input id="msJobName" {...field} placeholder="e.g., Premium Product Box" />
-                <FormMessage>{form.formState.errors.jobName?.message}</FormMessage>
-              </FormItem>
-            )} />
-            <FormField control={form.control} name="customerName" render={({ field }) => (
-              <FormItem>
-                <Label htmlFor="msCustomerName">Client / Customer Name</Label>
-                <Input id="msCustomerName" {...field} placeholder="e.g., Acme Corp" />
-                <FormMessage>{form.formState.errors.customerName?.message}</FormMessage>
-              </FormItem>
-            )} />
-            <FormField control={form.control} name="dispatchDate" render={({ field }) => (
-              <FormItem className="flex flex-col">
-                <Label>Dispatch Date (Optional)</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
-                  </PopoverContent>
-                </Popover>
-                <FormMessage>{form.formState.errors.dispatchDate?.message}</FormMessage>
-              </FormItem>
-            )} />
-          </div>
+          <Form {...form}> {/* Form provider added here */}
+            <form className="space-y-4">
+              <FormField control={form.control} name="jobName" render={({ field }) => (
+                <FormItem>
+                  <FormLabel htmlFor="msJobName">Job Name</FormLabel>
+                  <FormControl>
+                    <Input id="msJobName" {...field} placeholder="e.g., Premium Product Box" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={form.control} name="customerName" render={({ field }) => (
+                <FormItem>
+                  <FormLabel htmlFor="msCustomerName">Client / Customer Name</FormLabel>
+                  <FormControl>
+                    <Input id="msCustomerName" {...field} placeholder="e.g., Acme Corp" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={form.control} name="dispatchDate" render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Dispatch Date (Optional)</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )} />
+            </form>
+          </Form>
         );
       case 2: // Job Specifications
         return (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-                <FormField control={form.control} name="jobSizeWidth" render={({ field }) => (
-                  <FormItem><Label htmlFor="msJobSizeWidth">Job Width (in)</Label><Input id="msJobSizeWidth" type="number" {...field} placeholder="e.g., 8.5" /><FormMessage>{form.formState.errors.jobSizeWidth?.message}</FormMessage></FormItem>
-                )} />
-                <FormField control={form.control} name="jobSizeHeight" render={({ field }) => (
-                  <FormItem><Label htmlFor="msJobSizeHeight">Job Height (in)</Label><Input id="msJobSizeHeight" type="number" {...field} placeholder="e.g., 11" /><FormMessage>{form.formState.errors.jobSizeHeight?.message}</FormMessage></FormItem>
-                )} />
-            </div>
-             <div className="grid grid-cols-2 gap-4">
-                <FormField control={form.control} name="netQuantity" render={({ field }) => (
-                  <FormItem><Label htmlFor="msNetQuantity">Net Quantity</Label><Input id="msNetQuantity" type="number" {...field} placeholder="e.g., 1000" /><FormMessage>{form.formState.errors.netQuantity?.message}</FormMessage></FormItem>
-                )} />
-                <FormField control={form.control} name="grossQuantity" render={({ field }) => (
-                  <FormItem><Label htmlFor="msGrossQuantity">Gross Quantity</Label><Input id="msGrossQuantity" type="number" {...field} placeholder="e.g., 1100" /><FormMessage>{form.formState.errors.grossQuantity?.message}</FormMessage></FormItem>
-                )} />
-            </div>
-            <FormField control={form.control} name="paperQuality" render={({ field }) => (
-              <FormItem>
-                <Label>Target Paper Quality</Label>
-                <Select onValueChange={(value) => { field.onChange(value); form.setValue("paperGsm", undefined); form.setValue("targetPaperThicknessMm", undefined); }} value={field.value || ""}>
-                  <SelectTrigger><SelectValue placeholder="Select paper quality" /></SelectTrigger>
-                  <SelectContent>
-                    {PAPER_QUALITY_OPTIONS.filter(opt => opt.value !== "").map(option => (
-                      <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage>{form.formState.errors.paperQuality?.message}</FormMessage>
-              </FormItem>
-            )} />
-            {targetPaperUnit === 'gsm' && (
-              <FormField control={form.control} name="paperGsm" render={({ field }) => (
-                <FormItem><Label htmlFor="msPaperGsm">Target Paper GSM</Label><Input id="msPaperGsm" type="number" {...field} placeholder="e.g., 300" /><FormMessage>{form.formState.errors.paperGsm?.message}</FormMessage></FormItem>
+          <Form {...form}> {/* Form provider added here */}
+            <form className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                  <FormField control={form.control} name="jobSizeWidth" render={({ field }) => (
+                    <FormItem><FormLabel htmlFor="msJobSizeWidth">Job Width (in)</FormLabel><FormControl><Input id="msJobSizeWidth" type="number" {...field} placeholder="e.g., 8.5" /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={form.control} name="jobSizeHeight" render={({ field }) => (
+                    <FormItem><FormLabel htmlFor="msJobSizeHeight">Job Height (in)</FormLabel><FormControl><Input id="msJobSizeHeight" type="number" {...field} placeholder="e.g., 11" /></FormControl><FormMessage /></FormItem>
+                  )} />
+              </div>
+               <div className="grid grid-cols-2 gap-4">
+                  <FormField control={form.control} name="netQuantity" render={({ field }) => (
+                    <FormItem><FormLabel htmlFor="msNetQuantity">Net Quantity</FormLabel><FormControl><Input id="msNetQuantity" type="number" {...field} placeholder="e.g., 1000" /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={form.control} name="grossQuantity" render={({ field }) => (
+                    <FormItem><FormLabel htmlFor="msGrossQuantity">Gross Quantity</FormLabel><FormControl><Input id="msGrossQuantity" type="number" {...field} placeholder="e.g., 1100" /></FormControl><FormMessage /></FormItem>
+                  )} />
+              </div>
+              <FormField control={form.control} name="paperQuality" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Target Paper Quality</FormLabel>
+                  <Select onValueChange={(value) => { field.onChange(value); form.setValue("paperGsm", undefined); form.setValue("targetPaperThicknessMm", undefined); }} value={field.value || ""}>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Select paper quality" /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      {PAPER_QUALITY_OPTIONS.filter(opt => opt.value !== "").map(option => (
+                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
               )} />
-            )}
-            {targetPaperUnit === 'mm' && (
-              <FormField control={form.control} name="targetPaperThicknessMm" render={({ field }) => (
-                <FormItem><Label htmlFor="msPaperThicknessMm">Target Paper Thickness (mm)</Label><Input id="msPaperThicknessMm" type="number" {...field} placeholder="e.g., 1.2" /><FormMessage>{form.formState.errors.targetPaperThicknessMm?.message}</FormMessage></FormItem>
-              )} />
-            )}
-          </div>
+              {targetPaperUnit === 'gsm' && (
+                <FormField control={form.control} name="paperGsm" render={({ field }) => (
+                  <FormItem><FormLabel htmlFor="msPaperGsm">Target Paper GSM</FormLabel><FormControl><Input id="msPaperGsm" type="number" {...field} placeholder="e.g., 300" /></FormControl><FormMessage /></FormItem>
+                )} />
+              )}
+              {targetPaperUnit === 'mm' && (
+                <FormField control={form.control} name="targetPaperThicknessMm" render={({ field }) => (
+                  <FormItem><FormLabel htmlFor="msPaperThicknessMm">Target Paper Thickness (mm)</FormLabel><FormControl><Input id="msPaperThicknessMm" type="number" {...field} placeholder="e.g., 1.2" /></FormControl><FormMessage /></FormItem>
+                )} />
+              )}
+            </form>
+          </Form>
         );
       case 3: // Additional Details
         return (
-          <div className="space-y-4">
-            <FormField control={form.control} name="remarks" render={({ field }) => (
-              <FormItem>
-                <Label htmlFor="msRemarks">Remarks (Optional)</Label>
-                <Textarea id="msRemarks" {...field} placeholder="Any additional notes or instructions..." rows={4} />
-                <FormMessage>{form.formState.errors.remarks?.message}</FormMessage>
-              </FormItem>
-            )} />
-          </div>
+          <Form {...form}> {/* Form provider added here */}
+            <form className="space-y-4">
+              <FormField control={form.control} name="remarks" render={({ field }) => (
+                <FormItem>
+                  <FormLabel htmlFor="msRemarks">Remarks (Optional)</FormLabel>
+                  <FormControl><Textarea id="msRemarks" {...field} placeholder="Any additional notes or instructions..." rows={4} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+            </form>
+          </Form>
         );
       case 4: // Review & Submit
         const formData = form.getValues();
