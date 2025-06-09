@@ -5,8 +5,20 @@ import type { JobCardFormValues, JobCardData, JobTemplateData, JobTemplateFormVa
 import { PAPER_QUALITY_OPTIONS, getPaperQualityLabel, INVENTORY_ADJUSTMENT_REASONS, KAPPA_MDF_QUALITIES, getPaperQualityUnit } from '@/lib/definitions';
 import { calculateUps } from '@/lib/calculateUps';
 import { revalidatePath } from 'next/cache';
+import { promises as fs } from 'fs';
+import path from 'path';
+
+// --- Mock Data File Paths ---
+const MOCK_DATA_DIR = path.join(process.cwd(), '.data');
+const MOCK_JOB_CARDS_FILE_PATH = path.join(MOCK_DATA_DIR, 'mock-job-cards.json');
+const MOCK_JOB_TEMPLATES_FILE_PATH = path.join(MOCK_DATA_DIR, 'mock-job-templates.json');
+const MOCK_INVENTORY_ITEMS_FILE_PATH = path.join(MOCK_DATA_DIR, 'mock-inventory-items.json');
+const MOCK_INVENTORY_ADJUSTMENTS_FILE_PATH = path.join(MOCK_DATA_DIR, 'mock-inventory-adjustments.json');
+const MOCK_DESIGN_SUBMISSIONS_FILE_PATH = path.join(MOCK_DATA_DIR, 'mock-design-submissions.json');
+
 
 declare global {
+  // Global stores for in-memory caching after initial load
   var __jobCards__: JobCardData[] | undefined;
   var __jobCounter__: number | undefined;
   var __jobTemplatesStore__: JobTemplateData[] | undefined;
@@ -21,40 +33,99 @@ declare global {
   var __jobSeriesCounter__: number | undefined;
 }
 
-if (global.__jobCards__ === undefined) global.__jobCards__ = [];
-if (global.__jobCounter__ === undefined) global.__jobCounter__ = 1;
+// --- Helper Functions for File Operations ---
+async function ensureDataDirectoryExists(): Promise<void> {
+  try {
+    await fs.mkdir(MOCK_DATA_DIR, { recursive: true });
+  } catch (error: any) {
+    if (error.code !== 'EEXIST') {
+      console.error('[JobActions] Error creating mock data directory:', error);
+    }
+  }
+}
 
-// For new series-based job card numbering
-if (global.__jobSeriesLetter__ === undefined) global.__jobSeriesLetter__ = 'A';
-if (global.__jobSeriesCounter__ === undefined) global.__jobSeriesCounter__ = 1;
+async function loadMockData<T>(filePath: string, defaultData: T[] = []): Promise<T[]> {
+  await ensureDataDirectoryExists();
+  try {
+    const fileContent = await fs.readFile(filePath, 'utf-8');
+    const data = JSON.parse(fileContent) as T[];
+    console.log(`[JobActions] Loaded ${data.length} items from ${filePath}`);
+    return data;
+  } catch (error: any) {
+    if (error.code === 'ENOENT') {
+      console.log(`[JobActions] File ${filePath} not found. Initializing with default data and creating file.`);
+      await saveMockData(filePath, defaultData); // Create file with default data
+      return defaultData;
+    }
+    console.error(`[JobActions] Error reading ${filePath}:`, error);
+    return defaultData; // Fallback to default on other errors
+  }
+}
+
+async function saveMockData<T>(filePath: string, data: T[]): Promise<void> {
+  await ensureDataDirectoryExists();
+  try {
+    await fs.writeFile(filePath, JSON.stringify(data, null, 2), 'utf-8');
+    console.log(`[JobActions] Saved ${data.length} items to ${filePath}`);
+  } catch (error) {
+    console.error(`[JobActions] Error writing ${filePath}:`, error);
+  }
+}
+
+// --- Initialize Global Stores and Counters from Files ---
+(async () => {
+  // Job Cards
+  if (global.__jobCards__ === undefined) {
+    global.__jobCards__ = await loadMockData<JobCardData>(MOCK_JOB_CARDS_FILE_PATH, []);
+    global.__jobCounter__ = (global.__jobCards__.length > 0 ? Math.max(...global.__jobCards__.map(j => parseInt(j.id!))) : 0) + 1;
+  }
+  if (global.__jobSeriesLetter__ === undefined) global.__jobSeriesLetter__ = 'A';
+  if (global.__jobSeriesCounter__ === undefined) {
+    // Determine next series counter based on existing job card numbers
+    if (global.__jobCards__.length > 0) {
+        const latestJobCard = global.__jobCards__
+            .filter(jc => jc.jobCardNumber && jc.jobCardNumber.startsWith(`JC-${global.__jobSeriesLetter__}-`))
+            .sort((a, b) => {
+                const numA = parseInt(a.jobCardNumber!.split('-')[2]);
+                const numB = parseInt(b.jobCardNumber!.split('-')[2]);
+                return numB - numA;
+            })[0];
+        global.__jobSeriesCounter__ = latestJobCard ? parseInt(latestJobCard.jobCardNumber!.split('-')[2]) + 1 : 1;
+    } else {
+        global.__jobSeriesCounter__ = 1;
+    }
+  }
 
 
-const initialJobTemplates: JobTemplateData[] = [
+  // Job Templates
+  const initialJobTemplates: JobTemplateData[] = [
     { id: 'template1', name: 'Golden Tray (Predefined)', kindOfJob: 'METPET', coating: 'VARNISH_GLOSS', hotFoilStamping: 'GOLDEN', paperQuality: 'GOLDEN_SHEET', predefinedWorkflow: [] },
     { id: 'template2', name: 'Rigid Top and Bottom Box (Predefined)', boxMaking: 'COMBINED', pasting: 'YES', paperQuality: 'WG_KAPPA', predefinedWorkflow: [] },
     { id: 'template3', name: 'Monocarton Box (Predefined)', kindOfJob: 'NORMAL', paperQuality: 'SBS', predefinedWorkflow: [] },
-];
-if (global.__jobTemplatesStore__ === undefined) global.__jobTemplatesStore__ = [...initialJobTemplates];
-if (global.__templateCounter__ === undefined) global.__templateCounter__ = initialJobTemplates.length + 1;
+  ];
+  if (global.__jobTemplatesStore__ === undefined) {
+    global.__jobTemplatesStore__ = await loadMockData<JobTemplateData>(MOCK_JOB_TEMPLATES_FILE_PATH, initialJobTemplates);
+    global.__templateCounter__ = (global.__jobTemplatesStore__.length > 0 ? Math.max(...global.__jobTemplatesStore__.map(t => parseInt(t.id.replace('template', '')))) : 0) + 1;
+  }
 
-if (global.__inventoryItemsStore__ === undefined) {
-  console.log('[InventoryManagement] Initializing global master inventory items store.');
-  global.__inventoryItemsStore__ = [];
-}
-if (global.__inventoryCounter__ === undefined) {
-  global.__inventoryCounter__ = 1;
-}
+  // Inventory Items
+  if (global.__inventoryItemsStore__ === undefined) {
+    global.__inventoryItemsStore__ = await loadMockData<InventoryItem>(MOCK_INVENTORY_ITEMS_FILE_PATH, []);
+    global.__inventoryCounter__ = (global.__inventoryItemsStore__.length > 0 ? Math.max(...global.__inventoryItemsStore__.map(i => parseInt(i.id.replace('inv', '')))) : 0) + 1;
+  }
 
-if (global.__inventoryAdjustmentsStore__ === undefined) {
-  console.log('[InventoryManagement] Initializing global inventory adjustments store.');
-  global.__inventoryAdjustmentsStore__ = [];
-}
-if (global.__adjustmentCounter__ === undefined) {
-  global.__adjustmentCounter__ = 1;
-}
+  // Inventory Adjustments
+  if (global.__inventoryAdjustmentsStore__ === undefined) {
+    global.__inventoryAdjustmentsStore__ = await loadMockData<InventoryAdjustment>(MOCK_INVENTORY_ADJUSTMENTS_FILE_PATH, []);
+    global.__adjustmentCounter__ = (global.__inventoryAdjustmentsStore__.length > 0 ? Math.max(...global.__inventoryAdjustmentsStore__.map(a => parseInt(a.id.replace('adj', '')))) : 0) + 1;
+  }
 
-if (global.__designSubmissionsStore__ === undefined) global.__designSubmissionsStore__ = [];
-if (global.__designSubmissionCounter__ === undefined) global.__designSubmissionCounter__ = 1;
+  // Design Submissions
+  if (global.__designSubmissionsStore__ === undefined) {
+    global.__designSubmissionsStore__ = await loadMockData<DesignSubmission>(MOCK_DESIGN_SUBMISSIONS_FILE_PATH, []);
+    global.__designSubmissionCounter__ = (global.__designSubmissionsStore__.length > 0 ? Math.max(...global.__designSubmissionsStore__.map(d => parseInt(d.id.replace('ds-', '')))) : 0) + 1;
+  }
+})();
 
 
 function generateJobCardNumber(): string {
@@ -66,18 +137,25 @@ function generateJobCardNumber(): string {
   const sequentialNumber = global.__jobSeriesCounter__!.toString().padStart(3, '0');
   const jobCardNumber = `JC-${global.__jobSeriesLetter__}-${sequentialNumber}`;
   
-  global.__jobSeriesCounter__!++; // Increment for the next call
+  global.__jobSeriesCounter__!++;
 
   return jobCardNumber;
 }
 
 export async function createJobCard(data: JobCardFormValues): Promise<{ success: boolean; message: string; jobCard?: JobCardData }> {
   try {
-    const currentJobCounter = global.__jobCounter__!; // For internal unique ID
+    if (!global.__jobCards__) global.__jobCards__ = []; // Ensure store exists
+    if (!global.__jobCounter__) global.__jobCounter__ = 1;
+    if (!global.__inventoryItemsStore__) global.__inventoryItemsStore__ = [];
+    if (!global.__inventoryAdjustmentsStore__) global.__inventoryAdjustmentsStore__ = [];
+    if (!global.__adjustmentCounter__) global.__adjustmentCounter__ = 1;
+
+
+    const currentJobCounter = global.__jobCounter__!;
     const newJobCard: JobCardData = {
       ...data,
-      id: currentJobCounter.toString(), // Internal unique ID
-      jobCardNumber: generateJobCardNumber(), // New series-based number
+      id: currentJobCounter.toString(),
+      jobCardNumber: generateJobCardNumber(),
       date: new Date().toISOString().split('T')[0], 
       cuttingLayoutDescription: data.cuttingLayoutDescription,
       sheetsPerMasterSheet: data.sheetsPerMasterSheet,
@@ -93,7 +171,8 @@ export async function createJobCard(data: JobCardFormValues): Promise<{ success:
       pdfDataUri: data.pdfDataUri,
     };
     global.__jobCards__!.push(newJobCard);
-    global.__jobCounter__ = currentJobCounter + 1; // Increment internal unique ID counter
+    global.__jobCounter__ = currentJobCounter + 1;
+    await saveMockData<JobCardData>(MOCK_JOB_CARDS_FILE_PATH, global.__jobCards__!);
 
     if (data.sourceInventoryItemId && data.totalMasterSheetsNeeded && data.totalMasterSheetsNeeded > 0) {
       const itemExists = global.__inventoryItemsStore__!.some(item => item.id === data.sourceInventoryItemId);
@@ -108,6 +187,7 @@ export async function createJobCard(data: JobCardFormValues): Promise<{ success:
           notes: `Used for job: ${newJobCard.jobName}`,
         };
         global.__inventoryAdjustmentsStore__!.push(adjustment);
+        await saveMockData<InventoryAdjustment>(MOCK_INVENTORY_ADJUSTMENTS_FILE_PATH, global.__inventoryAdjustmentsStore__!);
         console.log(`[InventoryManagement] Stock adjustment for Job ${newJobCard.jobCardNumber}: Item ID ${data.sourceInventoryItemId}, Quantity: ${-data.totalMasterSheetsNeeded}`);
       } else {
         console.warn(`[JobActions] Inventory item ID ${data.sourceInventoryItemId} not found for stock deduction for job ${newJobCard.jobCardNumber}. Stock not deducted.`);
@@ -117,7 +197,7 @@ export async function createJobCard(data: JobCardFormValues): Promise<{ success:
     console.log('[JobActions] Created job card:', newJobCard.jobCardNumber, 'with workflow:', newJobCard.workflowSteps);
     revalidatePath('/jobs');
     revalidatePath('/jobs/new');
-    revalidatePath('/inventory');
+    revalidatePath('/inventory', 'layout');
     revalidatePath('/planning');
     revalidatePath('/customer/my-jobs');
     return { success: true, message: 'Job card created successfully!', jobCard: newJobCard };
@@ -129,10 +209,16 @@ export async function createJobCard(data: JobCardFormValues): Promise<{ success:
 }
 
 export async function getJobCards(): Promise<JobCardData[]> {
+  if (!global.__jobCards__) { // Should be initialized by IIFE, but as fallback
+      global.__jobCards__ = await loadMockData<JobCardData>(MOCK_JOB_CARDS_FILE_PATH, []);
+  }
   return [...(global.__jobCards__ || [])];
 }
 
 export async function getJobCardById(id: string): Promise<JobCardData | null> {
+  if (!global.__jobCards__) {
+      global.__jobCards__ = await loadMockData<JobCardData>(MOCK_JOB_CARDS_FILE_PATH, []);
+  }
   const job = global.__jobCards__?.find(job => job.id === id);
   return job || null;
 }
@@ -279,11 +365,17 @@ export async function getInventoryOptimizationSuggestions(
 
 
 export async function getJobTemplates(): Promise<JobTemplateData[]> {
+  if (!global.__jobTemplatesStore__) {
+    global.__jobTemplatesStore__ = await loadMockData<JobTemplateData>(MOCK_JOB_TEMPLATES_FILE_PATH, []);
+  }
   return [...global.__jobTemplatesStore__!];
 }
 
 export async function createJobTemplate(data: JobTemplateFormValues): Promise<{ success: boolean; message: string; template?: JobTemplateData }> {
   try {
+    if (!global.__jobTemplatesStore__) global.__jobTemplatesStore__ = [];
+    if (!global.__templateCounter__) global.__templateCounter__ = 1;
+
     const currentTemplateCounter = global.__templateCounter__!;
     const newTemplate: JobTemplateData = {
       ...data,
@@ -292,6 +384,7 @@ export async function createJobTemplate(data: JobTemplateFormValues): Promise<{ 
     };
     global.__jobTemplatesStore__!.push(newTemplate);
     global.__templateCounter__ = currentTemplateCounter + 1;
+    await saveMockData<JobTemplateData>(MOCK_JOB_TEMPLATES_FILE_PATH, global.__jobTemplatesStore__!);
 
     console.log('[JobActions] Created job template:', newTemplate.name, 'with workflow:', newTemplate.predefinedWorkflow);
     revalidatePath('/templates');
@@ -306,13 +399,13 @@ export async function createJobTemplate(data: JobTemplateFormValues): Promise<{ 
 }
 
 export async function getUniqueCustomerNames(): Promise<string[]> {
-  const jobs = await getJobCards();
+  const jobs = await getJobCards(); // This will load job cards from file if not already in memory
   const customerNames = new Set(jobs.map(job => job.customerName));
   return Array.from(customerNames).sort();
 }
 
 export async function getJobsByCustomerName(customerName: string): Promise<JobCardData[]> {
-  const jobs = await getJobCards();
+  const jobs = await getJobCards(); // This will load job cards from file if not already in memory
   return jobs.filter(job => job.customerName === customerName).sort((a, b) => {
     const dateA = new Date(a.date).getTime();
     const dateB = new Date(b.date).getTime();
@@ -462,6 +555,7 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
         locationCode: data.locationCode, 
       };
       global.__inventoryItemsStore__!.push(newItemMaster);
+      await saveMockData<InventoryItem>(MOCK_INVENTORY_ITEMS_FILE_PATH, global.__inventoryItemsStore__!);
       itemForMessage = newItemMaster;
     }
 
@@ -478,6 +572,7 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
             purchaseBillNo: data.purchaseBillNo,
         };
         global.__inventoryAdjustmentsStore__!.push(adjustment);
+        await saveMockData<InventoryAdjustment>(MOCK_INVENTORY_ADJUSTMENTS_FILE_PATH, global.__inventoryAdjustmentsStore__!);
     } else if (adjustmentReason === 'INITIAL_STOCK' && data.quantity === 0) {
         const adjustment: InventoryAdjustment = {
             id: `adj${global.__adjustmentCounter__!++}`,
@@ -491,11 +586,12 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
             purchaseBillNo: data.purchaseBillNo,
         };
         global.__inventoryAdjustmentsStore__!.push(adjustment);
+        await saveMockData<InventoryAdjustment>(MOCK_INVENTORY_ADJUSTMENTS_FILE_PATH, global.__inventoryAdjustmentsStore__!);
     }
 
 
     console.log(`[InventoryManagement] ${existingItem ? 'Added to' : 'Created'} item: ${itemForMessage!.name}. Transaction Quantity: ${data.quantity}. Location: ${itemForMessage.locationCode}`);
-    revalidatePath('/inventory'); 
+    revalidatePath('/inventory', 'layout'); 
     revalidatePath(`/inventory/${data.category.toLowerCase()}`);
     revalidatePath('/inventory/new-purchase');
     revalidatePath('/inventory/new-adjustment');
@@ -509,8 +605,12 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
 
 
 export async function getInventoryItems(categoryFilter?: InventoryCategory): Promise<InventoryItem[]> {
-  if (!global.__inventoryItemsStore__) global.__inventoryItemsStore__ = [];
-  if (!global.__inventoryAdjustmentsStore__) global.__inventoryAdjustmentsStore__ = [];
+  if (!global.__inventoryItemsStore__) {
+    global.__inventoryItemsStore__ = await loadMockData<InventoryItem>(MOCK_INVENTORY_ITEMS_FILE_PATH, []);
+  }
+  if (!global.__inventoryAdjustmentsStore__) {
+    global.__inventoryAdjustmentsStore__ = await loadMockData<InventoryAdjustment>(MOCK_INVENTORY_ADJUSTMENTS_FILE_PATH, []);
+  }
 
   let itemsToProcess = global.__inventoryItemsStore__!;
   if (categoryFilter) {
@@ -537,7 +637,7 @@ export async function getInventoryItems(categoryFilter?: InventoryCategory): Pro
 
 export async function getInventoryAdjustmentsForItem(inventoryItemId: string): Promise<InventoryAdjustment[]> {
   if (!global.__inventoryAdjustmentsStore__) {
-    return [];
+    global.__inventoryAdjustmentsStore__ = await loadMockData<InventoryAdjustment>(MOCK_INVENTORY_ADJUSTMENTS_FILE_PATH, []);
   }
   const adjustments = global.__inventoryAdjustmentsStore__!
     .filter(adj => adj.inventoryItemId === inventoryItemId)
@@ -549,6 +649,7 @@ export async function getInventoryAdjustmentsForItem(inventoryItemId: string): P
 export async function applyInventoryAdjustments(
   adjustments: Array<Omit<InventoryAdjustmentItemFormValues, 'itemNameFull'>>
 ): Promise<{ success: boolean; message: string; errors?: { itemIndex: number; message: string }[] }> {
+  if (!global.__inventoryItemsStore__) global.__inventoryItemsStore__ = [];
   if (!global.__inventoryAdjustmentsStore__) global.__inventoryAdjustmentsStore__ = [];
   if (!global.__adjustmentCounter__) global.__adjustmentCounter__ = 1;
 
@@ -577,7 +678,6 @@ export async function applyInventoryAdjustments(
       reference: `ADJ-${new Date().toISOString().substring(0, 10)}-${global.__adjustmentCounter__}`, // Generic reference
     };
     global.__inventoryAdjustmentsStore__!.push(newAdjustmentRecord);
-    console.log(`[InventoryManagement] Applied adjustment for Item ID ${adjItem.inventoryItemId}: Qty ${adjItem.quantityChange}, Reason: ${adjItem.reason}`);
   }
 
   if (batchErrors.length > 0) {
@@ -588,7 +688,10 @@ export async function applyInventoryAdjustments(
     };
   }
 
-  revalidatePath('/inventory', 'layout'); // Revalidate all inventory paths
+  await saveMockData<InventoryAdjustment>(MOCK_INVENTORY_ADJUSTMENTS_FILE_PATH, global.__inventoryAdjustmentsStore__!);
+  console.log(`[InventoryManagement] Applied ${adjustments.length} adjustments and saved to file.`);
+
+  revalidatePath('/inventory', 'layout');
   return { success: true, message: `${adjustments.length} inventory adjustment(s) applied successfully.` };
 }
 
@@ -597,19 +700,22 @@ export async function applyInventoryAdjustments(
 export async function addDesignSubmissionInternal(
   submissionDetails: Omit<DesignSubmission, 'id' | 'status' | 'date' | 'uploader'>
 ): Promise<DesignSubmission> {
+  if (!global.__designSubmissionsStore__) global.__designSubmissionsStore__ = [];
+  if (!global.__designSubmissionCounter__) global.__designSubmissionCounter__ = 1;
+
   const newId = `ds-${global.__designSubmissionCounter__!++}`;
   const newSubmission: DesignSubmission = {
     ...submissionDetails,
     id: newId,
     status: "pending",
     date: new Date().toISOString(),
-    uploader: "Current User", // Or derive from auth if available
-    // plateType, colorProfile, otherColorProfileDetail are passed in submissionDetails
+    uploader: "Current User", 
   };
   global.__designSubmissionsStore__!.push(newSubmission);
+  await saveMockData<DesignSubmission>(MOCK_DESIGN_SUBMISSIONS_FILE_PATH, global.__designSubmissionsStore__!);
   console.log('[JobActions] Added design submission:', newSubmission.id, newSubmission.pdfName, 'PlateType:', newSubmission.plateType);
   revalidatePath('/for-approval');
-  revalidatePath('/jobs/new'); // In case approved designs list needs update
+  revalidatePath('/jobs/new'); 
   return newSubmission;
 }
 
@@ -617,12 +723,15 @@ export async function updateDesignSubmissionStatus(
   id: string,
   status: "approved" | "rejected"
 ): Promise<{ success: boolean; submission?: DesignSubmission, message?: string }> {
+  if (!global.__designSubmissionsStore__) global.__designSubmissionsStore__ = [];
+
   const submissionIndex = global.__designSubmissionsStore__!.findIndex(s => s.id === id);
   if (submissionIndex === -1) {
     return { success: false, message: "Submission not found." };
   }
   global.__designSubmissionsStore__![submissionIndex].status = status;
-  global.__designSubmissionsStore__![submissionIndex].date = new Date().toISOString(); // Update date on status change
+  global.__designSubmissionsStore__![submissionIndex].date = new Date().toISOString(); 
+  await saveMockData<DesignSubmission>(MOCK_DESIGN_SUBMISSIONS_FILE_PATH, global.__designSubmissionsStore__!);
   
   console.log('[JobActions] Updated design submission status:', id, status);
   revalidatePath('/for-approval');
@@ -631,10 +740,16 @@ export async function updateDesignSubmissionStatus(
 }
 
 export async function getDesignSubmissions(): Promise<DesignSubmission[]> {
+  if (!global.__designSubmissionsStore__) {
+    global.__designSubmissionsStore__ = await loadMockData<DesignSubmission>(MOCK_DESIGN_SUBMISSIONS_FILE_PATH, []);
+  }
   return [...(global.__designSubmissionsStore__ || [])];
 }
 
 export async function getApprovedDesigns(): Promise<DesignSubmission[]> {
+  if (!global.__designSubmissionsStore__) {
+    global.__designSubmissionsStore__ = await loadMockData<DesignSubmission>(MOCK_DESIGN_SUBMISSIONS_FILE_PATH, []);
+  }
   return (global.__designSubmissionsStore__ || []).filter(s => s.status === 'approved');
 }
 
