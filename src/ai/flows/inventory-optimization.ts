@@ -15,7 +15,7 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import type { OptimizeInventoryOutput as ImportedOptimizeInventoryOutput } from '@/lib/definitions';
 import { KAPPA_MDF_QUALITIES, getPaperQualityUnit } from '@/lib/definitions';
-import { countUpsWithMaxrects } from '@/lib/packing'; // Import the new packer
+import { countUpsWithMaxrects } from '@/lib/packing';
 
 
 const AvailableSheetSchema = z.object({
@@ -216,16 +216,22 @@ function calculateMaxGuillotineUps(jobW: number, jobH: number, sheetW: number, s
     }
     
     // Strategy 3: Check Macro Staggered Layout
-    console.log(`[GuillotineCalc] Calling Macro Staggered for job orient ${orient.label} (${orient.w}x${orient.h}) on sheet ${sheetW}x${sheetH}`);
+    console.log(`[GuillotineCalc][S3] === Macro Staggered Check for Job Orient: ${orient.label} (${orient.w}x${orient.h}) on Sheet ${sheetW}x${sheetH} ===`);
+    console.log(`[GuillotineCalc][S3] Current maxUps BEFORE staggered: ${maxUps}, bestLayout: ${bestLayout}`);
     const staggeredResult = calculateMacroStaggeredUpsFixedInternal(orient.w, orient.h, sheetW, sheetH);
-    console.log(`[GuillotineCalc] Macro Staggered result for job orient ${orient.label}: ${staggeredResult.ups} ups, desc: ${staggeredResult.description}`);
+    console.log(`[GuillotineCalc][S3] Macro Staggered Raw Result: Ups=${staggeredResult.ups}, Desc='${staggeredResult.description}'`);
+    
     if (staggeredResult.ups > maxUps) {
-        maxUps = staggeredResult.ups;
-        bestLayout = `${staggeredResult.description} (macro staggered ${orient.label})`;
-        console.log(`[GuillotineCalc] Macro Staggered New best: ${maxUps} ups, layout: ${bestLayout}`);
+      console.log(`[GuillotineCalc][S3] !!! NEW BEST from Macro Staggered !!! Ups: ${staggeredResult.ups} (was ${maxUps}). Adopting.`);
+      maxUps = staggeredResult.ups;
+      bestLayout = `${staggeredResult.description} (macro staggered ${orient.label})`;
+    } else {
+      console.log(`[GuillotineCalc][S3] Macro Staggered (${staggeredResult.ups} ups) did NOT beat current maxUps (${maxUps}). No change to maxUps.`);
     }
+    console.log(`[GuillotineCalc][S3] Current maxUps AFTER staggered for this orient: ${maxUps}, bestLayout: ${bestLayout}`);
+    console.log(`[GuillotineCalc][S3] === END Macro Staggered Check for Job Orient: ${orient.label} ===`);
   }
-  console.log(`[GuillotineCalc] Final result for job ${jobW}x${jobH} on sheet ${sheetW}x${sheetH}: ${maxUps} ups, layout: ${bestLayout}`);
+  console.log(`[GuillotineCalc] FINAL Max Ups for job ${jobW}x${jobH} on sheet ${sheetW}x${sheetH} after all orientations: ${maxUps}, Layout: ${bestLayout}`);
   return { ups: maxUps, description: bestLayout };
 }
 
@@ -415,10 +421,10 @@ async function get2DBinPackingLayoutSuggestions(
     let bestLayoutDesc = "N/A";
     let effectiveSheetW = sheet.masterSheetSizeWidth;
     let effectiveSheetH = sheet.masterSheetSizeHeight;
-    const allowRotationForPacker = true; // MaxRectsPacker specific option
+    const allowRotationForPacker = true; 
 
     // Calculate for original master sheet orientation
-    console.log(`[BinPackingStrategy] Sheet ID ${sheet.id}: Calculating for original orientation (${sheet.masterSheetSizeWidth}x${sheet.masterSheetSizeHeight}) using MaxRects.`);
+    console.log(`[BinPackingStrategy] Sheet ID ${sheet.id}: Calculating for original orientation (${sheet.masterSheetSizeWidth}x${sheet.masterSheetSizeHeight}) using MaxRects. Job: ${jobSizeWidth}x${jobSizeHeight}`);
     const resOrig = countUpsWithMaxrects(
       jobSizeWidth, 
       jobSizeHeight, 
@@ -436,12 +442,12 @@ async function get2DBinPackingLayoutSuggestions(
 
     // Calculate for rotated master sheet orientation (if not square)
     if (Math.abs(sheet.masterSheetSizeWidth - sheet.masterSheetSizeHeight) > epsilon) {
-      console.log(`[BinPackingStrategy] Sheet ID ${sheet.id}: Calculating for rotated orientation (${sheet.masterSheetSizeHeight}x${sheet.masterSheetSizeWidth}) using MaxRects.`);
+      console.log(`[BinPackingStrategy] Sheet ID ${sheet.id}: Calculating for rotated orientation (${sheet.masterSheetSizeHeight}x${sheet.masterSheetSizeWidth}) using MaxRects. Job: ${jobSizeWidth}x${jobSizeHeight}`);
       const resRot = countUpsWithMaxrects(
         jobSizeWidth, 
         jobSizeHeight, 
-        sheet.masterSheetSizeHeight, // Swapped
-        sheet.masterSheetSizeWidth,  // Swapped
+        sheet.masterSheetSizeHeight, 
+        sheet.masterSheetSizeWidth,  
         allowRotationForPacker
       );
       console.log(`[BinPackingStrategy] Sheet ID ${sheet.id} (Rotated Orient - MaxRects): Ups=${resRot.ups}, Layout='${resRot.layoutDescription}'`);
@@ -538,3 +544,5 @@ const optimizeInventoryFlow = ai.defineFlow(
     
 
       
+
+    
