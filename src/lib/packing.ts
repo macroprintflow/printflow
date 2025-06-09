@@ -1,6 +1,6 @@
 
 // src/lib/packing.ts
-import { MaxRectsPacker } from 'maxrects-packer';
+import { MaxRectsPacker, type MaxRectsPackerOptions } from 'maxrects-packer';
 
 /**
  * Return the maximum #ups that fit onto ONE master sheet using MaxRectsPacker.
@@ -19,29 +19,32 @@ export function countUpsWithMaxrects(
 ): { ups: number; layoutDescription: string } {
   console.log(`[countUpsWithMaxrects] Inputs: jobWIn=${jobWIn}, jobHIn=${jobHIn}, sheetWIn=${sheetWIn}, sheetHIn=${sheetHIn}, allowRotation=${allowRotation}`);
 
-  const SCALE = 100;                 // hundredth-inch resolution
+  const SCALE = 1000; // Increased for finer precision (0.001-inch resolution)
   const jobW_scaled   = Math.round(jobWIn   * SCALE);
   const jobH_scaled   = Math.round(jobHIn   * SCALE);
   const sheetW_scaled = Math.round(sheetWIn * SCALE);
   const sheetH_scaled = Math.round(sheetHIn * SCALE);
 
-  console.log(`[countUpsWithMaxrects] Scaled: jobW_scaled=${jobW_scaled}, jobH_scaled=${jobH_scaled}, sheetW_scaled=${sheetW_scaled}, sheetH_scaled=${sheetH_scaled}`);
+  console.log(`[countUpsWithMaxrects] Scaled (x${SCALE}): jobW_scaled=${jobW_scaled}, jobH_scaled=${jobH_scaled}, sheetW_scaled=${sheetW_scaled}, sheetH_scaled=${sheetH_scaled}`);
 
   if (jobW_scaled <= 0 || jobH_scaled <= 0 || sheetW_scaled <= 0 || sheetH_scaled <= 0) {
     console.warn(`[countUpsWithMaxrects] Invalid zero or negative scaled dimension. Job: ${jobW_scaled}x${jobH_scaled}, Sheet: ${sheetW_scaled}x${sheetH_scaled}. Returning 0 ups.`);
     return { ups: 0, layoutDescription: "Invalid dimensions" };
   }
 
-  const packerOptions = {
-    smart: true,     // Tries to look ahead to find better packing. Default true.
-    pot: false,      // Power of Two. Set to false to ensure rotation is not hindered.
+  const packerOptions: MaxRectsPackerOptions = {
+    smart: true,     // Tries to look ahead to find better packing.
+    pot: false,      // Power of Two. Set to false for irregular sizes and rotation.
     allowRotation,   // Whether rectangles can be rotated.
+    // logic: 0, // MAX_AREA - If library supported it, could be an option. MaxRectsPacker uses 'smart'.
   };
   
   const packer = new MaxRectsPacker(sheetW_scaled, sheetH_scaled, 0, packerOptions);
-
-  // Using 20 as per user's REPL test that yields 8 ups.
+  
+  // Use a fixed, sufficiently large number of rectangles to test packing capacity.
+  // 20 was from user's 8-up REPL test. For 5-up, 20 is also plenty.
   const MAX_ITEMS_TO_TEST = 20; 
+  console.log(`[countUpsWithMaxrects] Attempting to pack up to ${MAX_ITEMS_TO_TEST} items.`);
   
   const rectangles = Array.from({ length: MAX_ITEMS_TO_TEST }, (_, i) => ({
     width:  jobW_scaled,
@@ -50,9 +53,10 @@ export function countUpsWithMaxrects(
   }));
   
   packer.addArray(rectangles);
+  packer.repack(false); // Attempt to optimize the packing further.
 
   const placedCount = packer.bins[0]?.rects.length ?? 0;
-  const layoutDesc = `MaxRects: ${placedCount} ups (rotation ${allowRotation ? 'enabled' : 'disabled'})`;
+  const layoutDesc = `MaxRects: ${placedCount} ups (rotation ${allowRotation ? 'enabled' : 'disabled'}, SCALE=${SCALE})`;
   console.log(`[countUpsWithMaxrects] Result: { ups: ${placedCount}, layoutDescription: "${layoutDesc}" }`);
 
   return {
