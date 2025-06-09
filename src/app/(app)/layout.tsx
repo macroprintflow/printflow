@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/sidebar';
 import AppLogo from '@/components/AppLogo';
 import { Header } from '@/components/layout/Header';
-import { LayoutDashboard, Briefcase, FileUp, FilePlus2, CalendarCheck2, ClipboardList, UserCircle, Settings, Archive, LogOut, type LucideIcon, ShoppingBag, Check, Loader2, ChevronRight, ListChecks, ChevronDown, Users, UserRoundPlus } from 'lucide-react';
+import { LayoutDashboard, Briefcase, FileUp, FilePlus2, CalendarCheck2, ClipboardList, UserCircle, Settings, Archive, LogOut, type LucideIcon, ShoppingBag, Check, Loader2, ChevronRight, ListChecks, ChevronDown, Users, UserRoundPlus, Terminal } from 'lucide-react'; // Added Terminal
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -45,6 +45,8 @@ import { auth } from '@/lib/firebase/clientApp';
 import { useToast } from '@/hooks/use-toast';
 import type { UserRole } from '@/lib/definitions';
 import { AddCustomerDialog } from '@/components/customer/AddCustomerDialog';
+import { ConsoleProvider } from '@/contexts/ConsoleContext'; // Import ConsoleProvider
+import { ConsoleLogViewer } from '@/components/dev/ConsoleLogViewer'; // Import ConsoleLogViewer
 
 interface NavItem {
   href: string;
@@ -67,7 +69,6 @@ const allNavItems: NavItem[] = [
 
 const ADMIN_EMAIL = "kuvam@macroprinters.com".toLowerCase();
 const MANAGER_EMAIL = "niharikasehgal0512@gmail.com".toLowerCase();
-// Changed DEPARTMENTAL_EMAIL to a dummy value to make niharikasehgal@icloud.com a Customer by default
 const DEPARTMENTAL_EMAIL = "departmental-user@example.com".toLowerCase();
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -84,6 +85,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [isJobsSubmenuOpen, setIsJobsSubmenuOpen] = React.useState(pathname.startsWith('/jobs'));
   const [isCustomersSubmenuOpen, setIsCustomersSubmenuOpen] = React.useState(pathname.startsWith('/customers') || pathname === ('/customers/new'));
   const [isAddCustomerDialogOpen, setIsAddCustomerDialogOpen] = React.useState(false);
+  const [isConsoleViewerOpen, setIsConsoleViewerOpen] = React.useState(false); // State for console viewer
 
 
   React.useEffect(() => {
@@ -121,9 +123,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         roleToSet = "Admin";
       } else if (userEmailLower === MANAGER_EMAIL) {
         roleToSet = "Manager";
-      } else if (userEmailLower === DEPARTMENTAL_EMAIL) { // This will now match "departmental-user@example.com"
+      } else if (userEmailLower === DEPARTMENTAL_EMAIL) {
         roleToSet = "Departmental";
-      } else { // "niharikasehgal@icloud.com" will fall here
+      } else { 
         roleToSet = "Customer";
       }
 
@@ -166,15 +168,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           !pathname.startsWith('/login') && 
           !pathname.startsWith('/signup') && 
           !pathname.startsWith('/profile') && 
-          !pathname.startsWith('/settings') // Added /settings here
+          !pathname.startsWith('/settings') 
          ) {
         const isDefaultRouteVisible = visibleNavItems.some(item => item.href === roleDefaultRoute || (item.href === '#jobs-trigger' && roleDefaultRoute.startsWith('/jobs')) || (item.href === '#customers-trigger' && roleDefaultRoute.startsWith('/customers')));
         if (isDefaultRouteVisible) {
           router.replace(roleDefaultRoute);
         } else {
-          // This case implies the user's default route isn't even in their visible items,
-          // which could happen if roles change and permissions become misaligned.
-          // Logging out is a safe fallback.
           handleLogout();
         }
       }
@@ -188,7 +187,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       await signOut(auth);
       toast({ title: 'Logged Out', description: 'You have been successfully logged out.' });
       setIsRoleFromDevTool(false);
-      setEffectiveUserRole("Customer"); // Reset to a default non-privileged role
+      setEffectiveUserRole("Customer"); 
       router.push('/login');
     } catch (error) {
       console.error("Logout error:", error);
@@ -198,9 +197,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const handleRoleSwitch = (newRole: UserRole) => {
     setEffectiveUserRole(newRole);
-    setIsRoleFromDevTool(true); // Mark that the role was changed via dev tool
+    setIsRoleFromDevTool(true); 
     toast({ title: 'Dev Tool: Role Switched', description: `Viewing as ${newRole}. (Session only)`});
-    // No immediate redirect here; let the main useEffect handle it based on the new role.
   };
 
   if (loading || isLoadingRole || (!user && pathname !== '/login' && pathname !== '/signup')) {
@@ -212,14 +210,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   if (!user && (pathname === '/login' || pathname === '/signup')) {
-     // User is not logged in, but is on login/signup page. Render children (the login/signup page).
-     return <ClientOnlyWrapper>{children}</ClientOnlyWrapper>;
+     return <ClientOnlyWrapper><ConsoleProvider>{children}</ConsoleProvider></ClientOnlyWrapper>;
   }
 
-  // If user is somehow null here AND not on login/signup, they should have been redirected by the effect.
-  // This check is more of a safeguard.
   if (!user) {
-      // Fallback if the effect somehow didn't catch it - unlikely but good practice.
       router.replace('/login');
       return (
           <div className="flex h-screen w-screen items-center justify-center bg-background">
@@ -237,6 +231,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <ClientOnlyWrapper>
+    <ConsoleProvider> {/* Wrap with ConsoleProvider */}
       <SidebarProvider defaultOpen>
         <Sidebar variant="sidebar" collapsible="icon" className="bg-card text-card-foreground">
           <SidebarHeader className="p-4 justify-between items-center">
@@ -363,10 +358,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                           <SidebarMenuButton
                             asChild
                             isActive={pathname === item.href || (
-                              item.href !== '/dashboard' && // Strict match for dashboard
-                              item.href !== '/tasks' && // Strict match for tasks
-                              item.href !== '/customer/my-jobs' && // Strict match for my-jobs
-                              pathname.startsWith(item.href) // StartsWith for others like /inventory/*
+                              item.href !== '/dashboard' && 
+                              item.href !== '/tasks' && 
+                              item.href !== '/customer/my-jobs' && 
+                              pathname.startsWith(item.href) 
                             )}
                           >
                             <Link href={item.href}>
@@ -425,8 +420,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     </Link>
                   </DropdownMenuItem>
                 )}
+                <DropdownMenuItem onClick={() => setIsConsoleViewerOpen(true)} className="cursor-pointer">
+                  <Terminal className="mr-2 h-4 w-4" />
+                  Show App Console
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                {isDesignatedAdmin && ( // Only the designated admin can switch roles
+                {isDesignatedAdmin && ( 
                   <>
                     <RadixDropdownMenuSub>
                       <RadixDropdownMenuSubTrigger>
@@ -471,11 +470,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             isOpen={isAddCustomerDialogOpen}
             setIsOpen={setIsAddCustomerDialogOpen}
             onCustomerAdded={() => {
-                // Minimal callback, just log for now.
                 console.log("AddCustomerDialog's onCustomerAdded callback fired from layout.");
             }}
         />
       )}
+      {isClient && (
+        <ConsoleLogViewer
+            isOpen={isConsoleViewerOpen}
+            setIsOpen={setIsConsoleViewerOpen}
+        />
+      )}
+    </ConsoleProvider>
     </ClientOnlyWrapper>
   );
 }
