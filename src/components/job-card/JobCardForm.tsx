@@ -99,6 +99,17 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
       paperQuality: initialJobData.paperQuality,
       paperGsm: getPaperQualityUnit(initialJobData.paperQuality as PaperQualityType) === 'gsm' ? initialJobData.paperGsm : undefined,
       targetPaperThicknessMm: getPaperQualityUnit(initialJobData.paperQuality as PaperQualityType) === 'mm' ? initialJobData.targetPaperThicknessMm : undefined,
+      // Optimizer related fields commented out:
+      // masterSheetSizeWidth: initialJobData.masterSheetSizeWidth,
+      // masterSheetSizeHeight: initialJobData.masterSheetSizeHeight,
+      // wastagePercentage: initialJobData.wastagePercentage,
+      // cuttingLayoutDescription: initialJobData.cuttingLayoutDescription,
+      // selectedMasterSheetGsm: KAPPA_MDF_QUALITIES.includes(initialJobData.selectedMasterSheetQuality as PaperQualityType) ? undefined : initialJobData.selectedMasterSheetGsm,
+      // selectedMasterSheetThicknessMm: KAPPA_MDF_QUALITIES.includes(initialJobData.selectedMasterSheetQuality as PaperQualityType) ? initialJobData.selectedMasterSheetThicknessMm : undefined,
+      // selectedMasterSheetQuality: initialJobData.selectedMasterSheetQuality,
+      // sourceInventoryItemId: initialJobData.sourceInventoryItemId,
+      // sheetsPerMasterSheet: initialJobData.sheetsPerMasterSheet,
+      // totalMasterSheetsNeeded: initialJobData.totalMasterSheetsNeeded,
       kindOfJob: initialJobData.kindOfJob || "",
       printingFront: initialJobData.printingFront || "",
       printingBack: initialJobData.printingBack || "",
@@ -127,6 +138,17 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
       paperGsm: undefined,
       targetPaperThicknessMm: undefined,
       paperQuality: "",
+      // Optimizer related fields commented out:
+      // masterSheetSizeWidth: undefined,
+      // masterSheetSizeHeight: undefined,
+      // wastagePercentage: undefined,
+      // cuttingLayoutDescription: undefined,
+      // selectedMasterSheetGsm: undefined,
+      // selectedMasterSheetThicknessMm: undefined,
+      // selectedMasterSheetQuality: "",
+      // sourceInventoryItemId: undefined,
+      // sheetsPerMasterSheet: undefined,
+      // totalMasterSheetsNeeded: undefined,
       kindOfJob: "",
       printingFront: "",
       printingBack: "",
@@ -171,6 +193,17 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
     if (initialJobData) {
       form.reset({
         ...initialJobData,
+        // Optimizer related fields explicitly set to undefined if not present in initialJobData or if we want to clear them
+        // masterSheetSizeWidth: initialJobData.masterSheetSizeWidth,
+        // masterSheetSizeHeight: initialJobData.masterSheetSizeHeight,
+        // wastagePercentage: initialJobData.wastagePercentage,
+        // cuttingLayoutDescription: initialJobData.cuttingLayoutDescription,
+        // selectedMasterSheetGsm: initialJobData.selectedMasterSheetQuality && KAPPA_MDF_QUALITIES.includes(initialJobData.selectedMasterSheetQuality as PaperQualityType) ? undefined : initialJobData.selectedMasterSheetGsm,
+        // selectedMasterSheetThicknessMm: initialJobData.selectedMasterSheetQuality && KAPPA_MDF_QUALITIES.includes(initialJobData.selectedMasterSheetQuality as PaperQualityType) ? initialJobData.selectedMasterSheetThicknessMm : undefined,
+        // selectedMasterSheetQuality: initialJobData.selectedMasterSheetQuality,
+        // sourceInventoryItemId: initialJobData.sourceInventoryItemId,
+        // sheetsPerMasterSheet: initialJobData.sheetsPerMasterSheet,
+        // totalMasterSheetsNeeded: initialJobData.totalMasterSheetsNeeded,
         dispatchDate: initialJobData.dispatchDate ? new Date(initialJobData.dispatchDate).toISOString() : undefined,
         linkedJobCardIds: initialJobData.linkedJobCardIds || [],
       }); 
@@ -223,9 +256,10 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
 
 
   const watchedPaperQuality = form.watch("paperQuality");
-  // const watchedPaperGsm = form.watch("paperGsm"); // Not used in this simplified version
-  // const watchedPaperThicknessMm = form.watch("targetPaperThicknessMm"); // Not used in this simplified version
+  const watchedPaperGsm = form.watch("paperGsm");
+  const watchedPaperThicknessMm = form.watch("targetPaperThicknessMm");
   const targetPaperUnit = getPaperQualityUnit(watchedPaperQuality as PaperQualityType);
+  const watchedCustomerName = form.watch("customerName");
 
 
   const fetchJobsForThisCustomer = async (customerName: string) => {
@@ -359,18 +393,142 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
   }, [currentWorkflowSteps, form]);
 
   const filteredInventoryForDisplay = useMemo(() => {
+    // console.log('[JobCardForm] Recalculating filteredInventoryForDisplay. Watched values:', {
+    //   quality: watchedPaperQuality,
+    //   gsm: watchedPaperGsm,
+    //   thickness: watchedPaperThicknessMm,
+    //   customer: watchedCustomerName,
+    //   inventoryCount: allInventoryItems.length
+    // });
+
     if (!watchedPaperQuality || watchedPaperQuality === "") {
+      // console.log('[JobCardForm] No paper quality selected. Returning empty inventory.');
       return [];
     }
-    let items = allInventoryItems.filter(item => 
-        item.type === 'Master Sheet' && 
-        item.paperQuality === watchedPaperQuality
+
+    let itemsOfSelectedQuality = allInventoryItems.filter(
+      item => item.type === 'Master Sheet' && item.paperQuality === watchedPaperQuality && (item.availableStock ?? 0) > 0
     );
-    
-    // Simplified sorting for stability
-    items.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-    return items;
-  }, [allInventoryItems, watchedPaperQuality]);
+    // console.log(`[JobCardForm] Items after initial quality filter ('${watchedPaperQuality}'): ${itemsOfSelectedQuality.length}`);
+
+
+    let filteredItems = itemsOfSelectedQuality;
+    const currentUnit = getPaperQualityUnit(watchedPaperQuality as PaperQualityType);
+    const formGsm = watchedPaperGsm;
+    const formThickness = watchedPaperThicknessMm;
+
+    if (currentUnit === 'gsm' && formGsm !== undefined && formGsm > 0) {
+      // console.log(`[JobCardForm] Applying GSM filter for ${watchedPaperQuality}, form GSM: ${formGsm}`);
+      switch (watchedPaperQuality) {
+        case 'SBS':
+        case 'GREYBACK':
+        case 'WHITEBACK':
+          if (formGsm >= 200 && formGsm <= 230) filteredItems = itemsOfSelectedQuality.filter(item => item.paperGsm && item.paperGsm >= 200 && item.paperGsm <= 230);
+          else if (formGsm >= 230 && formGsm <= 260) filteredItems = itemsOfSelectedQuality.filter(item => item.paperGsm && (item.paperGsm === 230 || item.paperGsm === 250 || item.paperGsm === 260));
+          else if (formGsm >= 270 && formGsm <= 280) filteredItems = itemsOfSelectedQuality.filter(item => item.paperGsm && (item.paperGsm === 270 || item.paperGsm === 280));
+          else if (formGsm >= 290 && formGsm <= 310) filteredItems = itemsOfSelectedQuality.filter(item => item.paperGsm && (item.paperGsm === 290 || item.paperGsm === 300 || item.paperGsm === 310));
+          else if (formGsm === 320) filteredItems = itemsOfSelectedQuality.filter(item => item.paperGsm && (item.paperGsm === 310 || item.paperGsm === 320 || item.paperGsm === 330));
+          else if (formGsm === 350) filteredItems = itemsOfSelectedQuality.filter(item => item.paperGsm && (item.paperGsm === 340 || item.paperGsm === 350 || item.paperGsm === 360));
+          else if (formGsm >= 370 && formGsm <= 410) filteredItems = itemsOfSelectedQuality.filter(item => item.paperGsm && (item.paperGsm === 370 || item.paperGsm === 380 || item.paperGsm === 390 || item.paperGsm === 410));
+          else filteredItems = []; // No items if GSM doesn't match any specific rule band for these
+          break;
+        case 'ART_PAPER_GLOSS':
+        case 'ART_PAPER_MATT':
+          const customer = watchedCustomerName?.toLowerCase();
+          if (customer === "ganga acrowools") {
+            if (formGsm === 130) filteredItems = itemsOfSelectedQuality.filter(item => item.paperGsm === 130);
+            else if (formGsm === 170) filteredItems = itemsOfSelectedQuality.filter(item => item.paperGsm === 170);
+            else filteredItems = [];
+          } else {
+            if (formGsm >= 90 && formGsm <= 115) filteredItems = itemsOfSelectedQuality.filter(item => item.paperGsm && (item.paperGsm === 90 || item.paperGsm === 100 || item.paperGsm === 110 || item.paperGsm === 115));
+            else if (formGsm === 120) filteredItems = itemsOfSelectedQuality.filter(item => item.paperGsm && (item.paperGsm === 110 || item.paperGsm === 115 || item.paperGsm === 120 || item.paperGsm === 130));
+            else if (formGsm === 130) filteredItems = itemsOfSelectedQuality.filter(item => item.paperGsm && (item.paperGsm === 120 || item.paperGsm === 130 || item.paperGsm === 150));
+            else if (formGsm === 150) filteredItems = itemsOfSelectedQuality.filter(item => item.paperGsm && (item.paperGsm === 150 || item.paperGsm === 170));
+            else if (formGsm === 170) filteredItems = itemsOfSelectedQuality.filter(item => item.paperGsm && (item.paperGsm === 170 || item.paperGsm === 150));
+            else filteredItems = [];
+          }
+          break;
+        case 'BUTTER_PAPER':
+          // No GSM filter for butter paper, show all of this quality
+          filteredItems = itemsOfSelectedQuality;
+          break;
+        case 'JAPANESE_PAPER':
+        case 'IMPORTED_PAPER':
+        case 'GOLDEN_SHEET':
+          // Exact match if GSM is provided, otherwise all of the quality
+          if (formGsm !== undefined && formGsm > 0) {
+            filteredItems = itemsOfSelectedQuality.filter(item => item.paperGsm === formGsm);
+          } else {
+            filteredItems = itemsOfSelectedQuality; // Show all if no specific GSM entered
+          }
+          break;
+        default:
+          // For any other GSM-based paper quality not explicitly handled, show all items of that quality if no GSM provided
+          // or exact match if GSM provided.
+          if (formGsm !== undefined && formGsm > 0) {
+            filteredItems = itemsOfSelectedQuality.filter(item => item.paperGsm === formGsm);
+          } else {
+            filteredItems = itemsOfSelectedQuality;
+          }
+      }
+    } else if (currentUnit === 'mm' && formThickness !== undefined && formThickness > 0) {
+      // console.log(`[JobCardForm] Applying Thickness filter for ${watchedPaperQuality}, form thickness: ${formThickness}`);
+      switch (watchedPaperQuality) {
+        case 'GG_KAPPA':
+        case 'WG_KAPPA':
+          if (formThickness >= 0.80 && formThickness <= 0.92) filteredItems = itemsOfSelectedQuality.filter(item => item.paperThicknessMm && item.paperThicknessMm >= 0.82 && item.paperThicknessMm <= 0.92);
+          else if (formThickness === 1.00) filteredItems = itemsOfSelectedQuality.filter(item => item.paperThicknessMm && item.paperThicknessMm >= 0.92 && item.paperThicknessMm <= 1.1);
+          else if (formThickness >= 1.1 && formThickness <= 1.2) filteredItems = itemsOfSelectedQuality.filter(item => item.paperThicknessMm && item.paperThicknessMm >= 1.1 && item.paperThicknessMm <= 1.2);
+          else if (formThickness >= 1.3 && formThickness <= 1.5) filteredItems = itemsOfSelectedQuality.filter(item => item.paperThicknessMm && item.paperThicknessMm >= 1.3 && item.paperThicknessMm <= 1.5);
+          else filteredItems = [];
+          break;
+        case 'MDF':
+            // For MDF, if a thickness is specified, filter for exact match. Otherwise, show all MDF.
+            if (formThickness !== undefined && formThickness > 0) {
+                filteredItems = itemsOfSelectedQuality.filter(item => item.paperThicknessMm === formThickness);
+            } else {
+                filteredItems = itemsOfSelectedQuality;
+            }
+            break;
+        default:
+          // For any other mm-based paper quality, exact match if thickness provided
+          if (formThickness !== undefined && formThickness > 0) {
+            filteredItems = itemsOfSelectedQuality.filter(item => item.paperThicknessMm === formThickness);
+          } else {
+            filteredItems = itemsOfSelectedQuality;
+          }
+      }
+    } else {
+      // If no specific GSM or Thickness is entered in the form, but quality IS selected.
+      // For Butter Paper, already handled (shows all).
+      // For others, show all items of that selected quality.
+      // This 'else' branch covers the case where only quality is selected.
+      if (watchedPaperQuality !== 'BUTTER_PAPER') {
+         // console.log(`[JobCardForm] No GSM/Thickness specified for ${watchedPaperQuality}. Showing all items of this quality.`);
+         filteredItems = itemsOfSelectedQuality;
+      }
+    }
+
+    // console.log(`[JobCardForm] Items after GSM/Thickness/Customer filter: ${filteredItems.length}`);
+
+    return filteredItems.sort((a, b) => {
+      const valA = currentUnit === 'gsm' ? a.paperGsm : a.paperThicknessMm;
+      const valB = currentUnit === 'gsm' ? b.paperGsm : b.paperThicknessMm;
+      if (valA !== undefined && valB !== undefined) {
+        if (valA !== valB) return valA - valB;
+      } else if (valA !== undefined) return -1;
+      else if (valB !== undefined) return 1;
+
+      // Secondary sort by width, then height
+      const widthA = a.masterSheetSizeWidth || 0;
+      const widthB = b.masterSheetSizeWidth || 0;
+      if (widthA !== widthB) return widthA - widthB;
+
+      const heightA = a.masterSheetSizeHeight || 0;
+      const heightB = b.masterSheetSizeHeight || 0;
+      return heightA - heightB;
+    });
+  }, [allInventoryItems, watchedPaperQuality, watchedPaperGsm, watchedPaperThicknessMm, watchedCustomerName, form]);
 
 
   async function onSubmit(values: JobCardFormValues) {
@@ -738,9 +896,27 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
                         <FormMessage />
                     </FormItem>
                 )} />
-                 <Button type="button" variant="outline" className="w-full md:mt-0 mt-4 font-body" disabled> 
+                 <Button 
+                  type="button" 
+                  variant="outline" 
+                  className="w-full md:mt-0 mt-4 font-body" 
+                  // onClick={() => setIsModalOpen(true)} // Optimizer commented out
+                  disabled // Optimizer commented out
+                 > 
                     <Wand2 className="mr-2 h-4 w-4" /> Optimize Master Sheet (Coming Soon)
                  </Button>
+                 {/* Optimizer related fields commented out:
+                 <FormField control={form.control} name="masterSheetSizeWidth" render={({ field }) => ( <FormItem className="hidden"><Input {...field} /></FormItem> )} />
+                 <FormField control={form.control} name="masterSheetSizeHeight" render={({ field }) => ( <FormItem className="hidden"><Input {...field} /></FormItem> )} />
+                 <FormField control={form.control} name="wastagePercentage" render={({ field }) => ( <FormItem className="hidden"><Input {...field} /></FormItem> )} />
+                 <FormField control={form.control} name="cuttingLayoutDescription" render={({ field }) => ( <FormItem className="hidden"><Input {...field} /></FormItem> )} />
+                 <FormField control={form.control} name="selectedMasterSheetGsm" render={({ field }) => ( <FormItem className="hidden"><Input {...field} /></FormItem> )} />
+                 <FormField control={form.control} name="selectedMasterSheetThicknessMm" render={({ field }) => ( <FormItem className="hidden"><Input {...field} /></FormItem> )} />
+                 <FormField control={form.control} name="selectedMasterSheetQuality" render={({ field }) => ( <FormItem className="hidden"><Input {...field} /></FormItem> )} />
+                 <FormField control={form.control} name="sourceInventoryItemId" render={({ field }) => ( <FormItem className="hidden"><Input {...field} /></FormItem> )} />
+                 <FormField control={form.control} name="sheetsPerMasterSheet" render={({ field }) => ( <FormItem className="hidden"><Input {...field} /></FormItem> )} />
+                 <FormField control={form.control} name="totalMasterSheetsNeeded" render={({ field }) => ( <FormItem className="hidden"><Input {...field} /></FormItem> )} />
+                */}
             </div>
           </CardContent>
         </Card>
@@ -749,7 +925,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
           <CardHeader>
             <CardTitle className="font-headline flex items-center"><Archive className="mr-2 h-5 w-5 text-primary"/>Relevant Inventory</CardTitle>
             <CardDescription className="font-body">
-                Available master sheets based on selected Target Paper Quality. (Detailed GSM/Thickness filtering coming soon)
+                Available master sheets based on selected Target Paper Quality and specified GSM/Thickness.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -764,7 +940,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
               </p>
             ) : filteredInventoryForDisplay.length === 0 ? (
               <p className="text-muted-foreground font-body text-center py-4">
-                No inventory items match the selected paper quality.
+                No inventory items match the selected paper quality and GSM/Thickness criteria, or no items have available stock.
               </p>
             ) : (
               <ScrollArea className="h-[250px] border rounded-md">
