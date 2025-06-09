@@ -2,7 +2,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { PlusCircle, Search, Filter, Eye } from "lucide-react";
+import { PlusCircle, Search, Filter, Eye } from "lucide-react"; // PlusCircle here can be removed if not used elsewhere
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -10,24 +10,23 @@ import Image from "next/image";
 import { getJobCards } from "@/lib/actions/jobActions";
 import type { JobCardData } from "@/lib/definitions";
 import { format } from "date-fns";
-import { handlePrintJobCard } from "@/lib/printUtils"; // For viewing job card details
-// No direct toast on server component, print utility will handle client-side toast if needed via a client component wrapper or context.
+import { handlePrintJobCard } from "@/lib/printUtils"; 
+import { CreateJobWithOptionsButton } from "@/components/job-card/CreateJobWithOptionsButton"; // Import the new component
 
 export default async function AllJobsPage() {
   const allJobs: JobCardData[] = await getJobCards();
   // Sort by creation date, newest first
   allJobs.sort((a, b) => new Date(b.createdAt || b.date).getTime() - new Date(a.createdAt || a.date).getTime());
 
-  // For client-side printing, we might need a client component wrapper or a different approach
-  // For now, the direct view button will link to a future detail page.
-  // The handlePrintJobCard would ideally be called from a client component.
-
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader>
-          <CardTitle className="font-headline">All Job Cards</CardTitle>
-          <CardDescription className="font-body">View, search, and manage all active and completed jobs.</CardDescription>
+        <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+          <div>
+            <CardTitle className="font-headline">All Job Cards</CardTitle>
+            <CardDescription className="font-body">View, search, and manage all active and completed jobs.</CardDescription>
+          </div>
+          <CreateJobWithOptionsButton /> {/* Use the new button component here */}
         </CardHeader>
         <CardContent>
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
@@ -71,8 +70,6 @@ export default async function AllJobsPage() {
                   <TableCell className="font-body">{job.jobSizeWidth} x {job.jobSizeHeight} in</TableCell>
                   <TableCell className="text-center font-body">{job.linkedJobCardIds?.length || "-"}</TableCell>
                   <TableCell className="text-right">
-                    {/* The Button to print/view job card ideally would be a client component */}
-                    {/* For now, linking to a non-existent detail page as a placeholder */}
                     <Button variant="ghost" size="sm" asChild className="font-body" title="View Details (Coming Soon)">
                       <Link href={`/jobs/${job.id}`}> {/* Using internal ID for route key */}
                         <Eye className="mr-1 h-4 w-4" /> View
@@ -88,11 +85,11 @@ export default async function AllJobsPage() {
               <Image src="https://placehold.co/300x200.png" alt="No jobs found" width={300} height={200} className="mb-6 rounded-lg" data-ai-hint="empty state document"/>
               <h3 className="text-xl font-semibold mb-2 font-headline">No Jobs Yet</h3>
               <p className="text-muted-foreground mb-4 font-body">Get started by creating a new job card.</p>
-              <Button asChild className="font-body">
-                <Link href="/jobs/new">
-                  <PlusCircle className="mr-2 h-4 w-4" /> Create New Job
-                </Link>
-              </Button>
+              {/* The CreateJobWithOptionsButton is now in the header, 
+                  so this direct link can be removed or kept as an alternative. 
+                  For now, keeping it simple by removing the one in the empty state,
+                  as the main button is more prominent.
+              */}
             </div>
           )}
         </CardContent>
@@ -100,3 +97,4 @@ export default async function AllJobsPage() {
     </div>
   );
 }
+
