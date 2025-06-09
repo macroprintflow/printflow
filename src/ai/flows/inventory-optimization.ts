@@ -66,19 +66,20 @@ export type OptimizeInventoryOutput = ImportedOptimizeInventoryOutput;
 
 
 export async function optimizeInventory(input: OptimizeInventoryInput): Promise<OptimizeInventoryOutput> {
-  console.log('[InventoryOptimization TS Flow] optimizeInventory function called with input (availableMasterSheets count):', input.availableMasterSheets?.length);
+  console.log('[InventoryOptimization TS Flow] optimizeInventory function called with input:', JSON.stringify(input, null, 2));
   return optimizeInventoryFlow(input);
 }
 
 const epsilon = 1e-6; // Epsilon for floating point comparisons
 
-// Corrected Macro Staggered Logic (from user)
+// Corrected Macro Staggered Logic (from user, with epsilon)
 function calculateMacroStaggeredUpsFixedInternal(
   jobW: number, jobH: number, sheetW: number, sheetH: number
 ) {
   let bestUps = 0;
   let bestDesc = "";
-  const eps = 1e-6; // ← keep using the same epsilon
+  const eps = epsilon; 
+  console.log(`[StaggeredCalc] Input: jobW=${jobW}, jobH=${jobH}, sheetW=${sheetW}, sheetH=${sheetH}`);
 
   /* ---------- CASE 1: portrait rows first, rotated in leftover ---------- */
   for (let portraitRows = 0; portraitRows <= Math.floor((sheetH + eps) / jobH); ++portraitRows) {
@@ -88,8 +89,8 @@ function calculateMacroStaggeredUpsFixedInternal(
     const colsPortrait  = Math.floor((sheetW + eps) / jobW);
     const upsPortrait   = portraitRows * colsPortrait;
 
-    const rowsRot = remH + eps >= jobW ? Math.floor((remH + eps) / jobW) : 0;      // ★ fixed
-    const colsRot = rowsRot > 0      ? Math.floor((sheetW + eps) / jobH) : 0;      // ★ fixed
+    const rowsRot = remH + eps >= jobW ? Math.floor((remH + eps) / jobW) : 0;
+    const colsRot = rowsRot > 0      ? Math.floor((sheetW + eps) / jobH) : 0;
     const upsRot  = rowsRot * colsRot;
 
     const total = upsPortrait + upsRot;
@@ -98,6 +99,7 @@ function calculateMacroStaggeredUpsFixedInternal(
       bestDesc = `${colsPortrait}x${portraitRows} portrait + ${colsRot}x${rowsRot} rotated`;
     }
   }
+  console.log(`[StaggeredCalc] Case 1 (Portrait first) best: ${bestUps} ups, desc: ${bestDesc}`);
 
   /* ---------- CASE 2: rotated rows first, portrait in leftover ---------- */
   for (let rotRows = 0; rotRows <= Math.floor((sheetH + eps) / jobW); ++rotRows) {
@@ -107,8 +109,8 @@ function calculateMacroStaggeredUpsFixedInternal(
     const colsRot = Math.floor((sheetW + eps) / jobH);
     const upsRot  = rotRows * colsRot;
 
-    const rowsPor = remH + eps >= jobH ? Math.floor((remH + eps) / jobH) : 0;       // ★ fixed
-    const colsPor = rowsPor > 0      ? Math.floor((sheetW + eps) / jobW) : 0;       // ★ fixed
+    const rowsPor = remH + eps >= jobH ? Math.floor((remH + eps) / jobH) : 0;
+    const colsPor = rowsPor > 0      ? Math.floor((sheetW + eps) / jobW) : 0;
     const upsPor  = rowsPor * colsPor;
 
     const total = upsPor + upsRot;
@@ -117,7 +119,7 @@ function calculateMacroStaggeredUpsFixedInternal(
       bestDesc = `${colsRot}x${rotRows} rotated + ${colsPor}x${rowsPor} portrait`;
     }
   }
-
+  console.log(`[StaggeredCalc] Final best for this job/sheet combo: ${bestUps} ups, desc: ${bestDesc}`);
   return { ups: bestUps, description: bestDesc };
 }
 
@@ -126,9 +128,10 @@ function calculateMacroStaggeredUpsFixedInternal(
 function calculateMaxGuillotineUps(jobW: number, jobH: number, sheetW: number, sheetH: number) {
   let maxUps = 0;
   let bestLayout = "N/A";
+  console.log(`[GuillotineCalc] Input: jobW=${jobW}, jobH=${jobH}, sheetW=${sheetW}, sheetH=${sheetH}`);
   
   if (jobW <= 0 || jobH <=0 || sheetW <=0 || sheetH <= 0) {
-      console.warn(`[calculateMaxGuillotineUps] Invalid zero or negative dimension detected. Job: ${jobW}x${jobH}, Sheet: ${sheetW}x${sheetH}. Returning 0 ups.`);
+      console.warn(`[GuillotineCalc] Invalid zero or negative dimension. Job: ${jobW}x${jobH}, Sheet: ${sheetW}x${sheetH}. Returning 0 ups.`);
       return { ups: 0, description: "Invalid dimensions" };
   }
 
@@ -138,7 +141,11 @@ function calculateMaxGuillotineUps(jobW: number, jobH: number, sheetW: number, s
   ];
 
   for (const orient of orientations) {
-    if (orient.w <=0 || orient.h <=0) continue;
+    console.log(`[GuillotineCalc] Testing job orientation: ${orient.label} (Job Dim: ${orient.w}x${orient.h})`);
+    if (orient.w <=0 || orient.h <=0) {
+        console.log(`[GuillotineCalc] Invalid job orientation dimension. Skipping.`);
+        continue;
+    }
 
     // Strategy 1: Primary cut along width (vertical cuts first)
     for (let colsInStrip1 = 1; colsInStrip1 <= Math.floor(sheetW / orient.w + epsilon); colsInStrip1++) {
@@ -165,6 +172,7 @@ function calculateMaxGuillotineUps(jobW: number, jobH: number, sheetW: number, s
       if (totalUps > maxUps) {
         maxUps = totalUps;
         bestLayout = `${colsInStrip1}x${rowsInStrip1} ${orient.label} (main strip)${remainderLayoutDesc}`;
+        console.log(`[GuillotineCalc] Strategy 1 New best: ${maxUps} ups, layout: ${bestLayout}`);
       }
     }
 
@@ -193,16 +201,21 @@ function calculateMaxGuillotineUps(jobW: number, jobH: number, sheetW: number, s
       if (totalUps > maxUps) {
         maxUps = totalUps;
         bestLayout = `${colsInStrip1}x${rowsInStrip1} ${orient.label} (main strip)${remainderLayoutDesc}`;
+        console.log(`[GuillotineCalc] Strategy 2 New best: ${maxUps} ups, layout: ${bestLayout}`);
       }
     }
     
     // Strategy 3: Check Macro Staggered Layout (using the corrected function)
+    console.log(`[GuillotineCalc] Calling Macro Staggered for job orient ${orient.label} (${orient.w}x${orient.h}) on sheet ${sheetW}x${sheetH}`);
     const staggeredResult = calculateMacroStaggeredUpsFixedInternal(orient.w, orient.h, sheetW, sheetH);
+    console.log(`[GuillotineCalc] Macro Staggered result for job orient ${orient.label}: ${staggeredResult.ups} ups, desc: ${staggeredResult.description}`);
     if (staggeredResult.ups > maxUps) {
         maxUps = staggeredResult.ups;
         bestLayout = `${staggeredResult.description} (macro staggered ${orient.label})`;
+        console.log(`[GuillotineCalc] Macro Staggered New best: ${maxUps} ups, layout: ${bestLayout}`);
     }
   }
+  console.log(`[GuillotineCalc] Final result for job ${jobW}x${jobH} on sheet ${sheetW}x${sheetH}: ${maxUps} ups, layout: ${bestLayout}`);
   return { ups: maxUps, description: bestLayout };
 }
 
@@ -234,46 +247,48 @@ const optimizeInventoryFlow = ai.defineFlow(
     const allSuggestions: z.infer<typeof MasterSheetSuggestionSchema>[] = [];
 
     for (const sheet of input.availableMasterSheets) {
+      console.log(`[InventoryOptimization TS Flow] Processing sheet ID: ${sheet.id}, Name: ${sheet.name || 'N/A'}, Size: ${sheet.masterSheetSizeWidth}x${sheet.masterSheetSizeHeight}, Quality: ${sheet.paperQuality}, Stock: ${sheet.availableStock}`);
       const targetUnit = getPaperQualityUnit(targetPaperQuality as any);
       const sheetUnit = getPaperQualityUnit(sheet.paperQuality as any);
 
-      if (sheet.paperQuality !== targetPaperQuality) continue;
-      if ((sheet.availableStock ?? 0) <= 0) continue;
+      if (sheet.paperQuality !== targetPaperQuality) {
+        console.log(`[InventoryOptimization TS Flow] Sheet ID ${sheet.id} Quality (${sheet.paperQuality}) mismatch with target (${targetPaperQuality}). Skipping.`);
+        continue;
+      }
+      if ((sheet.availableStock ?? 0) <= 0) {
+        console.log(`[InventoryOptimization TS Flow] Sheet ID ${sheet.id} has no available stock. Skipping.`);
+        continue;
+      }
 
       if (targetUnit === 'mm' && sheetUnit === 'mm') {
         if (targetPaperThicknessMm === undefined || sheet.paperThicknessMm === undefined || Math.abs(sheet.paperThicknessMm - targetPaperThicknessMm) > 0.1) { 
+          console.log(`[InventoryOptimization TS Flow] Sheet ID ${sheet.id} Thickness mismatch (Sheet: ${sheet.paperThicknessMm}mm, Target: ${targetPaperThicknessMm}mm). Skipping.`);
           continue;
         }
       } else if (targetUnit === 'gsm' && sheetUnit === 'gsm') {
-        if (targetPaperGsm === undefined || sheet.paperGsm === undefined) continue;
+        if (targetPaperGsm === undefined || sheet.paperGsm === undefined) {
+            console.log(`[InventoryOptimization TS Flow] Sheet ID ${sheet.id} or target GSM is undefined. Skipping.`);
+            continue;
+        }
         const gsmTolerance = targetPaperGsm * 0.05; 
         if (Math.abs(sheet.paperGsm - targetPaperGsm) > gsmTolerance) {
+          console.log(`[InventoryOptimization TS Flow] Sheet ID ${sheet.id} GSM mismatch (Sheet: ${sheet.paperGsm}gsm, Target: ${targetPaperGsm}gsm, Tolerance: ${gsmTolerance.toFixed(2)}). Skipping.`);
           continue;
         }
       } else {
+        console.log(`[InventoryOptimization TS Flow] Sheet ID ${sheet.id} Unit mismatch (Sheet Unit: ${sheetUnit}, Target Unit: ${targetUnit}). Skipping.`);
         continue; 
       }
-      console.log(
-        'INPUTS:',
-        jobSizeWidth, jobSizeHeight,
-        sheet.masterSheetSizeWidth, sheet.masterSheetSizeHeight
-      );
       
-      const debugResOrig = calculateMaxGuillotineUps(
-        jobSizeWidth,
-        jobSizeHeight,
-        sheet.masterSheetSizeWidth,
-        sheet.masterSheetSizeHeight
-      );
-      console.log('GUILLOTINE RESULT:', debugResOrig);
-    
       let bestUpsForThisSheet = 0;
       let bestLayoutDesc = "N/A";
       let effectiveSheetW = sheet.masterSheetSizeWidth;
       let effectiveSheetH = sheet.masterSheetSizeHeight;
       
       // Check original master sheet orientation
+      console.log(`[InventoryOptimization TS Flow] Sheet ID ${sheet.id}: Calculating for original orientation (${sheet.masterSheetSizeWidth}x${sheet.masterSheetSizeHeight})`);
       const resOrig = calculateMaxGuillotineUps(jobSizeWidth, jobSizeHeight, sheet.masterSheetSizeWidth, sheet.masterSheetSizeHeight);
+      console.log(`[InventoryOptimization TS Flow] Sheet ID ${sheet.id} (Original Orient): Ups=${resOrig.ups}, Layout='${resOrig.description}'`);
       if (resOrig.ups > bestUpsForThisSheet) {
         bestUpsForThisSheet = resOrig.ups;
         bestLayoutDesc = `${resOrig.description} (Master Portrait)`;
@@ -283,7 +298,9 @@ const optimizeInventoryFlow = ai.defineFlow(
       
       // Check rotated master sheet orientation (if not square)
       if (Math.abs(sheet.masterSheetSizeWidth - sheet.masterSheetSizeHeight) > epsilon) { 
+        console.log(`[InventoryOptimization TS Flow] Sheet ID ${sheet.id}: Calculating for rotated orientation (${sheet.masterSheetSizeHeight}x${sheet.masterSheetSizeWidth})`);
         const resRot = calculateMaxGuillotineUps(jobSizeWidth, jobSizeHeight, sheet.masterSheetSizeHeight, sheet.masterSheetSizeWidth);
+        console.log(`[InventoryOptimization TS Flow] Sheet ID ${sheet.id} (Rotated Orient): Ups=${resRot.ups}, Layout='${resRot.description}'`);
         if (resRot.ups > bestUpsForThisSheet) {
           bestUpsForThisSheet = resRot.ups;
           bestLayoutDesc = `${resRot.description} (Master Landscape)`;
@@ -304,7 +321,7 @@ const optimizeInventoryFlow = ai.defineFlow(
       const wastagePercentage = masterSheetAreaUsedForLayout > 0 ? Number(((1 - (usedArea / masterSheetAreaUsedForLayout)) * 100).toFixed(2)) : 100;
       const totalMasterSheetsNeeded = Math.ceil(netQuantity / bestUpsForThisSheet);
       
-      allSuggestions.push({
+      const currentSuggestion = {
         id: sheet.id,
         masterSheetSizeWidth: sheet.masterSheetSizeWidth, // Report original inventory sheet dims
         masterSheetSizeHeight: sheet.masterSheetSizeHeight,
@@ -317,7 +334,9 @@ const optimizeInventoryFlow = ai.defineFlow(
         cuttingLayoutDescription: bestLayoutDesc,
         locationGodown: sheet.locationGodown,
         locationLineNumber: sheet.locationLineNumber,
-      });
+      };
+      allSuggestions.push(currentSuggestion);
+      console.log(`[InventoryOptimization TS Flow] Sheet ID ${sheet.id}: Added suggestion - Ups=${bestUpsForThisSheet}, Wastage=${wastagePercentage}%, Layout='${bestLayoutDesc}'`);
     }
 
     allSuggestions.sort((a, b) => {
@@ -336,6 +355,8 @@ const optimizeInventoryFlow = ai.defineFlow(
     if (optimalSuggestion) {
       console.log('[InventoryOptimization TS Flow] Optimal suggestion:', JSON.stringify(optimalSuggestion, null, 2));
     }
+    console.log('[InventoryOptimization TS Flow] All sorted suggestions:', JSON.stringify(allSuggestions, null, 2));
+
 
     return {
       suggestions: allSuggestions,
@@ -344,4 +365,3 @@ const optimizeInventoryFlow = ai.defineFlow(
   }
 );
     
-
