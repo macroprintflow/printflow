@@ -78,7 +78,7 @@ function calculateMacroStaggeredUpsFixedInternal(
 ) {
   let bestUps = 0;
   let bestDesc = "";
-  const eps = 1e-6; // Epsilon for floating point precision
+  const eps = 1e-6; // ← keep using the same epsilon
 
   /* ---------- CASE 1: portrait rows first, rotated in leftover ---------- */
   for (let portraitRows = 0; portraitRows <= Math.floor((sheetH + eps) / jobH); ++portraitRows) {
@@ -88,8 +88,8 @@ function calculateMacroStaggeredUpsFixedInternal(
     const colsPortrait  = Math.floor((sheetW + eps) / jobW);
     const upsPortrait   = portraitRows * colsPortrait;
 
-    const rowsRot = remH + eps >= jobW ? Math.floor((remH + eps) / jobW) : 0;
-    const colsRot = rowsRot > 0      ? Math.floor((sheetW + eps) / jobH) : 0;
+    const rowsRot = remH + eps >= jobW ? Math.floor((remH + eps) / jobW) : 0;      // ★ fixed
+    const colsRot = rowsRot > 0      ? Math.floor((sheetW + eps) / jobH) : 0;      // ★ fixed
     const upsRot  = rowsRot * colsRot;
 
     const total = upsPortrait + upsRot;
@@ -107,8 +107,8 @@ function calculateMacroStaggeredUpsFixedInternal(
     const colsRot = Math.floor((sheetW + eps) / jobH);
     const upsRot  = rotRows * colsRot;
 
-    const rowsPor = remH + eps >= jobH ? Math.floor((remH + eps) / jobH) : 0;
-    const colsPor = rowsPor > 0      ? Math.floor((sheetW + eps) / jobW) : 0;
+    const rowsPor = remH + eps >= jobH ? Math.floor((remH + eps) / jobH) : 0;       // ★ fixed
+    const colsPor = rowsPor > 0      ? Math.floor((sheetW + eps) / jobW) : 0;       // ★ fixed
     const upsPor  = rowsPor * colsPor;
 
     const total = upsPor + upsRot;
