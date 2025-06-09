@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import type { JobCardFormValues, InventorySuggestion, JobTemplateData, PaperQualityType, WorkflowProcessStepDefinition, JobCardData, WorkflowStep, DesignSubmission, CustomerListItem, InventoryItem } from "@/lib/definitions";
 import { JobCardSchema, KINDS_OF_JOB_OPTIONS, PRINTING_MACHINE_OPTIONS, COATING_OPTIONS, DIE_OPTIONS, DIE_MACHINE_OPTIONS, HOT_FOIL_OPTIONS, YES_NO_OPTIONS, BOX_MAKING_OPTIONS, PAPER_QUALITY_OPTIONS, getPaperQualityLabel, getPaperQualityUnit, PRODUCTION_PROCESS_STEPS, KAPPA_MDF_QUALITIES } from "@/lib/definitions";
-import { createJobCard, getInventoryItems } from "@/lib/actions/jobActions"; // Added getInventoryItems
+import { createJobCard, getInventoryItems } from "@/lib/actions/jobActions"; 
 import { getCustomersList, getJobsByCustomerName } from "@/lib/actions/customerActions";
 import { handlePrintJobCard } from "@/lib/printUtils"; 
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { CalendarIcon, Wand2, Link2, PlusCircle, Loader2, RotateCcw, ListOrdered, Users, Briefcase as BriefcaseIcon, Search, Archive, Warehouse } from "lucide-react"; // Added Archive, Warehouse
+import { CalendarIcon, Wand2, Link2, PlusCircle, Loader2, RotateCcw, ListOrdered, Users, Briefcase as BriefcaseIcon, Search, Archive, Warehouse } from "lucide-react";
 import { format } from "date-fns";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 // import { InventoryOptimizationModal } from "./InventoryOptimizationModal"; // Optimizer commented out
@@ -37,6 +37,23 @@ interface JobCardFormProps {
   initialCustomerName?: string;
   initialJobData?: JobCardData; 
 }
+
+const formatInventoryItemForDisplay = (item: InventoryItem): string => {
+  if (item.type === 'Master Sheet') {
+    const qualityLabel = item.paperQuality ? getPaperQualityLabel(item.paperQuality) : 'Paper';
+    const unit = item.paperQuality ? getPaperQualityUnit(item.paperQuality) : null;
+    let spec = '';
+    if (unit === 'mm' && item.paperThicknessMm) spec = `${item.paperThicknessMm}mm`;
+    else if (unit === 'gsm' && item.paperGsm) spec = `${item.paperGsm}GSM`;
+    
+    const size = (item.masterSheetSizeWidth && item.masterSheetSizeHeight) 
+      ? `(${item.masterSheetSizeWidth}x${item.masterSheetSizeHeight}in)` 
+      : '';
+    return `${qualityLabel} ${spec} ${size}`.trim().replace(/\s\s+/g, ' ');
+  }
+  return item.name || "Unnamed Item";
+};
+
 
 export function JobCardForm({ initialJobName, initialCustomerName, initialJobData }: JobCardFormProps) {
   // const [isModalOpen, setIsModalOpen] = useState(false); // Optimizer commented out
@@ -65,7 +82,6 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
 
   const [isLinkJobsModalOpen, setIsLinkJobsModalOpen] = useState(false);
 
-  // State for Relevant Inventory
   const [allInventoryItems, setAllInventoryItems] = useState<InventoryItem[]>([]);
   const [isLoadingInventory, setIsLoadingInventory] = useState(true);
 
@@ -83,16 +99,16 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
       paperQuality: initialJobData.paperQuality,
       paperGsm: getPaperQualityUnit(initialJobData.paperQuality as PaperQualityType) === 'gsm' ? initialJobData.paperGsm : undefined,
       targetPaperThicknessMm: getPaperQualityUnit(initialJobData.paperQuality as PaperQualityType) === 'mm' ? initialJobData.targetPaperThicknessMm : undefined,
-      // masterSheetSizeWidth: initialJobData.masterSheetSizeWidth, // Removed
-      // masterSheetSizeHeight: initialJobData.masterSheetSizeHeight, // Removed
-      // wastagePercentage: initialJobData.wastagePercentage, // Removed
-      // cuttingLayoutDescription: initialJobData.cuttingLayoutDescription, // Removed
-      // selectedMasterSheetGsm: initialJobData.selectedMasterSheetGsm, // Removed
-      // selectedMasterSheetThicknessMm: initialJobData.selectedMasterSheetThicknessMm, // Removed
-      // selectedMasterSheetQuality: initialJobData.selectedMasterSheetQuality, // Removed
-      // sourceInventoryItemId: initialJobData.sourceInventoryItemId, // Removed
-      // sheetsPerMasterSheet: initialJobData.sheetsPerMasterSheet, // Removed
-      // totalMasterSheetsNeeded: initialJobData.totalMasterSheetsNeeded, // Removed
+      // masterSheetSizeWidth: undefined, // Optimizer fields removed
+      // masterSheetSizeHeight: undefined,
+      // wastagePercentage: undefined,
+      // cuttingLayoutDescription: "",
+      // selectedMasterSheetGsm: undefined,
+      // selectedMasterSheetThicknessMm: undefined,
+      // selectedMasterSheetQuality: "",
+      // sourceInventoryItemId: "",
+      // sheetsPerMasterSheet: undefined,
+      // totalMasterSheetsNeeded: undefined,
       kindOfJob: initialJobData.kindOfJob || "",
       printingFront: initialJobData.printingFront || "",
       printingBack: initialJobData.printingBack || "",
@@ -121,16 +137,16 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
       paperGsm: undefined,
       targetPaperThicknessMm: undefined,
       paperQuality: "",
-      // masterSheetSizeWidth: undefined, // Removed
-      // masterSheetSizeHeight: undefined, // Removed
-      // wastagePercentage: undefined, // Removed
-      // cuttingLayoutDescription: "", // Removed
-      // selectedMasterSheetGsm: undefined, // Removed
-      // selectedMasterSheetThicknessMm: undefined, // Removed
-      // selectedMasterSheetQuality: "", // Removed
-      // sourceInventoryItemId: "", // Removed
-      // sheetsPerMasterSheet: undefined, // Removed
-      // totalMasterSheetsNeeded: undefined, // Removed
+      // masterSheetSizeWidth: undefined, // Optimizer fields removed
+      // masterSheetSizeHeight: undefined,
+      // wastagePercentage: undefined,
+      // cuttingLayoutDescription: "",
+      // selectedMasterSheetGsm: undefined,
+      // selectedMasterSheetThicknessMm: undefined,
+      // selectedMasterSheetQuality: "",
+      // sourceInventoryItemId: "",
+      // sheetsPerMasterSheet: undefined,
+      // totalMasterSheetsNeeded: undefined,
       kindOfJob: "",
       printingFront: "",
       printingBack: "",
@@ -177,8 +193,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
         ...initialJobData,
         dispatchDate: initialJobData.dispatchDate ? new Date(initialJobData.dispatchDate).toISOString() : undefined,
         linkedJobCardIds: initialJobData.linkedJobCardIds || [],
-         // Explicitly undefined optimizer fields for reset
-        masterSheetSizeWidth: undefined,
+        masterSheetSizeWidth: undefined, 
         masterSheetSizeHeight: undefined,
         wastagePercentage: undefined,
         cuttingLayoutDescription: "",
@@ -220,60 +235,32 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
       } finally {
         setIsLoadingCustomers(false);
       }
-
-      // Commenting out inventory fetch for now as per "one by one" approach
-      // setIsLoadingInventory(true);
-      // try {
-      //   const items = await getInventoryItems();
-      //   setAllInventoryItems(items);
-      // } catch (error) {
-      //   toast({ title: "Error", description: "Could not load inventory items.", variant: "destructive" });
-      // } finally {
-      //   setIsLoadingInventory(false);
-      // }
+      
+      setIsLoadingInventory(true);
+      try {
+        const items = await getInventoryItems();
+        setAllInventoryItems(items);
+      } catch (error) {
+        toast({ title: "Error", description: "Could not load inventory items.", variant: "destructive" });
+      } finally {
+        setIsLoadingInventory(false);
+      }
     }
     fetchInitialData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only on mount
+  }, []); 
 
 
   const watchedPaperQuality = form.watch("paperQuality");
-  // const watchedPaperGsm = form.watch("paperGsm"); // For Inventory section, will be used later
-  // const watchedPaperThicknessMm = form.watch("targetPaperThicknessMm"); // For Inventory section
-  // const watchedCustomerName = form.watch("customerName"); // For Inventory section
+  // const watchedPaperGsm = form.watch("paperGsm"); 
+  // const watchedPaperThicknessMm = form.watch("targetPaperThicknessMm"); 
+  // const watchedCustomerName = form.watch("customerName"); 
   const targetPaperUnit = getPaperQualityUnit(watchedPaperQuality as PaperQualityType);
 
   // const handleSuggestionSelect = (suggestion: InventorySuggestion) => { // Optimizer commented out
-  //   form.setValue("masterSheetSizeWidth", suggestion.masterSheetSizeWidth);
-  //   form.setValue("masterSheetSizeHeight", suggestion.masterSheetSizeHeight);
-  //   form.setValue("wastagePercentage", suggestion.wastagePercentage);
-  //   form.setValue("cuttingLayoutDescription", suggestion.cuttingLayoutDescription || "");
-    
-  //   const suggestedQuality = suggestion.paperQuality as PaperQualityType;
-  //   const suggestedUnit = getPaperQualityUnit(suggestedQuality);
-
-  //   if (suggestedUnit === 'mm') {
-  //     form.setValue("selectedMasterSheetThicknessMm", suggestion.paperThicknessMm);
-  //     form.setValue("selectedMasterSheetGsm", undefined);
-  //   } else {
-  //     form.setValue("selectedMasterSheetGsm", suggestion.paperGsm);
-  //     form.setValue("selectedMasterSheetThicknessMm", undefined);
-  //   }
-  //   form.setValue("selectedMasterSheetQuality", suggestedQuality);
-  //   form.setValue("sourceInventoryItemId", suggestion.sourceInventoryItemId || "");
-  //   form.setValue("sheetsPerMasterSheet", suggestion.sheetsPerMasterSheet);
-  //   form.setValue("totalMasterSheetsNeeded", suggestion.totalMasterSheetsNeeded);
-  //   form.setValue("grossQuantity", suggestion.totalMasterSheetsNeeded); 
   // };
   // const currentJobDetailsForModal = { // Optimizer commented out
-  //   paperGsm: form.watch("paperGsm"),
-  //   paperThicknessMm: form.watch("targetPaperThicknessMm"),
-  //   paperQuality: form.watch("paperQuality") as PaperQualityType || undefined,
-  //   jobSizeWidth: form.watch("jobSizeWidth"),
-  //   jobSizeHeight: form.watch("jobSizeHeight"),
-  //   quantityForOptimization: form.watch("grossQuantity") || form.watch("netQuantity") || 0,
   // };
-
 
   const fetchJobsForThisCustomer = async (customerName: string) => {
     if (!customerName) {
@@ -365,16 +352,16 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
       paperQuality: pastJobPaperQuality,
       paperGsm: pastJobUnit === 'gsm' ? job.paperGsm : undefined,
       targetPaperThicknessMm: pastJobUnit === 'mm' ? job.targetPaperThicknessMm : undefined,
-      // masterSheetSizeWidth: job.masterSheetSizeWidth, // Removed
-      // masterSheetSizeHeight: job.masterSheetSizeHeight, // Removed
-      // wastagePercentage: job.wastagePercentage, // Removed
-      // cuttingLayoutDescription: job.cuttingLayoutDescription, // Removed
-      // selectedMasterSheetGsm: job.selectedMasterSheetGsm, // Removed
-      // selectedMasterSheetThicknessMm: job.selectedMasterSheetThicknessMm, // Removed
-      // selectedMasterSheetQuality: job.selectedMasterSheetQuality, // Removed
-      // sourceInventoryItemId: job.sourceInventoryItemId, // Removed
-      // sheetsPerMasterSheet: job.sheetsPerMasterSheet, // Removed
-      // totalMasterSheetsNeeded: job.totalMasterSheetsNeeded, // Removed
+      // masterSheetSizeWidth: undefined, // Optimizer fields removed
+      // masterSheetSizeHeight: undefined,
+      // wastagePercentage: undefined,
+      // cuttingLayoutDescription: "",
+      // selectedMasterSheetGsm: undefined,
+      // selectedMasterSheetThicknessMm: undefined,
+      // selectedMasterSheetQuality: "",
+      // sourceInventoryItemId: "",
+      // sheetsPerMasterSheet: undefined,
+      // totalMasterSheetsNeeded: undefined,
       kindOfJob: job.kindOfJob || "",
       printingFront: job.printingFront || "",
       printingBack: job.printingBack || "",
@@ -415,6 +402,18 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
     form.setValue('workflowSteps', currentWorkflowSteps.map(s => ({ stepSlug: s.slug, order: s.order })));
   }, [currentWorkflowSteps, form]);
 
+  const filteredInventoryForDisplay = useMemo(() => {
+    if (!watchedPaperQuality) {
+      return [];
+    }
+    let filtered = allInventoryItems.filter(item =>
+      item.type === 'Master Sheet' && item.paperQuality === watchedPaperQuality
+    );
+    // Basic sort by name for now, will implement complex sorting later
+    filtered.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    return filtered;
+  }, [allInventoryItems, watchedPaperQuality]);
+
 
   async function onSubmit(values: JobCardFormValues) {
     setIsSubmitting(true);
@@ -443,16 +442,16 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
         paperGsm: undefined,
         targetPaperThicknessMm: undefined,
         paperQuality: "",
-        // masterSheetSizeWidth: undefined, // Removed
-        // masterSheetSizeHeight: undefined, // Removed
-        // wastagePercentage: undefined, // Removed
-        // cuttingLayoutDescription: "", // Removed
-        // selectedMasterSheetGsm: undefined, // Removed
-        // selectedMasterSheetThicknessMm: undefined, // Removed
-        // selectedMasterSheetQuality: "", // Removed
-        // sourceInventoryItemId: "", // Removed
-        // sheetsPerMasterSheet: undefined, // Removed
-        // totalMasterSheetsNeeded: undefined, // Removed
+        // masterSheetSizeWidth: undefined, // Optimizer fields removed
+        // masterSheetSizeHeight: undefined,
+        // wastagePercentage: undefined,
+        // cuttingLayoutDescription: "",
+        // selectedMasterSheetGsm: undefined,
+        // selectedMasterSheetThicknessMm: undefined,
+        // selectedMasterSheetQuality: "",
+        // sourceInventoryItemId: "",
+        // sheetsPerMasterSheet: undefined,
+        // totalMasterSheetsNeeded: undefined,
         kindOfJob: "",
         printingFront: "",
         printingBack: "",
@@ -798,14 +797,58 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
           </CardContent>
         </Card>
 
-        {/*
-        <InventoryOptimizationModal
-            jobDetails={currentJobDetailsForModal}
-            onSuggestionSelect={handleSuggestionSelect}
-            isOpen={isModalOpen}
-            setIsOpen={setIsModalOpen}
-        />
-        */}
+        <Card>
+          <CardHeader>
+             <CardTitle className="font-headline flex items-center"><Archive className="mr-2 h-5 w-5 text-primary"/>Relevant Inventory</CardTitle>
+            <CardDescription className="font-body">
+                Available master sheets based on selected Target Paper Quality.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoadingInventory ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
+                <p className="text-muted-foreground">Loading inventory...</p>
+              </div>
+            ) : !watchedPaperQuality ? (
+              <p className="text-muted-foreground text-center py-4">
+                Select a 'Target Paper Quality' above to see relevant stock.
+              </p>
+            ) : filteredInventoryForDisplay.length === 0 ? (
+              <p className="text-muted-foreground text-center py-4">
+                No inventory items match the selected paper quality.
+              </p>
+            ) : (
+              <ScrollArea className="h-[250px] border rounded-md">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="font-body">Item Description</TableHead>
+                      <TableHead className="font-body text-right">Available Stock</TableHead>
+                      <TableHead className="font-body">Unit</TableHead>
+                      <TableHead className="font-body">Location</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredInventoryForDisplay.map(item => (
+                      <TableRow key={item.id}>
+                        <TableCell className="font-body text-sm">{formatInventoryItemForDisplay(item)}</TableCell>
+                        <TableCell className="font-body text-right">{(item.availableStock ?? 0).toLocaleString()}</TableCell>
+                        <TableCell className="font-body text-sm">{item.unit || '-'}</TableCell>
+                        <TableCell className="font-body text-sm">
+                          <div className="flex items-center">
+                           {item.locationCode && <Warehouse className="mr-1.5 h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />}
+                           {item.locationCode || '-'}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            )}
+          </CardContent>
+        </Card>
         
         <Card>
           <CardHeader>
@@ -991,16 +1034,16 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
                     paperGsm: undefined,
                     targetPaperThicknessMm: undefined,
                     paperQuality: "",
-                    // masterSheetSizeWidth: undefined, // Removed
-                    // masterSheetSizeHeight: undefined, // Removed
-                    // wastagePercentage: undefined, // Removed
-                    // cuttingLayoutDescription: "", // Removed
-                    // selectedMasterSheetGsm: undefined, // Removed
-                    // selectedMasterSheetThicknessMm: undefined, // Removed
-                    // selectedMasterSheetQuality: "", // Removed
-                    // sourceInventoryItemId: "", // Removed
-                    // sheetsPerMasterSheet: undefined, // Removed
-                    // totalMasterSheetsNeeded: undefined, // Removed
+                    // masterSheetSizeWidth: undefined, // Optimizer fields removed
+                    // masterSheetSizeHeight: undefined,
+                    // wastagePercentage: undefined,
+                    // cuttingLayoutDescription: "",
+                    // selectedMasterSheetGsm: undefined,
+                    // selectedMasterSheetThicknessMm: undefined,
+                    // selectedMasterSheetQuality: "",
+                    // sourceInventoryItemId: "",
+                    // sheetsPerMasterSheet: undefined,
+                    // totalMasterSheetsNeeded: undefined,
                     kindOfJob: "",
                     printingFront: "",
                     printingBack: "",
