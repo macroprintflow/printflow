@@ -13,7 +13,7 @@ import type { DesignSubmission, JobCardData } from "@/lib/definitions";
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { ViewAllJobsModal } from "@/components/job-card/ViewAllJobsModal";
-import { NewJobMultiStepModal } from "@/components/job-card/NewJobMultiStepModal"; // Import the new modal
+import { NewJobMultiStepModal } from "@/components/job-card/NewJobMultiStepModal";
 import { useSearchParams } from "next/navigation";
 
 function NewJobPageContent() {
@@ -147,17 +147,20 @@ function NewJobPageContent() {
     setTimeout(() => jobFormCardRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
   };
   
-  const handleOpenMultiStepModal = (mode: 'blank' | 'prefill') => {
-    if (mode === 'prefill') {
-      // For now, 'prefill' also starts blank. 
-      // Later, this is where you'd fetch past job data.
-      setMultiStepInitialData(undefined); // Placeholder for actual prefill data
-      toast({ title: "Pre-Fill From Past Job", description: "This feature is in development. Starting with a blank multi-step form for now."});
-    } else {
-      setMultiStepInitialData(undefined);
+  const handleSetCreationPath = (path: 'prefill_full_form' | 'guided_steps') => {
+    if (path === 'prefill_full_form') {
+      setInitialJobDataForForm(undefined); // Important: Clear this so JobCardForm shows its own selection UI
+      setPrefillJobName(undefined);
+      setPrefillCustomerName(undefined);
+      setSelectedDesignPdfUri(undefined);
+      setCreationMode('show_form');
+      toast({ title: "Pre-Fill from Past Job", description: "Please use the selectors within the form below to choose a customer and their past job."});
+      setTimeout(() => jobFormCardRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+    } else if (path === 'guided_steps') {
+      setMultiStepInitialData(undefined); // Start guided steps fresh
+      setIsMultiStepModalOpen(true);
+      setCreationMode('show_multistep_modal');
     }
-    setIsMultiStepModalOpen(true);
-    setCreationMode('show_multistep_modal'); // Set creation mode to indicate modal is active
   };
 
   if (isLoadingJobForPrefill) {
@@ -202,8 +205,6 @@ function NewJobPageContent() {
         setIsOpen={setIsMultiStepModalOpen}
         initialData={multiStepInitialData}
         onModalClose={() => {
-            // If modal is closed without submission, revert to creation_options
-            // unless form is already shown (e.g., via approved design)
             if (creationMode === 'show_multistep_modal') {
                  setCreationMode('creation_options');
             }
@@ -312,15 +313,15 @@ function NewJobPageContent() {
                         <Button
                             variant="outline"
                             className="h-auto py-6 text-lg flex flex-col items-center justify-center gap-2 hover:shadow-md transition-shadow"
-                            onClick={() => handleOpenMultiStepModal('prefill')}
+                            onClick={() => handleSetCreationPath('prefill_full_form')}
                         >
                             <FileText className="h-8 w-8 mb-2 text-primary" />
-                            Pre-Fill from Past Job
+                            Pre-Fill from Past Job (Full Form)
                         </Button>
                         <Button
                             variant="outline"
                             className="h-auto py-6 text-lg flex flex-col items-center justify-center gap-2 hover:shadow-md transition-shadow"
-                            onClick={() => handleOpenMultiStepModal('blank')}
+                            onClick={() => handleSetCreationPath('guided_steps')}
                         >
                             <FilePlus2 className="h-8 w-8 mb-2 text-primary" />
                             Start with Guided Steps
@@ -336,20 +337,20 @@ function NewJobPageContent() {
                         <CardTitle className="font-headline flex items-center text-xl">
                             <FilePlus2 className="mr-3 h-6 w-6 text-primary" />
                             {initialJobDataForForm?.jobName?.startsWith("Re-order:") ? "Re-order Job" : 
-                            initialJobDataForForm ? "Create Job from Design" : "Create New Job Card Manually"}
+                            initialJobDataForForm ? "Create Job from Design" : "Create New Job Card"}
                         </CardTitle>
                         <CardDescription className="font-body">
                             {initialJobDataForForm?.jobName?.startsWith("Re-order:")
                             ? "Review and adjust details for this re-order. A new job card will be created."
                             : initialJobDataForForm 
                                 ? "Review the pre-filled details from the approved design and complete the job card."
-                                : "Fill out the details below to create a new job card."
+                                : "Fill out the details below to create a new job card. You can use the 'Pre-fill from Past Job' section within the form."
                             }
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="pt-6">
                     <JobCardForm 
-                        key={initialJobDataForForm?.id || fromCustomerJobId || 'new-job'}
+                        key={initialJobDataForForm?.id || fromCustomerJobId || 'new-job-full-form'}
                         initialJobName={initialJobDataForForm?.jobName || prefillJobName} 
                         initialCustomerName={initialJobDataForForm?.customerName || prefillCustomerName}
                         initialJobData={initialJobDataForForm}
