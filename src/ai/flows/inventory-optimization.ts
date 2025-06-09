@@ -68,18 +68,18 @@ export async function optimizeInventory(input: OptimizeInventoryInput): Promise<
 
 // Helper for specialized "staggered" layout.
 function calculateSpecialStaggeredUpsInternal(jobW: number, jobH: number, sheetW: number, sheetH: number) {
-  // Try both: "main row as job" and "main row as rotated job"
   let bestUps = 0;
   let bestDesc = "";
+  const epsilon = 1e-6; // Small fudge factor for floating point comparisons
 
   // CASE 1: Main row is not rotated, leftover fits rotated jobs
-  const mainCols1 = Math.floor(sheetW / jobW);
+  const mainCols1 = Math.floor(sheetW / jobW + epsilon);
   const mainRows1 = 1; // Assuming a single main row for this specific staggered logic
   const usedH1 = jobH; // Height used by the main row
   const leftoverH1 = sheetH - usedH1;
   let extra1 = 0;
-  if (leftoverH1 >= jobW) { // Can fit rotated job height (jobW) in leftover space
-    extra1 = Math.floor(sheetW / jobH); // How many rotated jobs (jobH as width) fit across sheet width
+  if (leftoverH1 >= jobW - epsilon) { // Can fit rotated job height (jobW) in leftover space
+    extra1 = Math.floor(sheetW / jobH + epsilon); // How many rotated jobs (jobH as width) fit across sheet width
   }
   let ups1 = mainCols1 * mainRows1 + extra1;
   if (ups1 > bestUps) {
@@ -88,13 +88,13 @@ function calculateSpecialStaggeredUpsInternal(jobW: number, jobH: number, sheetW
   }
 
   // CASE 2: Main row is rotated, leftover fits normal jobs
-  const mainCols2 = Math.floor(sheetW / jobH); // Main row items are rotated (jobH as width)
+  const mainCols2 = Math.floor(sheetW / jobH + epsilon); // Main row items are rotated (jobH as width)
   const mainRows2 = 1; // Assuming a single main row
   const usedH2 = jobW; // Height used by the rotated main row (jobW as height)
   const leftoverH2 = sheetH - usedH2;
   let extra2 = 0;
-  if (leftoverH2 >= jobH) { // Can fit normal job height (jobH) in leftover space
-    extra2 = Math.floor(sheetW / jobW); // How many normal jobs (jobW as width) fit across sheet width
+  if (leftoverH2 >= jobH - epsilon) { // Can fit normal job height (jobH) in leftover space
+    extra2 = Math.floor(sheetW / jobW + epsilon); // How many normal jobs (jobW as width) fit across sheet width
   }
   let ups2 = mainCols2 * mainRows2 + extra2;
   if (ups2 > bestUps) {
