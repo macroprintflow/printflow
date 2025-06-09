@@ -47,7 +47,7 @@ const formatInventoryItemForDisplay = (item: InventoryItem): string => {
     else if (unit === 'gsm' && item.paperGsm) spec = `${item.paperGsm}GSM`;
     
     const size = (item.masterSheetSizeWidth && item.masterSheetSizeHeight) 
-      ? `(${item.masterSheetSizeWidth}x${item.masterSheetSizeHeight}in)` 
+      ? `(${item.masterSheetSizeWidth.toFixed(1)}x${item.masterSheetSizeHeight.toFixed(1)}in)` 
       : '';
     return `${qualityLabel} ${spec} ${size}`.trim().replace(/\s\s+/g, ' ');
   }
@@ -115,17 +115,6 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
       workflowSteps: initialJobData.workflowSteps || [],
       linkedJobCardIds: initialJobData.linkedJobCardIds || [],
       pdfDataUri: initialJobData.pdfDataUri,
-      // Fields for optimized sheet details are removed
-      // masterSheetSizeWidth: initialJobData.masterSheetSizeWidth,
-      // masterSheetSizeHeight: initialJobData.masterSheetSizeHeight,
-      // wastagePercentage: initialJobData.wastagePercentage,
-      // cuttingLayoutDescription: initialJobData.cuttingLayoutDescription,
-      // selectedMasterSheetGsm: getPaperQualityUnit(initialJobData.selectedMasterSheetQuality as PaperQualityType) === 'gsm' ? initialJobData.selectedMasterSheetGsm : undefined,
-      // selectedMasterSheetThicknessMm: getPaperQualityUnit(initialJobData.selectedMasterSheetQuality as PaperQualityType) === 'mm' ? initialJobData.selectedMasterSheetThicknessMm : undefined,
-      // selectedMasterSheetQuality: initialJobData.selectedMasterSheetQuality,
-      // sourceInventoryItemId: initialJobData.sourceInventoryItemId,
-      // sheetsPerMasterSheet: initialJobData.sheetsPerMasterSheet,
-      // totalMasterSheetsNeeded: initialJobData.totalMasterSheetsNeeded,
     }
     : { 
       jobName: initialJobName || "",
@@ -235,59 +224,74 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
   const watchedPaperQuality = form.watch("paperQuality");
   const watchedPaperGsm = form.watch("paperGsm");
   const watchedPaperThicknessMm = form.watch("targetPaperThicknessMm");
-  // const watchedCustomerName = form.watch("customerName"); // For Art Paper rule
 
   const targetPaperUnit = getPaperQualityUnit(watchedPaperQuality as PaperQualityType);
 
   const filteredInventoryForDisplay = useMemo(() => {
-    // console.log('[JobCardForm] Recalculating filteredInventoryForDisplay. Watched Quality:', watchedPaperQuality, 'GSM:', watchedPaperGsm, 'Thickness:', watchedPaperThicknessMm);
     if (!watchedPaperQuality || watchedPaperQuality === "") {
-      // console.log('[JobCardForm] No paper quality selected. Returning empty inventory list.');
       return [];
     }
 
     let qualityFilteredItems = allInventoryItems.filter(
       item => item.type === 'Master Sheet' && item.paperQuality === watchedPaperQuality && (item.availableStock ?? 0) > 0
     );
-    // console.log(`[JobCardForm] After quality filter ('${watchedPaperQuality}'), found ${qualityFilteredItems.length} items.`);
 
     let finalFilteredItems: InventoryItem[] = [];
 
     if (watchedPaperQuality === "SBS") {
       if (watchedPaperGsm !== undefined && watchedPaperGsm > 0) {
-        // Apply specific GSM range logic for SBS
         finalFilteredItems = qualityFilteredItems.filter(item => {
           if (!item.paperGsm) return false;
           const itemGsm = item.paperGsm;
           if (watchedPaperGsm >= 200 && watchedPaperGsm <= 230) return itemGsm >= 200 && itemGsm <= 230;
-          if (watchedPaperGsm === 250 || watchedPaperGsm === 260) return itemGsm === 230 || itemGsm === 250 || itemGsm === 260; // Rule had 230 for 250/260 input
-          if (watchedPaperGsm === 270 || watchedPaperGsm === 280) return itemGsm === 270 || itemGsm === 280;
-          if (watchedPaperGsm === 290 || watchedPaperGsm === 300) return itemGsm === 290 || itemGsm === 300 || itemGsm === 310;
-          if (watchedPaperGsm === 320) return itemGsm === 310 || itemGsm === 320 || itemGsm === 330;
-          if (watchedPaperGsm === 350) return itemGsm === 340 || itemGsm === 350 || itemGsm === 360;
-          if (watchedPaperGsm === 400) return itemGsm >= 370 && itemGsm <= 410; // Assuming 370,380,390,400,410 - simplified to range
-          return false; // Should not happen if GSM is in defined groups
+          if (watchedPaperGsm >= 231 && watchedPaperGsm <= 260) return itemGsm >= 230 && itemGsm <= 260; // Adjusted original rule "230, 250, 260" to range
+          if (watchedPaperGsm >= 261 && watchedPaperGsm <= 280) return itemGsm >= 270 && itemGsm <= 280; // Adjusted "270, 280"
+          if (watchedPaperGsm >= 281 && watchedPaperGsm <= 300) return itemGsm >= 290 && itemGsm <= 310; // Adjusted "290, 300"
+          if (watchedPaperGsm >= 301 && watchedPaperGsm <= 320) return itemGsm >= 310 && itemGsm <= 330; // Adjusted "320"
+          if (watchedPaperGsm >= 321 && watchedPaperGsm <= 350) return itemGsm >= 340 && itemGsm <= 360; // Adjusted "350"
+          if (watchedPaperGsm >= 351 && watchedPaperGsm <= 400) return itemGsm >= 370 && itemGsm <= 410; // Adjusted "400"
+          return false;
         });
       } else {
-        // No GSM specified for SBS, show all SBS
         finalFilteredItems = qualityFilteredItems;
       }
+    } else if (watchedPaperQuality === "GREYBACK" || watchedPaperQuality === "WHITEBACK") {
+        if (watchedPaperGsm !== undefined && watchedPaperGsm > 0) {
+            finalFilteredItems = qualityFilteredItems.filter(item => {
+                if (!item.paperGsm) return false;
+                const itemGsm = item.paperGsm;
+                if (watchedPaperGsm >= 200 && watchedPaperGsm <= 230) return itemGsm >= 200 && itemGsm <= 230;
+                if (watchedPaperGsm >= 231 && watchedPaperGsm <= 250) return itemGsm === 250;
+                if (watchedPaperGsm >= 251 && watchedPaperGsm <= 270) return itemGsm === 270;
+                if (watchedPaperGsm >= 271 && watchedPaperGsm <= 280) return itemGsm === 280;
+                if (watchedPaperGsm >= 281 && watchedPaperGsm <= 300) return itemGsm === 300 || itemGsm === 310;
+                if (watchedPaperGsm >= 301 && watchedPaperGsm <= 320) return itemGsm === 320 || itemGsm === 330;
+                if (watchedPaperGsm >= 321 && watchedPaperGsm <= 350) return itemGsm === 350 || itemGsm === 360;
+                if (watchedPaperGsm >= 351 && watchedPaperGsm <= 380) return itemGsm === 380 || itemGsm === 390;
+                if (watchedPaperGsm >= 381 && watchedPaperGsm <= 400) return itemGsm === 400 || itemGsm === 410;
+                return false;
+            });
+        } else {
+            finalFilteredItems = qualityFilteredItems;
+        }
     }
     // Placeholder for other paper qualities until their logic is added
-    // else if (watchedPaperQuality === "GREYBACK" || watchedPaperQuality === "WHITEBACK") { ... }
     // else if (watchedPaperQuality === "ART_PAPER_GLOSS" || watchedPaperQuality === "ART_PAPER_MATT") { ... }
     // else if (watchedPaperQuality === "GG_KAPPA" || watchedPaperQuality === "WG_KAPPA") { ... }
     // else if (watchedPaperQuality === "BUTTER_PAPER") { ... }
     // else if (watchedPaperQuality === "JAPANESE_PAPER" || watchedPaperQuality === "IMPORTED_PAPER" || watchedPaperQuality === "GOLDEN_SHEET" || watchedPaperQuality === "MDF") { ... }
     else {
-      // Default for now: if a quality is selected but no specific GSM/Thickness rules are yet implemented for it,
-      // show all items of that quality.
-      finalFilteredItems = qualityFilteredItems;
+      // If no specific rule applies yet for the selected quality but GSM is entered, filter by exact GSM
+      if (watchedPaperGsm !== undefined && watchedPaperGsm > 0 && targetPaperUnit === 'gsm') {
+        finalFilteredItems = qualityFilteredItems.filter(item => item.paperGsm === watchedPaperGsm);
+      } else if (watchedPaperThicknessMm !== undefined && watchedPaperThicknessMm > 0 && targetPaperUnit === 'mm') {
+        finalFilteredItems = qualityFilteredItems.filter(item => item.paperThicknessMm === watchedPaperThicknessMm);
+      }
+      else {
+        finalFilteredItems = qualityFilteredItems;
+      }
     }
     
-    // console.log(`[JobCardForm] After GSM/Thickness filter for '${watchedPaperQuality}', found ${finalFilteredItems.length} items.`);
-
-    // Sort the final list
     return finalFilteredItems.sort((a, b) => {
       const unit = getPaperQualityUnit(a.paperQuality as PaperQualityType);
       if (unit === 'gsm') {
@@ -297,7 +301,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
       }
       return (a.id || "").localeCompare(b.id || "");
     });
-  }, [allInventoryItems, watchedPaperQuality, watchedPaperGsm, watchedPaperThicknessMm]);
+  }, [allInventoryItems, watchedPaperQuality, watchedPaperGsm, watchedPaperThicknessMm, targetPaperUnit]);
 
 
   const fetchJobsForThisCustomer = async (customerName: string) => {
@@ -800,19 +804,11 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
                   type="button" 
                   variant="outline" 
                   className="w-full md:mt-0 mt-4 font-body" 
-                  // onClick={() => setIsModalOpen(true)} // Optimizer commented out
                   disabled // Optimizer commented out
                  > 
                     <Wand2 className="mr-2 h-4 w-4" /> Optimize Master Sheet (Coming Soon)
                  </Button>
             </div>
-            {/* Removed fields for displaying optimized sheet details as optimizer is "Coming Soon" */}
-            {/* 
-            <FormField control={form.control} name="masterSheetSizeWidth" render={({ field }) => ( ... )} />
-            <FormField control={form.control} name="masterSheetSizeHeight" render={({ field }) => ( ... )} />
-            <FormField control={form.control} name="wastagePercentage" render={({ field }) => ( ... )} />
-            // etc. for other optimizer-related fields
-            */}
           </CardContent>
         </Card>
 
