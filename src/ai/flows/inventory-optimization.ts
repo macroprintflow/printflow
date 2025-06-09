@@ -70,7 +70,7 @@ export async function optimizeInventory(input: OptimizeInventoryInput): Promise<
 function calculateMacroStaggeredUpsInternal(jobW: number, jobH: number, sheetW: number, sheetH: number) {
   let bestUps = 0;
   let bestDesc = "";
-  const epsilon = 1e-6; // Fudge factor for floating point comparisons
+  const epsilon = 1e-6; // Epsilon for floating-point precision
 
   // CASE 1: Main rows are portrait, one row of rotated in leftover
   const maxPortraitRows1 = Math.floor(sheetH / jobH + epsilon);
@@ -122,7 +122,8 @@ function calculateMacroStaggeredUpsInternal(jobW: number, jobH: number, sheetW: 
   return { ups: bestUps, description: bestDesc };
 }
 
-// Improved Guillotine Cut Calculation, incorporating Macro Staggered
+
+// Improved Guillotine Cut Calculation
 function calculateMaxGuillotineUps(jobW: number, jobH: number, sheetW: number, sheetH: number) {
   let maxUps = 0;
   let bestLayout = "N/A";
@@ -268,12 +269,12 @@ const optimizeInventoryFlow = ai.defineFlow(
         effectiveSheetH = sheet.masterSheetSizeHeight;
       }
       
-      if (sheet.masterSheetSizeWidth !== sheet.masterSheetSizeHeight) {
+      if (sheet.masterSheetSizeWidth !== sheet.masterSheetSizeHeight) { // Only try rotating master if not square
         const resRot = calculateMaxGuillotineUps(jobSizeWidth, jobSizeHeight, sheet.masterSheetSizeHeight, sheet.masterSheetSizeWidth);
         if (resRot.ups > bestUpsForThisSheet) {
           bestUpsForThisSheet = resRot.ups;
           bestLayoutDesc = `${resRot.description} (Master Landscape)`;
-          effectiveSheetW = sheet.masterSheetSizeHeight;
+          effectiveSheetW = sheet.masterSheetSizeHeight; // Master sheet was rotated
           effectiveSheetH = sheet.masterSheetSizeWidth;
         }
       }
@@ -291,7 +292,7 @@ const optimizeInventoryFlow = ai.defineFlow(
       
       allSuggestions.push({
         sourceInventoryItemId: sheet.id,
-        masterSheetSizeWidth: sheet.masterSheetSizeWidth,
+        masterSheetSizeWidth: sheet.masterSheetSizeWidth, // Report original inventory sheet dims
         masterSheetSizeHeight: sheet.masterSheetSizeHeight,
         paperGsm: sheet.paperGsm,
         paperThicknessMm: sheet.paperThicknessMm,
