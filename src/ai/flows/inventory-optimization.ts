@@ -3,7 +3,7 @@
 'use server';
 /**
  * @fileOverview A flow that suggests the best possible master sheet size from available inventory,
- * calculating the percentage of wastage based on the input paper specifications using guillotine-cut logic.
+ * calculating the percentage of wastage based on different layout strategies.
  * All dimensions are expected and returned in inches. Thickness is in mm.
  *
  * - optimizeInventory - A function that handles the inventory optimization process.
@@ -40,11 +40,12 @@ const OptimizeInventoryInputSchema = z.object({
   jobSizeHeight: z.number().describe('The height of the job in inches.'),
   netQuantity: z.number().describe('The net quantity of sheets required for the job.'),
   availableMasterSheets: z.array(AvailableSheetSchema).describe('A list of master sheets from inventory that match the basic criteria for the job. The AI should process these sheets to find the optimal ones.'),
+  optimizationStrategy: z.enum(['GUILLOTINE', 'BIN_PACKING_2D']).default('GUILLOTINE').optional().describe('The optimization strategy to use. GUILLOTINE for straight cuts, BIN_PACKING_2D for more complex nesting (placeholder).')
 });
 export type OptimizeInventoryInput = z.infer<typeof OptimizeInventoryInputSchema>;
 
 const MasterSheetSuggestionSchema = z.object({
-  id: z.string().describe('The inventory ID of the master sheet used for this suggestion.'), // Changed from sourceInventoryItemId
+  id: z.string().describe('The inventory ID of the master sheet used for this suggestion.'),
   masterSheetSizeWidth: z.number().describe('The width of the suggested master sheet size in inches (from inventory).'),
   masterSheetSizeHeight: z.number().describe('The height of the suggested master sheet size in inches (from inventory).'),
   paperGsm: z.number().optional().describe('The actual GSM of the suggested master sheet (from inventory), if applicable.'),
@@ -72,7 +73,7 @@ export async function optimizeInventory(input: OptimizeInventoryInput): Promise<
 
 const epsilon = 1e-6; // Epsilon for floating point comparisons
 
-// Corrected Macro Staggered Logic (from user, with epsilon)
+// Helper for "macro staggered" layouts - one primary orientation fill + single row of alternate orientation
 function calculateMacroStaggeredUpsFixedInternal(
   jobW: number, jobH: number, sheetW: number, sheetH: number
 ) {
@@ -81,42 +82,52 @@ function calculateMacroStaggeredUpsFixedInternal(
   const eps = epsilon; 
   console.log(`[StaggeredCalc] Input: jobW=${jobW}, jobH=${jobH}, sheetW=${sheetW}, sheetH=${sheetH}`);
 
-  /* ---------- CASE 1: portrait rows first, rotated in leftover ---------- */
+  // CASE 1: Portrait rows on top, as many as fit; fill leftover with as many *rows* of rotated jobs as possible
   for (let portraitRows = 0; portraitRows <= Math.floor((sheetH + eps) / jobH); ++portraitRows) {
     const usedH = portraitRows * jobH;
-    const remH  = sheetH - usedH;
+    if (usedH > sheetH + eps) continue;
+    const remainingH = sheetH - usedH;
 
-    const colsPortrait  = Math.floor((sheetW + eps) / jobW);
-    const upsPortrait   = portraitRows * colsPortrait;
+    const colsPortrait = Math.floor((sheetW + eps) / jobW);
+    const upsPortrait = portraitRows * colsPortrait;
 
-    const rowsRot = remH + eps >= jobW ? Math.floor((remH + eps) / jobW) : 0;
-    const colsRot = rowsRot > 0      ? Math.floor((sheetW + eps) / jobH) : 0;
-    const upsRot  = rowsRot * colsRot;
-
-    const total = upsPortrait + upsRot;
-    if (total > bestUps) {
-      bestUps  = total;
-      bestDesc = `${colsPortrait}x${portraitRows} portrait + ${colsRot}x${rowsRot} rotated`;
+    let upsRotated = 0;
+    let rotatedRows = 0;
+    let rotatedCols = 0;
+    if (remainingH >= jobW - eps) { // Check if leftover height can fit at least one rotated job's width
+      rotatedRows = Math.floor((remainingH + eps) / jobW); // How many rows of rotated jobs fit in remaining height
+      rotatedCols = Math.floor((sheetW + eps) / jobH);    // How many rotated jobs fit across the sheet width
+      upsRotated = rotatedRows * rotatedCols;
+    }
+    const totalUps = upsPortrait + upsRotated;
+    if (totalUps > bestUps) {
+      bestUps = totalUps;
+      bestDesc = `${colsPortrait}x${portraitRows} portrait + ${rotatedCols}x${rotatedRows} rotated in leftover`;
     }
   }
-  console.log(`[StaggeredCalc] Case 1 (Portrait first) best: ${bestUps} ups, desc: ${bestDesc}`);
 
-  /* ---------- CASE 2: rotated rows first, portrait in leftover ---------- */
-  for (let rotRows = 0; rotRows <= Math.floor((sheetH + eps) / jobW); ++rotRows) {
-    const usedH = rotRows * jobW;
-    const remH  = sheetH - usedH;
+  // CASE 2: Rotated rows on top, as many as fit; fill leftover with as many portrait rows as possible
+  for (let rotatedRows = 0; rotatedRows <= Math.floor((sheetH + eps) / jobW); ++rotatedRows) {
+    const usedH = rotatedRows * jobW;
+    if (usedH > sheetH + eps) continue;
+    const remainingH = sheetH - usedH;
 
-    const colsRot = Math.floor((sheetW + eps) / jobH);
-    const upsRot  = rotRows * colsRot;
+    const rotatedCols = Math.floor((sheetW + eps) / jobH);
+    const upsRotated = rotatedRows * rotatedCols;
 
-    const rowsPor = remH + eps >= jobH ? Math.floor((remH + eps) / jobH) : 0;
-    const colsPor = rowsPor > 0      ? Math.floor((sheetW + eps) / jobW) : 0;
-    const upsPor  = rowsPor * colsPor;
+    let upsPortrait = 0;
+    let portraitRowsInLeftover = 0; // Renamed for clarity
+    let colsPortraitInLeftover = 0; // Renamed for clarity
+    if (remainingH >= jobH - eps) { // Check if leftover height can fit at least one portrait job's height
+      portraitRowsInLeftover = Math.floor((remainingH + eps) / jobH); // How many rows of portrait jobs fit
+      colsPortraitInLeftover = Math.floor((sheetW + eps) / jobW);    // How many portrait jobs fit across
+      upsPortrait = portraitRowsInLeftover * colsPortraitInLeftover;
+    }
 
-    const total = upsPor + upsRot;
-    if (total > bestUps) {
-      bestUps  = total;
-      bestDesc = `${colsRot}x${rotRows} rotated + ${colsPor}x${rowsPor} portrait`;
+    const totalUps = upsPortrait + upsRotated;
+    if (totalUps > bestUps) {
+      bestUps = totalUps;
+      bestDesc = `${rotatedCols}x${rotatedRows} rotated + ${colsPortraitInLeftover}x${portraitRowsInLeftover} portrait in leftover`;
     }
   }
   console.log(`[StaggeredCalc] Final best for this job/sheet combo: ${bestUps} ups, desc: ${bestDesc}`);
@@ -124,7 +135,7 @@ function calculateMacroStaggeredUpsFixedInternal(
 }
 
 
-// Improved Guillotine Cut Calculation (integrates macro staggered)
+// Guillotine Cut Calculation
 function calculateMaxGuillotineUps(jobW: number, jobH: number, sheetW: number, sheetH: number) {
   let maxUps = 0;
   let bestLayout = "N/A";
@@ -205,7 +216,7 @@ function calculateMaxGuillotineUps(jobW: number, jobH: number, sheetW: number, s
       }
     }
     
-    // Strategy 3: Check Macro Staggered Layout (using the corrected function)
+    // Strategy 3: Check Macro Staggered Layout
     console.log(`[GuillotineCalc] Calling Macro Staggered for job orient ${orient.label} (${orient.w}x${orient.h}) on sheet ${sheetW}x${sheetH}`);
     const staggeredResult = calculateMacroStaggeredUpsFixedInternal(orient.w, orient.h, sheetW, sheetH);
     console.log(`[GuillotineCalc] Macro Staggered result for job orient ${orient.label}: ${staggeredResult.ups} ups, desc: ${staggeredResult.description}`);
@@ -219,6 +230,149 @@ function calculateMaxGuillotineUps(jobW: number, jobH: number, sheetW: number, s
   return { ups: maxUps, description: bestLayout };
 }
 
+/**
+ * Calculates inventory suggestions based on guillotine cutting logic.
+ */
+async function getGuillotineLayoutSuggestions(
+  input: OptimizeInventoryInput
+): Promise<OptimizeInventoryOutput> {
+  console.log('[InventoryOptimization TS Flow] Starting GUILLOTINE-BASED optimization.');
+  const { 
+    targetPaperGsm, 
+    targetPaperThicknessMm, 
+    targetPaperQuality, 
+    jobSizeWidth, 
+    jobSizeHeight, 
+    netQuantity 
+  } = input;
+
+  const allSuggestions: z.infer<typeof MasterSheetSuggestionSchema>[] = [];
+
+  for (const sheet of input.availableMasterSheets) {
+    console.log(`[GuillotineStrategy] Processing sheet ID: ${sheet.id}, Name: ${sheet.name || 'N/A'}, Size: ${sheet.masterSheetSizeWidth}x${sheet.masterSheetSizeHeight}, Quality: ${sheet.paperQuality}, Stock: ${sheet.availableStock}`);
+    const targetUnit = getPaperQualityUnit(targetPaperQuality as any);
+    const sheetUnit = getPaperQualityUnit(sheet.paperQuality as any);
+
+    if (sheet.paperQuality !== targetPaperQuality) {
+      console.log(`[GuillotineStrategy] Sheet ID ${sheet.id} Quality (${sheet.paperQuality}) mismatch with target (${targetPaperQuality}). Skipping.`);
+      continue;
+    }
+    if ((sheet.availableStock ?? 0) <= 0) {
+      console.log(`[GuillotineStrategy] Sheet ID ${sheet.id} has no available stock. Skipping.`);
+      continue;
+    }
+
+    if (targetUnit === 'mm' && sheetUnit === 'mm') {
+      if (targetPaperThicknessMm === undefined || sheet.paperThicknessMm === undefined || Math.abs(sheet.paperThicknessMm - targetPaperThicknessMm) > 0.1) { 
+        console.log(`[GuillotineStrategy] Sheet ID ${sheet.id} Thickness mismatch (Sheet: ${sheet.paperThicknessMm}mm, Target: ${targetPaperThicknessMm}mm). Skipping.`);
+        continue;
+      }
+    } else if (targetUnit === 'gsm' && sheetUnit === 'gsm') {
+      if (targetPaperGsm === undefined || sheet.paperGsm === undefined) {
+          console.log(`[GuillotineStrategy] Sheet ID ${sheet.id} or target GSM is undefined. Skipping.`);
+          continue;
+      }
+      const gsmTolerance = targetPaperGsm * 0.05; 
+      if (Math.abs(sheet.paperGsm - targetPaperGsm) > gsmTolerance) {
+        console.log(`[GuillotineStrategy] Sheet ID ${sheet.id} GSM mismatch (Sheet: ${sheet.paperGsm}gsm, Target: ${targetPaperGsm}gsm, Tolerance: ${gsmTolerance.toFixed(2)}). Skipping.`);
+        continue;
+      }
+    } else {
+      console.log(`[GuillotineStrategy] Sheet ID ${sheet.id} Unit mismatch (Sheet Unit: ${sheetUnit}, Target Unit: ${targetUnit}). Skipping.`);
+      continue; 
+    }
+    
+    let bestUpsForThisSheet = 0;
+    let bestLayoutDesc = "N/A";
+    let effectiveSheetW = sheet.masterSheetSizeWidth;
+    let effectiveSheetH = sheet.masterSheetSizeHeight;
+    
+    console.log(`[GuillotineStrategy] Sheet ID ${sheet.id}: Calculating for original orientation (${sheet.masterSheetSizeWidth}x${sheet.masterSheetSizeHeight})`);
+    const resOrig = calculateMaxGuillotineUps(jobSizeWidth, jobSizeHeight, sheet.masterSheetSizeWidth, sheet.masterSheetSizeHeight);
+    console.log(`[GuillotineStrategy] Sheet ID ${sheet.id} (Original Orient): Ups=${resOrig.ups}, Layout='${resOrig.description}'`);
+    if (resOrig.ups > bestUpsForThisSheet) {
+      bestUpsForThisSheet = resOrig.ups;
+      bestLayoutDesc = `${resOrig.description} (Master Portrait)`;
+      effectiveSheetW = sheet.masterSheetSizeWidth;
+      effectiveSheetH = sheet.masterSheetSizeHeight;
+    }
+    
+    if (Math.abs(sheet.masterSheetSizeWidth - sheet.masterSheetSizeHeight) > epsilon) { 
+      console.log(`[GuillotineStrategy] Sheet ID ${sheet.id}: Calculating for rotated orientation (${sheet.masterSheetSizeHeight}x${sheet.masterSheetSizeWidth})`);
+      const resRot = calculateMaxGuillotineUps(jobSizeWidth, jobSizeHeight, sheet.masterSheetSizeHeight, sheet.masterSheetSizeWidth);
+      console.log(`[GuillotineStrategy] Sheet ID ${sheet.id} (Rotated Orient): Ups=${resRot.ups}, Layout='${resRot.description}'`);
+      if (resRot.ups > bestUpsForThisSheet) {
+        bestUpsForThisSheet = resRot.ups;
+        bestLayoutDesc = `${resRot.description} (Master Landscape)`;
+        effectiveSheetW = sheet.masterSheetSizeHeight; 
+        effectiveSheetH = sheet.masterSheetSizeWidth;
+      }
+    }
+
+    if (bestUpsForThisSheet === 0) {
+      console.log(`[GuillotineStrategy] Sheet ID ${sheet.id} (${sheet.name || 'Unknown Name'}) yields 0 ups after all calculations. Skipping.`);
+      continue;
+    }
+
+    const jobArea = jobSizeWidth * jobSizeHeight;
+    const masterSheetAreaUsedForLayout = effectiveSheetW * effectiveSheetH; 
+    const usedArea = bestUpsForThisSheet * jobArea;
+    const wastagePercentage = masterSheetAreaUsedForLayout > 0 ? Number(((1 - (usedArea / masterSheetAreaUsedForLayout)) * 100).toFixed(2)) : 100;
+    const totalMasterSheetsNeeded = Math.ceil(netQuantity / bestUpsForThisSheet);
+    
+    const currentSuggestion = {
+      id: sheet.id,
+      masterSheetSizeWidth: sheet.masterSheetSizeWidth,
+      masterSheetSizeHeight: sheet.masterSheetSizeHeight,
+      paperGsm: sheet.paperGsm,
+      paperThicknessMm: sheet.paperThicknessMm,
+      paperQuality: sheet.paperQuality,
+      sheetsPerMasterSheet: bestUpsForThisSheet,
+      totalMasterSheetsNeeded,
+      wastagePercentage,
+      cuttingLayoutDescription: bestLayoutDesc,
+      locationGodown: sheet.locationGodown,
+      locationLineNumber: sheet.locationLineNumber,
+    };
+    allSuggestions.push(currentSuggestion);
+    console.log(`[GuillotineStrategy] Sheet ID ${sheet.id}: Added suggestion - Ups=${bestUpsForThisSheet}, Wastage=${wastagePercentage}%, Layout='${bestLayoutDesc}'`);
+  }
+
+  allSuggestions.sort((a, b) => {
+    if (b.sheetsPerMasterSheet !== a.sheetsPerMasterSheet) {
+      return b.sheetsPerMasterSheet - a.sheetsPerMasterSheet;
+    }
+    if (a.wastagePercentage !== b.wastagePercentage) {
+      return a.wastagePercentage - b.wastagePercentage;
+    }
+    return a.totalMasterSheetsNeeded - b.totalMasterSheetsNeeded;
+  });
+  
+  const optimalSuggestion = allSuggestions.length > 0 ? allSuggestions[0] : undefined;
+
+  console.log(`[GuillotineStrategy] Processed ${input.availableMasterSheets.length} sheets. Generated ${allSuggestions.length} suggestions.`);
+  if (optimalSuggestion) {
+    console.log('[GuillotineStrategy] Optimal suggestion:', JSON.stringify(optimalSuggestion, null, 2));
+  }
+  return {
+    suggestions: allSuggestions,
+    optimalSuggestion: optimalSuggestion,
+  };
+}
+
+/**
+ * Placeholder for 2D Bin Packing strategy.
+ * This would involve a different set of algorithms, potentially from a library.
+ */
+async function get2DBinPackingLayoutSuggestions(
+  input: OptimizeInventoryInput
+): Promise<OptimizeInventoryOutput> {
+  console.warn('[InventoryOptimization TS Flow] 2D Bin Packing strategy is NOT YET IMPLEMENTED. Using guillotine logic as fallback or returning empty.');
+  // For now, you could fall back to guillotine or return empty:
+  // return getGuillotineLayoutSuggestions(input); 
+  return { suggestions: [], optimalSuggestion: undefined }; // Placeholder
+}
+
 
 const optimizeInventoryFlow = ai.defineFlow(
   {
@@ -227,142 +381,25 @@ const optimizeInventoryFlow = ai.defineFlow(
     outputSchema: OptimizeInventoryOutputSchema,
   },
   async (input): Promise<OptimizeInventoryOutput> => {
-    console.log('[InventoryOptimization TS Flow] Starting optimization using guillotine-based layout strategies for a single master sheet type per job.');
     console.log('[InventoryOptimization TS Flow] optimizeInventoryFlow called.');
     console.log('[InventoryOptimization TS Flow] Received input (availableMasterSheets count):', input.availableMasterSheets?.length);
+    console.log('[InventoryOptimization TS Flow] Selected strategy:', input.optimizationStrategy || 'GUILLOTINE (default)');
     
     if (!input.availableMasterSheets || input.availableMasterSheets.length === 0) {
       console.log('[InventoryOptimization TS Flow] Input availableMasterSheets is empty. Returning empty suggestions.');
       return { suggestions: [], optimalSuggestion: undefined };
     }
 
-    const { 
-      targetPaperGsm, 
-      targetPaperThicknessMm, 
-      targetPaperQuality, 
-      jobSizeWidth, 
-      jobSizeHeight, 
-      netQuantity 
-    } = input;
+    let result: OptimizeInventoryOutput;
 
-    const allSuggestions: z.infer<typeof MasterSheetSuggestionSchema>[] = [];
-
-    for (const sheet of input.availableMasterSheets) {
-      console.log(`[InventoryOptimization TS Flow] Processing sheet ID: ${sheet.id}, Name: ${sheet.name || 'N/A'}, Size: ${sheet.masterSheetSizeWidth}x${sheet.masterSheetSizeHeight}, Quality: ${sheet.paperQuality}, Stock: ${sheet.availableStock}`);
-      const targetUnit = getPaperQualityUnit(targetPaperQuality as any);
-      const sheetUnit = getPaperQualityUnit(sheet.paperQuality as any);
-
-      if (sheet.paperQuality !== targetPaperQuality) {
-        console.log(`[InventoryOptimization TS Flow] Sheet ID ${sheet.id} Quality (${sheet.paperQuality}) mismatch with target (${targetPaperQuality}). Skipping.`);
-        continue;
-      }
-      if ((sheet.availableStock ?? 0) <= 0) {
-        console.log(`[InventoryOptimization TS Flow] Sheet ID ${sheet.id} has no available stock. Skipping.`);
-        continue;
-      }
-
-      if (targetUnit === 'mm' && sheetUnit === 'mm') {
-        if (targetPaperThicknessMm === undefined || sheet.paperThicknessMm === undefined || Math.abs(sheet.paperThicknessMm - targetPaperThicknessMm) > 0.1) { 
-          console.log(`[InventoryOptimization TS Flow] Sheet ID ${sheet.id} Thickness mismatch (Sheet: ${sheet.paperThicknessMm}mm, Target: ${targetPaperThicknessMm}mm). Skipping.`);
-          continue;
-        }
-      } else if (targetUnit === 'gsm' && sheetUnit === 'gsm') {
-        if (targetPaperGsm === undefined || sheet.paperGsm === undefined) {
-            console.log(`[InventoryOptimization TS Flow] Sheet ID ${sheet.id} or target GSM is undefined. Skipping.`);
-            continue;
-        }
-        const gsmTolerance = targetPaperGsm * 0.05; 
-        if (Math.abs(sheet.paperGsm - targetPaperGsm) > gsmTolerance) {
-          console.log(`[InventoryOptimization TS Flow] Sheet ID ${sheet.id} GSM mismatch (Sheet: ${sheet.paperGsm}gsm, Target: ${targetPaperGsm}gsm, Tolerance: ${gsmTolerance.toFixed(2)}). Skipping.`);
-          continue;
-        }
-      } else {
-        console.log(`[InventoryOptimization TS Flow] Sheet ID ${sheet.id} Unit mismatch (Sheet Unit: ${sheetUnit}, Target Unit: ${targetUnit}). Skipping.`);
-        continue; 
-      }
-      
-      let bestUpsForThisSheet = 0;
-      let bestLayoutDesc = "N/A";
-      let effectiveSheetW = sheet.masterSheetSizeWidth;
-      let effectiveSheetH = sheet.masterSheetSizeHeight;
-      
-      // Check original master sheet orientation
-      console.log(`[InventoryOptimization TS Flow] Sheet ID ${sheet.id}: Calculating for original orientation (${sheet.masterSheetSizeWidth}x${sheet.masterSheetSizeHeight})`);
-      const resOrig = calculateMaxGuillotineUps(jobSizeWidth, jobSizeHeight, sheet.masterSheetSizeWidth, sheet.masterSheetSizeHeight);
-      console.log(`[InventoryOptimization TS Flow] Sheet ID ${sheet.id} (Original Orient): Ups=${resOrig.ups}, Layout='${resOrig.description}'`);
-      if (resOrig.ups > bestUpsForThisSheet) {
-        bestUpsForThisSheet = resOrig.ups;
-        bestLayoutDesc = `${resOrig.description} (Master Portrait)`;
-        effectiveSheetW = sheet.masterSheetSizeWidth;
-        effectiveSheetH = sheet.masterSheetSizeHeight;
-      }
-      
-      // Check rotated master sheet orientation (if not square)
-      if (Math.abs(sheet.masterSheetSizeWidth - sheet.masterSheetSizeHeight) > epsilon) { 
-        console.log(`[InventoryOptimization TS Flow] Sheet ID ${sheet.id}: Calculating for rotated orientation (${sheet.masterSheetSizeHeight}x${sheet.masterSheetSizeWidth})`);
-        const resRot = calculateMaxGuillotineUps(jobSizeWidth, jobSizeHeight, sheet.masterSheetSizeHeight, sheet.masterSheetSizeWidth);
-        console.log(`[InventoryOptimization TS Flow] Sheet ID ${sheet.id} (Rotated Orient): Ups=${resRot.ups}, Layout='${resRot.description}'`);
-        if (resRot.ups > bestUpsForThisSheet) {
-          bestUpsForThisSheet = resRot.ups;
-          bestLayoutDesc = `${resRot.description} (Master Landscape)`;
-          effectiveSheetW = sheet.masterSheetSizeHeight; // Master sheet was rotated
-          effectiveSheetH = sheet.masterSheetSizeWidth;
-        }
-      }
-
-      if (bestUpsForThisSheet === 0) {
-        console.log(`[InventoryOptimization TS Flow] Sheet ID ${sheet.id} (${sheet.name || 'Unknown Name'}) yields 0 ups after all calculations. Skipping.`);
-        continue;
-      }
-
-      const jobArea = jobSizeWidth * jobSizeHeight;
-      // Use the 'effective' sheet dimensions that yielded the best ups for wastage calculation
-      const masterSheetAreaUsedForLayout = effectiveSheetW * effectiveSheetH; 
-      const usedArea = bestUpsForThisSheet * jobArea;
-      const wastagePercentage = masterSheetAreaUsedForLayout > 0 ? Number(((1 - (usedArea / masterSheetAreaUsedForLayout)) * 100).toFixed(2)) : 100;
-      const totalMasterSheetsNeeded = Math.ceil(netQuantity / bestUpsForThisSheet);
-      
-      const currentSuggestion = {
-        id: sheet.id, // Using id here as per previous correction
-        masterSheetSizeWidth: sheet.masterSheetSizeWidth, // Report original inventory sheet dims
-        masterSheetSizeHeight: sheet.masterSheetSizeHeight,
-        paperGsm: sheet.paperGsm,
-        paperThicknessMm: sheet.paperThicknessMm,
-        paperQuality: sheet.paperQuality,
-        sheetsPerMasterSheet: bestUpsForThisSheet,
-        totalMasterSheetsNeeded,
-        wastagePercentage,
-        cuttingLayoutDescription: bestLayoutDesc,
-        locationGodown: sheet.locationGodown,
-        locationLineNumber: sheet.locationLineNumber,
-      };
-      allSuggestions.push(currentSuggestion);
-      console.log(`[InventoryOptimization TS Flow] Sheet ID ${sheet.id}: Added suggestion - Ups=${bestUpsForThisSheet}, Wastage=${wastagePercentage}%, Layout='${bestLayoutDesc}'`);
+    if (input.optimizationStrategy === 'BIN_PACKING_2D') {
+      result = await get2DBinPackingLayoutSuggestions(input);
+    } else { // Default to GUILLOTINE
+      result = await getGuillotineLayoutSuggestions(input);
     }
-
-    allSuggestions.sort((a, b) => {
-      if (b.sheetsPerMasterSheet !== a.sheetsPerMasterSheet) {
-        return b.sheetsPerMasterSheet - a.sheetsPerMasterSheet;
-      }
-      if (a.wastagePercentage !== b.wastagePercentage) {
-        return a.wastagePercentage - b.wastagePercentage;
-      }
-      return a.totalMasterSheetsNeeded - b.totalMasterSheetsNeeded;
-    });
     
-    const optimalSuggestion = allSuggestions.length > 0 ? allSuggestions[0] : undefined;
-
-    console.log(`[InventoryOptimization TS Flow] Processed ${input.availableMasterSheets.length} sheets. Generated ${allSuggestions.length} suggestions.`);
-    if (optimalSuggestion) {
-      console.log('[InventoryOptimization TS Flow] Optimal suggestion:', JSON.stringify(optimalSuggestion, null, 2));
-    }
-    console.log('[InventoryOptimization TS Flow] All sorted suggestions:', JSON.stringify(allSuggestions, null, 2));
-
-
-    return {
-      suggestions: allSuggestions,
-      optimalSuggestion: optimalSuggestion,
-    };
+    console.log('[InventoryOptimization TS Flow] All sorted suggestions:', JSON.stringify(result.suggestions, null, 2));
+    return result;
   }
 );
     
