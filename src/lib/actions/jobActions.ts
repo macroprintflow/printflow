@@ -1,7 +1,7 @@
 
 'use server';
 
-import type { JobCardFormValues, JobCardData, JobTemplateData, JobTemplateFormValues, InventoryItem, PaperQualityType, InventorySuggestion, InventoryItemFormValues, InventoryItemType, ItemGroupType, UnitValue, OptimizeInventoryOutput, InventoryAdjustment, InventoryAdjustmentReasonValue, WorkflowStep, InventoryAdjustmentItemFormValues, DesignSubmission, SubmitDesignInput, PlateTypeValue, ColorProfileValue } from '@/lib/definitions';
+import type { JobCardFormValues, JobCardData, JobTemplateData, JobTemplateFormValues, InventoryItem, PaperQualityType, InventorySuggestion, InventoryItemFormValues, InventoryItemType, ItemGroupType, UnitValue, OptimizeInventoryOutput, InventoryAdjustment, InventoryAdjustmentReasonValue, WorkflowStep, InventoryAdjustmentItemFormValues, DesignSubmission, SubmitDesignInput, PlateTypeValue, ColorProfileValue, InventoryCategory } from '@/lib/definitions';
 import { PAPER_QUALITY_OPTIONS, getPaperQualityLabel, INVENTORY_ADJUSTMENT_REASONS, KAPPA_MDF_QUALITIES, getPaperQualityUnit } from '@/lib/definitions';
 import { calculateUps } from '@/lib/calculateUps';
 import { revalidatePath } from 'next/cache';
@@ -605,6 +605,11 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
 
 
 export async function getInventoryItems(categoryFilter?: InventoryCategory): Promise<InventoryItem[]> {
+  console.log("[JobActions] getInventoryItems called - TEMPORARILY RETURNING EMPTY ARRAY FOR DEBUGGING");
+  return []; // Temporarily return empty array to diagnose "stuck" issue
+
+  // Original logic below, commented out for debugging:
+  /*
   if (!global.__inventoryItemsStore__) {
     global.__inventoryItemsStore__ = await loadMockData<InventoryItem>(MOCK_INVENTORY_ITEMS_FILE_PATH, []);
   }
@@ -633,6 +638,7 @@ export async function getInventoryItems(categoryFilter?: InventoryCategory): Pro
   
   console.log(`[InventoryManagement] getInventoryItems (category: ${categoryFilter || 'all'}) returning ${itemsWithCalculatedStock.length} items.`);
   return itemsWithCalculatedStock;
+  */
 }
 
 export async function getInventoryAdjustmentsForItem(inventoryItemId: string): Promise<InventoryAdjustment[]> {
@@ -753,3 +759,4 @@ export async function getApprovedDesigns(): Promise<DesignSubmission[]> {
   return (global.__designSubmissionsStore__ || []).filter(s => s.status === 'approved');
 }
 
+    
