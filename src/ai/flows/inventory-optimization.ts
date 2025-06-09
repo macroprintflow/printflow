@@ -66,15 +66,15 @@ export async function optimizeInventory(input: OptimizeInventoryInput): Promise<
   return optimizeInventoryFlow(input);
 }
 
-// Helper for specialized "Macro Staggered" layout, where leftover fits one row of other orientation
-function calculateMacroStaggeredUpsInternal(jobW: number, jobH: number, sheetW: number, sheetH: number) {
+// Corrected Macro Staggered Logic (from user)
+function calculateMacroStaggeredUpsFixedInternal(jobW: number, jobH: number, sheetW: number, sheetH: number) {
   let bestUps = 0;
   let bestDesc = "";
-  const epsilon = 1e-6; // Epsilon for floating-point precision
+  const epsilon = 1e-6;
 
-  // CASE 1: Main rows are portrait, one row of rotated in leftover
-  const maxPortraitRows1 = Math.floor(sheetH / jobH + epsilon);
-  for (let portraitRows = 0; portraitRows <= maxPortraitRows1; ++portraitRows) {
+  // CASE 1: Portrait rows on top, as many as fit; fill leftover with as many *rows* of rotated jobs as possible
+  const maxPortraitRows = Math.floor(sheetH / jobH + epsilon);
+  for (let portraitRows = 0; portraitRows <= maxPortraitRows; ++portraitRows) {
     const usedH = portraitRows * jobH;
     if (usedH > sheetH + epsilon) continue;
     const remainingH = sheetH - usedH;
@@ -83,22 +83,23 @@ function calculateMacroStaggeredUpsInternal(jobW: number, jobH: number, sheetW: 
     const upsPortrait = portraitRows * cols;
 
     let upsRotated = 0;
+    let rotatedRows = 0;
     let rotatedCols = 0;
-    if (remainingH >= jobW - epsilon) { // Leftover can fit *one* row of rotated jobs
+    if (remainingH >= jobW - epsilon) {
+      rotatedRows = Math.floor(remainingH / jobW + epsilon);
       rotatedCols = Math.floor(sheetW / jobH + epsilon);
-      upsRotated = rotatedCols; // Only a single row!
+      upsRotated = rotatedRows * rotatedCols;
     }
-
     const totalUps = upsPortrait + upsRotated;
     if (totalUps > bestUps) {
       bestUps = totalUps;
-      bestDesc = `${cols}x${portraitRows} portrait + ${rotatedCols} rotated in leftover`;
+      bestDesc = `${cols}x${portraitRows} portrait + ${rotatedCols}x${rotatedRows} rotated in leftover`;
     }
   }
 
-  // CASE 2: Main rows are rotated, one row of portrait in leftover
-  const maxRotatedRows2 = Math.floor(sheetH / jobW + epsilon);
-  for (let rotatedRows = 0; rotatedRows <= maxRotatedRows2; ++rotatedRows) {
+  // CASE 2: Rotated rows on top, as many as fit; fill leftover with as many portrait rows as possible
+  const maxRotatedRows = Math.floor(sheetH / jobW + epsilon);
+  for (let rotatedRows = 0; rotatedRows <= maxRotatedRows; ++rotatedRows) {
     const usedH = rotatedRows * jobW;
     if (usedH > sheetH + epsilon) continue;
     const remainingH = sheetH - usedH;
@@ -107,23 +108,25 @@ function calculateMacroStaggeredUpsInternal(jobW: number, jobH: number, sheetW: 
     const upsRotated = rotatedRows * rotatedCols;
 
     let upsPortrait = 0;
+    let portraitRows = 0;
     let cols = 0;
-    if (remainingH >= jobH - epsilon) { // Leftover can fit *one* row of portrait jobs
+    if (remainingH >= jobH - epsilon) {
+      portraitRows = Math.floor(remainingH / jobH + epsilon);
       cols = Math.floor(sheetW / jobW + epsilon);
-      upsPortrait = cols; // Only a single row!
+      upsPortrait = portraitRows * cols;
     }
 
     const totalUps = upsPortrait + upsRotated;
     if (totalUps > bestUps) {
       bestUps = totalUps;
-      bestDesc = `${rotatedCols}x${rotatedRows} rotated + ${cols} portrait in leftover`;
+      bestDesc = `${rotatedCols}x${rotatedRows} rotated + ${cols}x${portraitRows} portrait in leftover`;
     }
   }
   return { ups: bestUps, description: bestDesc };
 }
 
 
-// Improved Guillotine Cut Calculation
+// Improved Guillotine Cut Calculation (integrates macro staggered)
 function calculateMaxGuillotineUps(jobW: number, jobH: number, sheetW: number, sheetH: number) {
   let maxUps = 0;
   let bestLayout = "N/A";
@@ -198,8 +201,8 @@ function calculateMaxGuillotineUps(jobW: number, jobH: number, sheetW: number, s
       }
     }
     
-    // Strategy 3: Check Macro Staggered Layout
-    const staggeredResult = calculateMacroStaggeredUpsInternal(orient.w, orient.h, sheetW, sheetH);
+    // Strategy 3: Check Macro Staggered Layout (using the corrected function)
+    const staggeredResult = calculateMacroStaggeredUpsFixedInternal(orient.w, orient.h, sheetW, sheetH);
     if (staggeredResult.ups > maxUps) {
         maxUps = staggeredResult.ups;
         bestLayout = `${staggeredResult.description} (macro staggered ${orient.label})`;
@@ -261,6 +264,7 @@ const optimizeInventoryFlow = ai.defineFlow(
       let effectiveSheetW = sheet.masterSheetSizeWidth;
       let effectiveSheetH = sheet.masterSheetSizeHeight;
       
+      // Check original master sheet orientation
       const resOrig = calculateMaxGuillotineUps(jobSizeWidth, jobSizeHeight, sheet.masterSheetSizeWidth, sheet.masterSheetSizeHeight);
       if (resOrig.ups > bestUpsForThisSheet) {
         bestUpsForThisSheet = resOrig.ups;
@@ -269,7 +273,8 @@ const optimizeInventoryFlow = ai.defineFlow(
         effectiveSheetH = sheet.masterSheetSizeHeight;
       }
       
-      if (sheet.masterSheetSizeWidth !== sheet.masterSheetSizeHeight) { // Only try rotating master if not square
+      // Check rotated master sheet orientation (if not square)
+      if (sheet.masterSheetSizeWidth !== sheet.masterSheetSizeHeight) { 
         const resRot = calculateMaxGuillotineUps(jobSizeWidth, jobSizeHeight, sheet.masterSheetSizeHeight, sheet.masterSheetSizeWidth);
         if (resRot.ups > bestUpsForThisSheet) {
           bestUpsForThisSheet = resRot.ups;
@@ -285,6 +290,7 @@ const optimizeInventoryFlow = ai.defineFlow(
       }
 
       const jobArea = jobSizeWidth * jobSizeHeight;
+      // Use the 'effective' sheet dimensions that yielded the best ups for wastage calculation
       const masterSheetAreaUsedForLayout = effectiveSheetW * effectiveSheetH; 
       const usedArea = bestUpsForThisSheet * jobArea;
       const wastagePercentage = masterSheetAreaUsedForLayout > 0 ? Number(((1 - (usedArea / masterSheetAreaUsedForLayout)) * 100).toFixed(2)) : 100;
