@@ -73,60 +73,51 @@ export async function optimizeInventory(input: OptimizeInventoryInput): Promise<
 const epsilon = 1e-6; // Epsilon for floating point comparisons
 
 // Corrected Macro Staggered Logic (from user)
-function calculateMacroStaggeredUpsFixedInternal(jobW: number, jobH: number, sheetW: number, sheetH: number) {
+function calculateMacroStaggeredUpsFixedInternal(
+  jobW: number, jobH: number, sheetW: number, sheetH: number
+) {
   let bestUps = 0;
   let bestDesc = "";
+  const eps = 1e-6; // Epsilon for floating point precision
 
-  // CASE 1: Portrait rows on top, as many as fit; fill leftover with as many *rows* of rotated jobs as possible
-  const maxPortraitRows = Math.floor(sheetH / jobH + epsilon);
-  for (let portraitRows = 0; portraitRows <= maxPortraitRows; ++portraitRows) {
+  /* ---------- CASE 1: portrait rows first, rotated in leftover ---------- */
+  for (let portraitRows = 0; portraitRows <= Math.floor((sheetH + eps) / jobH); ++portraitRows) {
     const usedH = portraitRows * jobH;
-    if (usedH > sheetH + epsilon) continue;
-    const remainingH = sheetH - usedH;
+    const remH  = sheetH - usedH;
 
-    const cols = Math.floor(sheetW / jobW + epsilon);
-    const upsPortrait = portraitRows * cols;
+    const colsPortrait  = Math.floor((sheetW + eps) / jobW);
+    const upsPortrait   = portraitRows * colsPortrait;
 
-    let upsRotated = 0;
-    let rotatedRows = 0;
-    let rotatedCols = 0;
-    if (remainingH >= jobW - epsilon) {
-      rotatedRows = Math.floor(remainingH / jobW + epsilon);
-      rotatedCols = Math.floor(sheetW / jobH + epsilon);
-      upsRotated = rotatedRows * rotatedCols;
-    }
-    const totalUps = upsPortrait + upsRotated;
-    if (totalUps > bestUps) {
-      bestUps = totalUps;
-      bestDesc = `${cols}x${portraitRows} portrait + ${rotatedCols}x${rotatedRows} rotated in leftover`;
+    const rowsRot = remH + eps >= jobW ? Math.floor((remH + eps) / jobW) : 0;
+    const colsRot = rowsRot > 0      ? Math.floor((sheetW + eps) / jobH) : 0;
+    const upsRot  = rowsRot * colsRot;
+
+    const total = upsPortrait + upsRot;
+    if (total > bestUps) {
+      bestUps  = total;
+      bestDesc = `${colsPortrait}x${portraitRows} portrait + ${colsRot}x${rowsRot} rotated`;
     }
   }
 
-  // CASE 2: Rotated rows on top, as many as fit; fill leftover with as many portrait rows as possible
-  const maxRotatedRows = Math.floor(sheetH / jobW + epsilon);
-  for (let rotatedRows = 0; rotatedRows <= maxRotatedRows; ++rotatedRows) {
-    const usedH = rotatedRows * jobW;
-    if (usedH > sheetH + epsilon) continue;
-    const remainingH = sheetH - usedH;
+  /* ---------- CASE 2: rotated rows first, portrait in leftover ---------- */
+  for (let rotRows = 0; rotRows <= Math.floor((sheetH + eps) / jobW); ++rotRows) {
+    const usedH = rotRows * jobW;
+    const remH  = sheetH - usedH;
 
-    const rotatedCols = Math.floor(sheetW / jobH + epsilon);
-    const upsRotated = rotatedRows * rotatedCols;
+    const colsRot = Math.floor((sheetW + eps) / jobH);
+    const upsRot  = rotRows * colsRot;
 
-    let upsPortrait = 0;
-    let portraitRows = 0;
-    let cols = 0;
-    if (remainingH >= jobH - epsilon) {
-      portraitRows = Math.floor(remainingH / jobH + epsilon);
-      cols = Math.floor(sheetW / jobW + epsilon);
-      upsPortrait = portraitRows * cols;
-    }
+    const rowsPor = remH + eps >= jobH ? Math.floor((remH + eps) / jobH) : 0;
+    const colsPor = rowsPor > 0      ? Math.floor((sheetW + eps) / jobW) : 0;
+    const upsPor  = rowsPor * colsPor;
 
-    const totalUps = upsPortrait + upsRotated;
-    if (totalUps > bestUps) {
-      bestUps = totalUps;
-      bestDesc = `${rotatedCols}x${rotatedRows} rotated + ${cols}x${portraitRows} portrait in leftover`;
+    const total = upsPor + upsRot;
+    if (total > bestUps) {
+      bestUps  = total;
+      bestDesc = `${colsRot}x${rotRows} rotated + ${colsPor}x${rowsPor} portrait`;
     }
   }
+
   return { ups: bestUps, description: bestDesc };
 }
 
@@ -291,7 +282,7 @@ const optimizeInventoryFlow = ai.defineFlow(
       }
       
       // Check rotated master sheet orientation (if not square)
-      if (sheet.masterSheetSizeWidth !== sheet.masterSheetSizeHeight) { 
+      if (Math.abs(sheet.masterSheetSizeWidth - sheet.masterSheetSizeHeight) > epsilon) { 
         const resRot = calculateMaxGuillotineUps(jobSizeWidth, jobSizeHeight, sheet.masterSheetSizeHeight, sheet.masterSheetSizeWidth);
         if (resRot.ups > bestUpsForThisSheet) {
           bestUpsForThisSheet = resRot.ups;
@@ -353,3 +344,4 @@ const optimizeInventoryFlow = ai.defineFlow(
   }
 );
     
+
