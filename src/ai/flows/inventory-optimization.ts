@@ -26,6 +26,8 @@ const AvailableSheetSchema = z.object({
   paperQuality: z.string().describe('The quality of this available master sheet.'),
   availableStock: z.number().optional().describe('The available stock quantity for this master sheet.'),
   name: z.string().optional().describe('Name of the inventory item, for logging or debugging'),
+  locationGodown: z.string().optional().describe('The godown where the item is stored.'),
+  locationLineNumber: z.string().optional().describe('The line number/specific location in the godown.'),
 });
 export type AvailableSheet = z.infer<typeof AvailableSheetSchema>;
 
@@ -42,7 +44,7 @@ const OptimizeInventoryInputSchema = z.object({
 export type OptimizeInventoryInput = z.infer<typeof OptimizeInventoryInputSchema>;
 
 const MasterSheetSuggestionSchema = z.object({
-  sourceInventoryItemId: z.string().describe('The inventory ID of the master sheet used for this suggestion.'),
+  id: z.string().describe('The inventory ID of the master sheet used for this suggestion.'),
   masterSheetSizeWidth: z.number().describe('The width of the suggested master sheet size in inches (from inventory).'),
   masterSheetSizeHeight: z.number().describe('The height of the suggested master sheet size in inches (from inventory).'),
   paperGsm: z.number().optional().describe('The actual GSM of the suggested master sheet (from inventory), if applicable.'),
@@ -52,6 +54,8 @@ const MasterSheetSuggestionSchema = z.object({
   sheetsPerMasterSheet: z.number().int().describe('Number of job sheets that can be cut from one master sheet. Must be an integer.'),
   totalMasterSheetsNeeded: z.number().int().describe('Total number of master sheets needed to fulfill the job. Must be an integer.'),
   cuttingLayoutDescription: z.string().optional().describe("Textual description of the cutting layout, e.g., '3 across x 4 down (job portrait)'."),
+  locationGodown: z.string().optional().describe('The godown where the item is stored.'),
+  locationLineNumber: z.string().optional().describe('The line number/specific location in the godown.'),
 });
 
 const OptimizeInventoryOutputSchema = z.object({
@@ -66,11 +70,12 @@ export async function optimizeInventory(input: OptimizeInventoryInput): Promise<
   return optimizeInventoryFlow(input);
 }
 
+const epsilon = 1e-6; // Epsilon for floating point comparisons
+
 // Corrected Macro Staggered Logic (from user)
 function calculateMacroStaggeredUpsFixedInternal(jobW: number, jobH: number, sheetW: number, sheetH: number) {
   let bestUps = 0;
   let bestDesc = "";
-  const epsilon = 1e-6;
 
   // CASE 1: Portrait rows on top, as many as fit; fill leftover with as many *rows* of rotated jobs as possible
   const maxPortraitRows = Math.floor(sheetH / jobH + epsilon);
@@ -130,8 +135,7 @@ function calculateMacroStaggeredUpsFixedInternal(jobW: number, jobH: number, she
 function calculateMaxGuillotineUps(jobW: number, jobH: number, sheetW: number, sheetH: number) {
   let maxUps = 0;
   let bestLayout = "N/A";
-  const epsilon = 1e-6;
-
+  
   if (jobW <= 0 || jobH <=0 || sheetW <=0 || sheetH <= 0) {
       console.warn(`[calculateMaxGuillotineUps] Invalid zero or negative dimension detected. Job: ${jobW}x${jobH}, Sheet: ${sheetW}x${sheetH}. Returning 0 ups.`);
       return { ups: 0, description: "Invalid dimensions" };
@@ -258,7 +262,20 @@ const optimizeInventoryFlow = ai.defineFlow(
       } else {
         continue; 
       }
-
+      console.log(
+        'INPUTS:',
+        jobSizeWidth, jobSizeHeight,
+        sheet.masterSheetSizeWidth, sheet.masterSheetSizeHeight
+      );
+      
+      const debugResOrig = calculateMaxGuillotineUps(
+        jobSizeWidth,
+        jobSizeHeight,
+        sheet.masterSheetSizeWidth,
+        sheet.masterSheetSizeHeight
+      );
+      console.log('GUILLOTINE RESULT:', debugResOrig);
+    
       let bestUpsForThisSheet = 0;
       let bestLayoutDesc = "N/A";
       let effectiveSheetW = sheet.masterSheetSizeWidth;
@@ -297,7 +314,7 @@ const optimizeInventoryFlow = ai.defineFlow(
       const totalMasterSheetsNeeded = Math.ceil(netQuantity / bestUpsForThisSheet);
       
       allSuggestions.push({
-        sourceInventoryItemId: sheet.id,
+        id: sheet.id,
         masterSheetSizeWidth: sheet.masterSheetSizeWidth, // Report original inventory sheet dims
         masterSheetSizeHeight: sheet.masterSheetSizeHeight,
         paperGsm: sheet.paperGsm,
@@ -307,6 +324,8 @@ const optimizeInventoryFlow = ai.defineFlow(
         totalMasterSheetsNeeded,
         wastagePercentage,
         cuttingLayoutDescription: bestLayoutDesc,
+        locationGodown: sheet.locationGodown,
+        locationLineNumber: sheet.locationLineNumber,
       });
     }
 
