@@ -224,17 +224,20 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
   const watchedPaperQuality = form.watch("paperQuality");
   const watchedPaperGsm = form.watch("paperGsm");
   const watchedPaperThicknessMm = form.watch("targetPaperThicknessMm");
+  const watchedCustomerName = form.watch("customerName"); // Watch customerName for Art Paper rule
 
   const targetPaperUnit = getPaperQualityUnit(watchedPaperQuality as PaperQualityType);
 
   const filteredInventoryForDisplay = useMemo(() => {
+    let qualityFilteredItems = allInventoryItems.filter(item => item.type === 'Master Sheet');
+
     if (!watchedPaperQuality || watchedPaperQuality === "") {
       return [];
     }
 
-    let qualityFilteredItems = allInventoryItems.filter(
-      item => item.type === 'Master Sheet' && item.paperQuality === watchedPaperQuality && (item.availableStock ?? 0) > 0
-    );
+    qualityFilteredItems = qualityFilteredItems.filter(item => item.paperQuality === watchedPaperQuality);
+
+    if (qualityFilteredItems.length === 0) return [];
 
     let finalFilteredItems: InventoryItem[] = [];
 
@@ -244,12 +247,12 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
           if (!item.paperGsm) return false;
           const itemGsm = item.paperGsm;
           if (watchedPaperGsm >= 200 && watchedPaperGsm <= 230) return itemGsm >= 200 && itemGsm <= 230;
-          if (watchedPaperGsm >= 231 && watchedPaperGsm <= 260) return itemGsm >= 230 && itemGsm <= 260; // Adjusted original rule "230, 250, 260" to range
-          if (watchedPaperGsm >= 261 && watchedPaperGsm <= 280) return itemGsm >= 270 && itemGsm <= 280; // Adjusted "270, 280"
-          if (watchedPaperGsm >= 281 && watchedPaperGsm <= 300) return itemGsm >= 290 && itemGsm <= 310; // Adjusted "290, 300"
-          if (watchedPaperGsm >= 301 && watchedPaperGsm <= 320) return itemGsm >= 310 && itemGsm <= 330; // Adjusted "320"
-          if (watchedPaperGsm >= 321 && watchedPaperGsm <= 350) return itemGsm >= 340 && itemGsm <= 360; // Adjusted "350"
-          if (watchedPaperGsm >= 351 && watchedPaperGsm <= 400) return itemGsm >= 370 && itemGsm <= 410; // Adjusted "400"
+          if (watchedPaperGsm >= 231 && watchedPaperGsm <= 260) return itemGsm >= 230 && itemGsm <= 260;
+          if (watchedPaperGsm >= 261 && watchedPaperGsm <= 280) return itemGsm >= 270 && itemGsm <= 280;
+          if (watchedPaperGsm >= 281 && watchedPaperGsm <= 300) return itemGsm >= 290 && itemGsm <= 310;
+          if (watchedPaperGsm >= 301 && watchedPaperGsm <= 320) return itemGsm >= 310 && itemGsm <= 330;
+          if (watchedPaperGsm >= 321 && watchedPaperGsm <= 350) return itemGsm >= 340 && itemGsm <= 360;
+          if (watchedPaperGsm >= 351 && watchedPaperGsm <= 400) return itemGsm >= 370 && itemGsm <= 410;
           return false;
         });
       } else {
@@ -274,34 +277,51 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
         } else {
             finalFilteredItems = qualityFilteredItems;
         }
+    } else if (watchedPaperQuality === "ART_PAPER_GLOSS" || watchedPaperQuality === "ART_PAPER_MATT") {
+        if (watchedPaperGsm !== undefined && watchedPaperGsm > 0) {
+            const currentCustomerName = form.getValues('customerName')?.toLowerCase();
+            finalFilteredItems = qualityFilteredItems.filter(item => {
+                if (!item.paperGsm) return false;
+                const itemGsm = item.paperGsm;
+
+                if (watchedPaperQuality === "ART_PAPER_MATT" && currentCustomerName === "ganga acrowools" && watchedPaperGsm === 130) {
+                    return itemGsm >= 130 && itemGsm <= 170;
+                }
+                // Standard Art Paper rules
+                if (watchedPaperGsm === 100) return itemGsm >= 90 && itemGsm <= 100;
+                if (watchedPaperGsm === 120) return itemGsm >= 120 && itemGsm <= 130;
+                if (watchedPaperGsm === 130) return itemGsm >= 130 && itemGsm <= 150; // Default for 130
+                if (watchedPaperGsm === 150) return itemGsm >= 150 && itemGsm <= 170;
+                if (watchedPaperGsm === 170) return itemGsm >= 170 && itemGsm <= 180;
+                return false; // If GSM doesn't match any specific rule
+            });
+        } else {
+            finalFilteredItems = qualityFilteredItems; // Show all of selected Art Paper type if no GSM specified
+        }
     }
     // Placeholder for other paper qualities until their logic is added
-    // else if (watchedPaperQuality === "ART_PAPER_GLOSS" || watchedPaperQuality === "ART_PAPER_MATT") { ... }
     // else if (watchedPaperQuality === "GG_KAPPA" || watchedPaperQuality === "WG_KAPPA") { ... }
     // else if (watchedPaperQuality === "BUTTER_PAPER") { ... }
     // else if (watchedPaperQuality === "JAPANESE_PAPER" || watchedPaperQuality === "IMPORTED_PAPER" || watchedPaperQuality === "GOLDEN_SHEET" || watchedPaperQuality === "MDF") { ... }
     else {
-      // If no specific rule applies yet for the selected quality but GSM is entered, filter by exact GSM
-      if (watchedPaperGsm !== undefined && watchedPaperGsm > 0 && targetPaperUnit === 'gsm') {
-        finalFilteredItems = qualityFilteredItems.filter(item => item.paperGsm === watchedPaperGsm);
-      } else if (watchedPaperThicknessMm !== undefined && watchedPaperThicknessMm > 0 && targetPaperUnit === 'mm') {
-        finalFilteredItems = qualityFilteredItems.filter(item => item.paperThicknessMm === watchedPaperThicknessMm);
-      }
-      else {
-        finalFilteredItems = qualityFilteredItems;
-      }
+      // Fallback for qualities not yet explicitly handled with GSM/thickness rules
+      finalFilteredItems = qualityFilteredItems;
     }
     
     return finalFilteredItems.sort((a, b) => {
       const unit = getPaperQualityUnit(a.paperQuality as PaperQualityType);
-      if (unit === 'gsm') {
-        return (a.paperGsm || 0) - (b.paperGsm || 0);
-      } else if (unit === 'mm') {
-        return (a.paperThicknessMm || 0) - (b.paperThicknessMm || 0);
+      if (unit === 'gsm' && a.paperGsm !== undefined && b.paperGsm !== undefined) {
+        if (a.paperGsm !== b.paperGsm) return a.paperGsm - b.paperGsm;
+      } else if (unit === 'mm' && a.paperThicknessMm !== undefined && b.paperThicknessMm !== undefined) {
+        if (a.paperThicknessMm !== b.paperThicknessMm) return a.paperThicknessMm - b.paperThicknessMm;
       }
+      // Fallback sort by size if GSM/thickness are equal or not applicable
+      const sizeA = (a.masterSheetSizeWidth || 0) * (a.masterSheetSizeHeight || 0);
+      const sizeB = (b.masterSheetSizeWidth || 0) * (b.masterSheetSizeHeight || 0);
+      if (sizeA !== sizeB) return sizeA - sizeB;
       return (a.id || "").localeCompare(b.id || "");
     });
-  }, [allInventoryItems, watchedPaperQuality, watchedPaperGsm, watchedPaperThicknessMm, targetPaperUnit]);
+  }, [allInventoryItems, watchedPaperQuality, watchedPaperGsm, watchedPaperThicknessMm, form, watchedCustomerName]);
 
 
   const fetchJobsForThisCustomer = async (customerName: string) => {
