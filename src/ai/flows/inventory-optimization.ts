@@ -3,7 +3,7 @@
 'use server';
 /**
  * @fileOverview A flow that suggests the best possible master sheet size from available inventory,
- * calculating the percentage of wastage based on the input paper specifications.
+ * calculating the percentage of wastage based on the input paper specifications using guillotine-cut logic.
  * All dimensions are expected and returned in inches. Thickness is in mm.
  *
  * - optimizeInventory - A function that handles the inventory optimization process.
@@ -44,7 +44,7 @@ const OptimizeInventoryInputSchema = z.object({
 export type OptimizeInventoryInput = z.infer<typeof OptimizeInventoryInputSchema>;
 
 const MasterSheetSuggestionSchema = z.object({
-  id: z.string().describe('The inventory ID of the master sheet used for this suggestion.'),
+  id: z.string().describe('The inventory ID of the master sheet used for this suggestion.'), // Changed from sourceInventoryItemId
   masterSheetSizeWidth: z.number().describe('The width of the suggested master sheet size in inches (from inventory).'),
   masterSheetSizeHeight: z.number().describe('The height of the suggested master sheet size in inches (from inventory).'),
   paperGsm: z.number().optional().describe('The actual GSM of the suggested master sheet (from inventory), if applicable.'),
@@ -227,6 +227,7 @@ const optimizeInventoryFlow = ai.defineFlow(
     outputSchema: OptimizeInventoryOutputSchema,
   },
   async (input): Promise<OptimizeInventoryOutput> => {
+    console.log('[InventoryOptimization TS Flow] Starting optimization using guillotine-based layout strategies for a single master sheet type per job.');
     console.log('[InventoryOptimization TS Flow] optimizeInventoryFlow called.');
     console.log('[InventoryOptimization TS Flow] Received input (availableMasterSheets count):', input.availableMasterSheets?.length);
     
@@ -322,7 +323,7 @@ const optimizeInventoryFlow = ai.defineFlow(
       const totalMasterSheetsNeeded = Math.ceil(netQuantity / bestUpsForThisSheet);
       
       const currentSuggestion = {
-        id: sheet.id,
+        id: sheet.id, // Using id here as per previous correction
         masterSheetSizeWidth: sheet.masterSheetSizeWidth, // Report original inventory sheet dims
         masterSheetSizeHeight: sheet.masterSheetSizeHeight,
         paperGsm: sheet.paperGsm,
