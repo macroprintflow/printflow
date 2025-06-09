@@ -1,16 +1,18 @@
 
 "use client";
 import type { ReactNode } from 'react';
-import * as React from 'react'; // Ensure React is imported for useState and useEffect
+import * as React from 'react'; 
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, Terminal } from 'lucide-react'; // Added Terminal
+// Removed useAppConsole as setIsConsoleViewerOpen will be passed down if needed, or handled in AppLayout
 
 interface HeaderProps {
   title?: string;
   children?: ReactNode;
+  onToggleConsole?: () => void; // Optional prop to toggle console from AppLayout
 }
 
 function getCategoryDisplayNameFromSlug(slug: string): string {
@@ -44,7 +46,7 @@ function getTitleFromPath(pathname: string): string {
   return 'PrintFlow';
 }
 
-export function Header({ title, children }: HeaderProps) {
+export function Header({ title, children, onToggleConsole }: HeaderProps) {
   const pathname = usePathname();
   const pageTitle = title || getTitleFromPath(pathname);
   const [isClient, setIsClient] = React.useState(false);
@@ -62,6 +64,12 @@ export function Header({ title, children }: HeaderProps) {
       )}
       <h1 className="text-lg font-headline font-semibold md:text-xl text-foreground">{pageTitle}</h1>
       <div className="ml-auto flex items-center gap-4">
+        {/* This button is now in AppLayout's user dropdown for better dev tool grouping */}
+        {/* {onToggleConsole && (
+          <Button variant="ghost" size="icon" onClick={onToggleConsole} title="Toggle App Console">
+            <Terminal className="h-5 w-5" />
+          </Button>
+        )} */}
         {pathname === '/jobs' && (
           <Button asChild size="sm" variant="secondary">
             <Link href="/jobs/new">
