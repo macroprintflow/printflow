@@ -2,7 +2,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { PlusCircle, Search, Filter, Eye } from "lucide-react"; // PlusCircle here can be removed if not used elsewhere
+import { PlusCircle, Search, Filter, Eye } from "lucide-react"; 
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +11,6 @@ import { getJobCards } from "@/lib/actions/jobActions";
 import type { JobCardData } from "@/lib/definitions";
 import { format } from "date-fns";
 import { handlePrintJobCard } from "@/lib/printUtils"; 
-import { CreateJobWithOptionsButton } from "@/components/job-card/CreateJobWithOptionsButton"; // Import the new component
 
 export default async function AllJobsPage() {
   const allJobs: JobCardData[] = await getJobCards();
@@ -26,7 +25,12 @@ export default async function AllJobsPage() {
             <CardTitle className="font-headline">All Job Cards</CardTitle>
             <CardDescription className="font-body">View, search, and manage all active and completed jobs.</CardDescription>
           </div>
-          <CreateJobWithOptionsButton /> {/* Use the new button component here */}
+          {/* Restored original button */}
+          <Button asChild>
+            <Link href="/jobs/new">
+              <PlusCircle className="mr-2 h-4 w-4" /> Create Job Card
+            </Link>
+          </Button>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
@@ -85,11 +89,6 @@ export default async function AllJobsPage() {
               <Image src="https://placehold.co/300x200.png" alt="No jobs found" width={300} height={200} className="mb-6 rounded-lg" data-ai-hint="empty state document"/>
               <h3 className="text-xl font-semibold mb-2 font-headline">No Jobs Yet</h3>
               <p className="text-muted-foreground mb-4 font-body">Get started by creating a new job card.</p>
-              {/* The CreateJobWithOptionsButton is now in the header, 
-                  so this direct link can be removed or kept as an alternative. 
-                  For now, keeping it simple by removing the one in the empty state,
-                  as the main button is more prominent.
-              */}
             </div>
           )}
         </CardContent>
@@ -97,4 +96,3 @@ export default async function AllJobsPage() {
     </div>
   );
 }
-
