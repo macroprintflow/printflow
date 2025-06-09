@@ -83,16 +83,16 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
       paperQuality: initialJobData.paperQuality,
       paperGsm: getPaperQualityUnit(initialJobData.paperQuality as PaperQualityType) === 'gsm' ? initialJobData.paperGsm : undefined,
       targetPaperThicknessMm: getPaperQualityUnit(initialJobData.paperQuality as PaperQualityType) === 'mm' ? initialJobData.targetPaperThicknessMm : undefined,
-      masterSheetSizeWidth: initialJobData.masterSheetSizeWidth,
-      masterSheetSizeHeight: initialJobData.masterSheetSizeHeight,
-      wastagePercentage: initialJobData.wastagePercentage,
-      cuttingLayoutDescription: initialJobData.cuttingLayoutDescription,
-      selectedMasterSheetGsm: initialJobData.selectedMasterSheetGsm,
-      selectedMasterSheetThicknessMm: initialJobData.selectedMasterSheetThicknessMm,
-      selectedMasterSheetQuality: initialJobData.selectedMasterSheetQuality,
-      sourceInventoryItemId: initialJobData.sourceInventoryItemId,
-      sheetsPerMasterSheet: initialJobData.sheetsPerMasterSheet,
-      totalMasterSheetsNeeded: initialJobData.totalMasterSheetsNeeded,
+      // masterSheetSizeWidth: initialJobData.masterSheetSizeWidth, // Removed
+      // masterSheetSizeHeight: initialJobData.masterSheetSizeHeight, // Removed
+      // wastagePercentage: initialJobData.wastagePercentage, // Removed
+      // cuttingLayoutDescription: initialJobData.cuttingLayoutDescription, // Removed
+      // selectedMasterSheetGsm: initialJobData.selectedMasterSheetGsm, // Removed
+      // selectedMasterSheetThicknessMm: initialJobData.selectedMasterSheetThicknessMm, // Removed
+      // selectedMasterSheetQuality: initialJobData.selectedMasterSheetQuality, // Removed
+      // sourceInventoryItemId: initialJobData.sourceInventoryItemId, // Removed
+      // sheetsPerMasterSheet: initialJobData.sheetsPerMasterSheet, // Removed
+      // totalMasterSheetsNeeded: initialJobData.totalMasterSheetsNeeded, // Removed
       kindOfJob: initialJobData.kindOfJob || "",
       printingFront: initialJobData.printingFront || "",
       printingBack: initialJobData.printingBack || "",
@@ -121,16 +121,16 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
       paperGsm: undefined,
       targetPaperThicknessMm: undefined,
       paperQuality: "",
-      masterSheetSizeWidth: undefined,
-      masterSheetSizeHeight: undefined,
-      wastagePercentage: undefined,
-      cuttingLayoutDescription: "",
-      selectedMasterSheetGsm: undefined,
-      selectedMasterSheetThicknessMm: undefined,
-      selectedMasterSheetQuality: "",
-      sourceInventoryItemId: "",
-      sheetsPerMasterSheet: undefined,
-      totalMasterSheetsNeeded: undefined,
+      // masterSheetSizeWidth: undefined, // Removed
+      // masterSheetSizeHeight: undefined, // Removed
+      // wastagePercentage: undefined, // Removed
+      // cuttingLayoutDescription: "", // Removed
+      // selectedMasterSheetGsm: undefined, // Removed
+      // selectedMasterSheetThicknessMm: undefined, // Removed
+      // selectedMasterSheetQuality: "", // Removed
+      // sourceInventoryItemId: "", // Removed
+      // sheetsPerMasterSheet: undefined, // Removed
+      // totalMasterSheetsNeeded: undefined, // Removed
       kindOfJob: "",
       printingFront: "",
       printingBack: "",
@@ -177,6 +177,17 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
         ...initialJobData,
         dispatchDate: initialJobData.dispatchDate ? new Date(initialJobData.dispatchDate).toISOString() : undefined,
         linkedJobCardIds: initialJobData.linkedJobCardIds || [],
+         // Explicitly undefined optimizer fields for reset
+        masterSheetSizeWidth: undefined,
+        masterSheetSizeHeight: undefined,
+        wastagePercentage: undefined,
+        cuttingLayoutDescription: "",
+        selectedMasterSheetGsm: undefined,
+        selectedMasterSheetThicknessMm: undefined,
+        selectedMasterSheetQuality: "",
+        sourceInventoryItemId: "",
+        sheetsPerMasterSheet: undefined,
+        totalMasterSheetsNeeded: undefined,
       }); 
       setCustomerInputValue(initialJobData.customerName);
       setCurrentPdfDataUri(initialJobData.pdfDataUri);
@@ -227,41 +238,40 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
 
 
   const watchedPaperQuality = form.watch("paperQuality");
-  const watchedPaperGsm = form.watch("paperGsm");
-  const watchedPaperThicknessMm = form.watch("targetPaperThicknessMm");
-  const watchedCustomerName = form.watch("customerName");
+  // const watchedPaperGsm = form.watch("paperGsm"); // For Inventory section, will be used later
+  // const watchedPaperThicknessMm = form.watch("targetPaperThicknessMm"); // For Inventory section
+  // const watchedCustomerName = form.watch("customerName"); // For Inventory section
   const targetPaperUnit = getPaperQualityUnit(watchedPaperQuality as PaperQualityType);
 
-  // Commenting out inventory filtering for now as per "one by one" approach
-  // const filteredInventoryForDisplay = useMemo(() => {
-  //   if (!watchedPaperQuality) return [];
+  // const handleSuggestionSelect = (suggestion: InventorySuggestion) => { // Optimizer commented out
+  //   form.setValue("masterSheetSizeWidth", suggestion.masterSheetSizeWidth);
+  //   form.setValue("masterSheetSizeHeight", suggestion.masterSheetSizeHeight);
+  //   form.setValue("wastagePercentage", suggestion.wastagePercentage);
+  //   form.setValue("cuttingLayoutDescription", suggestion.cuttingLayoutDescription || "");
     
-  //   let filtered = allInventoryItems.filter(item => item.type === 'Master Sheet'); 
+  //   const suggestedQuality = suggestion.paperQuality as PaperQualityType;
+  //   const suggestedUnit = getPaperQualityUnit(suggestedQuality);
 
-  //   const applyGsmFilter = (items: InventoryItem[], gsmRules: {target: number[], show: number[]}[], targetGsm?: number) => {
-  //     // ... (filtering logic as before)
-  //   };
-    
-  //   if (watchedPaperQuality === 'SBS' || watchedPaperQuality === 'GREYBACK' || watchedPaperQuality === 'WHITEBACK') {
-  //     // ... (filtering logic as before)
-  //   } else if (watchedPaperQuality === 'ART_PAPER_GLOSS' || watchedPaperQuality === 'ART_PAPER_MATT') {
-  //     // ... (filtering logic as before, including Ganga Acrowools)
-  //   } else if (watchedPaperQuality === 'GG_KAPPA' || watchedPaperQuality === 'WG_KAPPA') {
-  //     // ... (filtering logic as before)
-  //   } else if (watchedPaperQuality === 'BUTTER_PAPER') {
-  //     // ... (filtering logic as before)
-  //   } else if (watchedPaperQuality === 'JAPANESE_PAPER' || watchedPaperQuality === 'IMPORTED_PAPER' || watchedPaperQuality === 'GOLDEN_SHEET' || watchedPaperQuality === 'MDF') {
-  //     // ... (filtering logic as before)
+  //   if (suggestedUnit === 'mm') {
+  //     form.setValue("selectedMasterSheetThicknessMm", suggestion.paperThicknessMm);
+  //     form.setValue("selectedMasterSheetGsm", undefined);
   //   } else {
-  //     return []; 
+  //     form.setValue("selectedMasterSheetGsm", suggestion.paperGsm);
+  //     form.setValue("selectedMasterSheetThicknessMm", undefined);
   //   }
-    
-  //   return filtered.sort((a, b) => { /* ... sort logic ... */ });
-
-  // }, [allInventoryItems, watchedPaperQuality, watchedPaperGsm, watchedPaperThicknessMm, watchedCustomerName]);
-
-  // const formatInventoryItemForDisplay = (item: InventoryItem): string => {
-  //   // ... (formatting logic as before)
+  //   form.setValue("selectedMasterSheetQuality", suggestedQuality);
+  //   form.setValue("sourceInventoryItemId", suggestion.sourceInventoryItemId || "");
+  //   form.setValue("sheetsPerMasterSheet", suggestion.sheetsPerMasterSheet);
+  //   form.setValue("totalMasterSheetsNeeded", suggestion.totalMasterSheetsNeeded);
+  //   form.setValue("grossQuantity", suggestion.totalMasterSheetsNeeded); 
+  // };
+  // const currentJobDetailsForModal = { // Optimizer commented out
+  //   paperGsm: form.watch("paperGsm"),
+  //   paperThicknessMm: form.watch("targetPaperThicknessMm"),
+  //   paperQuality: form.watch("paperQuality") as PaperQualityType || undefined,
+  //   jobSizeWidth: form.watch("jobSizeWidth"),
+  //   jobSizeHeight: form.watch("jobSizeHeight"),
+  //   quantityForOptimization: form.watch("grossQuantity") || form.watch("netQuantity") || 0,
   // };
 
 
@@ -355,16 +365,16 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
       paperQuality: pastJobPaperQuality,
       paperGsm: pastJobUnit === 'gsm' ? job.paperGsm : undefined,
       targetPaperThicknessMm: pastJobUnit === 'mm' ? job.targetPaperThicknessMm : undefined,
-      masterSheetSizeWidth: job.masterSheetSizeWidth,
-      masterSheetSizeHeight: job.masterSheetSizeHeight,
-      wastagePercentage: job.wastagePercentage,
-      cuttingLayoutDescription: job.cuttingLayoutDescription,
-      selectedMasterSheetGsm: job.selectedMasterSheetGsm,
-      selectedMasterSheetThicknessMm: job.selectedMasterSheetThicknessMm,
-      selectedMasterSheetQuality: job.selectedMasterSheetQuality,
-      sourceInventoryItemId: job.sourceInventoryItemId,
-      sheetsPerMasterSheet: job.sheetsPerMasterSheet,
-      totalMasterSheetsNeeded: job.totalMasterSheetsNeeded,
+      // masterSheetSizeWidth: job.masterSheetSizeWidth, // Removed
+      // masterSheetSizeHeight: job.masterSheetSizeHeight, // Removed
+      // wastagePercentage: job.wastagePercentage, // Removed
+      // cuttingLayoutDescription: job.cuttingLayoutDescription, // Removed
+      // selectedMasterSheetGsm: job.selectedMasterSheetGsm, // Removed
+      // selectedMasterSheetThicknessMm: job.selectedMasterSheetThicknessMm, // Removed
+      // selectedMasterSheetQuality: job.selectedMasterSheetQuality, // Removed
+      // sourceInventoryItemId: job.sourceInventoryItemId, // Removed
+      // sheetsPerMasterSheet: job.sheetsPerMasterSheet, // Removed
+      // totalMasterSheetsNeeded: job.totalMasterSheetsNeeded, // Removed
       kindOfJob: job.kindOfJob || "",
       printingFront: job.printingFront || "",
       printingBack: job.printingBack || "",
@@ -405,28 +415,6 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
     form.setValue('workflowSteps', currentWorkflowSteps.map(s => ({ stepSlug: s.slug, order: s.order })));
   }, [currentWorkflowSteps, form]);
 
-  // const handleSuggestionSelect = (suggestion: InventorySuggestion) => { // Optimizer commented out
-  //   form.setValue("masterSheetSizeWidth", suggestion.masterSheetSizeWidth);
-  //   form.setValue("masterSheetSizeHeight", suggestion.masterSheetSizeHeight);
-  //   form.setValue("wastagePercentage", suggestion.wastagePercentage);
-  //   form.setValue("cuttingLayoutDescription", suggestion.cuttingLayoutDescription || "");
-    
-  //   const suggestedQuality = suggestion.paperQuality as PaperQualityType;
-  //   const suggestedUnit = getPaperQualityUnit(suggestedQuality);
-
-  //   if (suggestedUnit === 'mm') {
-  //     form.setValue("selectedMasterSheetThicknessMm", suggestion.paperThicknessMm);
-  //     form.setValue("selectedMasterSheetGsm", undefined);
-  //   } else {
-  //     form.setValue("selectedMasterSheetGsm", suggestion.paperGsm);
-  //     form.setValue("selectedMasterSheetThicknessMm", undefined);
-  //   }
-  //   form.setValue("selectedMasterSheetQuality", suggestedQuality);
-  //   form.setValue("sourceInventoryItemId", suggestion.sourceInventoryItemId || "");
-  //   form.setValue("sheetsPerMasterSheet", suggestion.sheetsPerMasterSheet);
-  //   form.setValue("totalMasterSheetsNeeded", suggestion.totalMasterSheetsNeeded);
-  //   form.setValue("grossQuantity", suggestion.totalMasterSheetsNeeded); 
-  // };
 
   async function onSubmit(values: JobCardFormValues) {
     setIsSubmitting(true);
@@ -455,16 +443,16 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
         paperGsm: undefined,
         targetPaperThicknessMm: undefined,
         paperQuality: "",
-        masterSheetSizeWidth: undefined,
-        masterSheetSizeHeight: undefined,
-        wastagePercentage: undefined,
-        cuttingLayoutDescription: "",
-        selectedMasterSheetGsm: undefined,
-        selectedMasterSheetThicknessMm: undefined,
-        selectedMasterSheetQuality: "",
-        sourceInventoryItemId: "",
-        sheetsPerMasterSheet: undefined,
-        totalMasterSheetsNeeded: undefined,
+        // masterSheetSizeWidth: undefined, // Removed
+        // masterSheetSizeHeight: undefined, // Removed
+        // wastagePercentage: undefined, // Removed
+        // cuttingLayoutDescription: "", // Removed
+        // selectedMasterSheetGsm: undefined, // Removed
+        // selectedMasterSheetThicknessMm: undefined, // Removed
+        // selectedMasterSheetQuality: "", // Removed
+        // sourceInventoryItemId: "", // Removed
+        // sheetsPerMasterSheet: undefined, // Removed
+        // totalMasterSheetsNeeded: undefined, // Removed
         kindOfJob: "",
         printingFront: "",
         printingBack: "",
@@ -498,14 +486,6 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
     }
   }
 
-  // const currentJobDetailsForModal = { // Optimizer commented out
-  //   paperGsm: form.watch("paperGsm"),
-  //   paperThicknessMm: form.watch("targetPaperThicknessMm"),
-  //   paperQuality: form.watch("paperQuality") as PaperQualityType || undefined,
-  //   jobSizeWidth: form.watch("jobSizeWidth"),
-  //   jobSizeHeight: form.watch("jobSizeHeight"),
-  //   quantityForOptimization: form.watch("grossQuantity") || form.watch("netQuantity") || 0,
-  // };
 
   const processFields = [
     { name: "kindOfJob", label: "Kind of Job", options: KINDS_OF_JOB_OPTIONS },
@@ -521,9 +501,6 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
     { name: "boxMaking", label: "Box Making", options: BOX_MAKING_OPTIONS },
   ] as const;
 
-  const cuttingLayoutDescription = form.watch("cuttingLayoutDescription");
-  const selectedMasterSheetQuality = form.watch("selectedMasterSheetQuality");
-  const selectedMasterSheetUnit = getPaperQualityUnit(selectedMasterSheetQuality as PaperQualityType);
   const linkedJobCardIds = form.watch('linkedJobCardIds') || [];
 
   return (
@@ -698,7 +675,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
         <Card>
           <CardHeader>
             <CardTitle className="font-headline">Paper & Quantity Specifications</CardTitle>
-            <CardDescription className="font-body">Specify the target paper and job dimensions. Check relevant inventory below.</CardDescription>
+            <CardDescription className="font-body">Specify the target paper and job dimensions.</CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <FormField
@@ -818,61 +795,6 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
                     <Wand2 className="mr-2 h-4 w-4" /> Optimize Master Sheet (Coming Soon)
                  </Button>
             </div>
-
-            <CardTitle className="font-headline text-lg col-span-1 md:col-span-2 lg:col-span-3 mt-4 border-t pt-4">Optimized Sheet Details</CardTitle>
-            <FormField control={form.control} name="masterSheetSizeWidth" render={({ field }) => (
-                <FormItem>
-                    <FormLabel>Selected Master Width (in)</FormLabel>
-                    <FormControl><Input type="number" step="any" placeholder="From optimizer" {...field} readOnly value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)} className="font-body bg-muted" /></FormControl>
-                    <FormMessage />
-                </FormItem>
-            )} />
-            <FormField control={form.control} name="masterSheetSizeHeight" render={({ field }) => (
-                <FormItem>
-                    <FormLabel>Selected Master Height (in)</FormLabel>
-                    <FormControl><Input type="number" step="any" placeholder="From optimizer" {...field} readOnly value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)} className="font-body bg-muted" /></FormControl>
-                    <FormMessage />
-                </FormItem>
-            )} />
-            <FormField control={form.control} name="wastagePercentage" render={({ field }) => (
-                <FormItem>
-                    <FormLabel>Wastage (%)</FormLabel>
-                    <FormControl><Input type="number" step="any" placeholder="Calculated %" {...field} readOnly value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)} className="font-body bg-muted" /></FormControl>
-                    <FormMessage />
-                </FormItem>
-            )} />
-
-            {selectedMasterSheetUnit === 'gsm' && (
-              <FormField control={form.control} name="selectedMasterSheetGsm" render={({ field }) => (
-                  <FormItem><FormLabel>Selected Master GSM</FormLabel><FormControl><Input type="number" step="any" placeholder="From optimizer" {...field} readOnly value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)} className="font-body bg-muted" /></FormControl><FormMessage /></FormItem>
-              )} />
-            )}
-            {selectedMasterSheetUnit === 'mm' && (
-              <FormField control={form.control} name="selectedMasterSheetThicknessMm" render={({ field }) => (
-                  <FormItem><FormLabel>Selected Master Thickness (mm)</FormLabel><FormControl><Input type="number" step="any" placeholder="From optimizer" {...field} readOnly value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)} className="font-body bg-muted" /></FormControl><FormMessage /></FormItem>
-              )} />
-            )}
-             <FormField control={form.control} name="selectedMasterSheetQuality" render={({ field }) => (
-                <FormItem>
-                    <FormLabel>Selected Master Quality</FormLabel>
-                    <FormControl><Input placeholder="From optimizer" value={field.value ? getPaperQualityLabel(field.value as PaperQualityType) : ""} readOnly className="font-body bg-muted" /></FormControl>
-                    <FormMessage />
-                </FormItem>
-            )} />
-            <FormField control={form.control} name="sheetsPerMasterSheet" render={({ field }) => (
-                <FormItem>
-                    <FormLabel>Ups / Master Sheet</FormLabel>
-                    <FormControl><Input type="number" step="any" placeholder="From optimizer" {...field} readOnly value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)} className="font-body bg-muted" /></FormControl>
-                    <FormMessage />
-                </FormItem>
-            )} />
-
-            {cuttingLayoutDescription && (
-              <div className="col-span-1 md:col-span-2 lg:col-span-3 mt-2 p-3 border rounded-md bg-muted/50">
-                <h4 className="font-medium mb-1 font-headline text-sm">Selected Cutting Layout:</h4>
-                <p className="text-sm font-body">{cuttingLayoutDescription}</p>
-              </div>
-            )}
           </CardContent>
         </Card>
 
@@ -1069,16 +991,16 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
                     paperGsm: undefined,
                     targetPaperThicknessMm: undefined,
                     paperQuality: "",
-                    masterSheetSizeWidth: undefined,
-                    masterSheetSizeHeight: undefined,
-                    wastagePercentage: undefined,
-                    cuttingLayoutDescription: "",
-                    selectedMasterSheetGsm: undefined,
-                    selectedMasterSheetThicknessMm: undefined,
-                    selectedMasterSheetQuality: "",
-                    sourceInventoryItemId: "",
-                    sheetsPerMasterSheet: undefined,
-                    totalMasterSheetsNeeded: undefined,
+                    // masterSheetSizeWidth: undefined, // Removed
+                    // masterSheetSizeHeight: undefined, // Removed
+                    // wastagePercentage: undefined, // Removed
+                    // cuttingLayoutDescription: "", // Removed
+                    // selectedMasterSheetGsm: undefined, // Removed
+                    // selectedMasterSheetThicknessMm: undefined, // Removed
+                    // selectedMasterSheetQuality: "", // Removed
+                    // sourceInventoryItemId: "", // Removed
+                    // sheetsPerMasterSheet: undefined, // Removed
+                    // totalMasterSheetsNeeded: undefined, // Removed
                     kindOfJob: "",
                     printingFront: "",
                     printingBack: "",
