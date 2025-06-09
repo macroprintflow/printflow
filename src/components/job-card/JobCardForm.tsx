@@ -173,17 +173,6 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
         ...initialJobData,
         dispatchDate: initialJobData.dispatchDate ? new Date(initialJobData.dispatchDate).toISOString() : undefined,
         linkedJobCardIds: initialJobData.linkedJobCardIds || [],
-        // Explicitly clear optimizer fields that are no longer relevant
-        masterSheetSizeWidth: undefined, 
-        masterSheetSizeHeight: undefined,
-        wastagePercentage: undefined,
-        cuttingLayoutDescription: "",
-        selectedMasterSheetGsm: undefined,
-        selectedMasterSheetThicknessMm: undefined,
-        selectedMasterSheetQuality: "",
-        sourceInventoryItemId: "",
-        sheetsPerMasterSheet: undefined,
-        totalMasterSheetsNeeded: undefined,
       }); 
       setCustomerInputValue(initialJobData.customerName);
       setCurrentPdfDataUri(initialJobData.pdfDataUri);
@@ -205,36 +194,37 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
   }, [initialJobData, initialJobName, initialCustomerName, form, applyWorkflow]);
 
 
-  useEffect(() => {
-    async function fetchInitialData() {
-      setIsLoadingCustomers(true);
-      try {
-        const fetchedCustomers = await getCustomersList();
-        setAllCustomers(fetchedCustomers);
-      } catch (error) {
-        toast({ title: "Error", description: "Could not fetch customer data.", variant: "destructive" });
-      } finally {
-        setIsLoadingCustomers(false);
-      }
-      
-      setIsLoadingInventory(true);
-      try {
-        const items = await getInventoryItems();
-        setAllInventoryItems(items);
-      } catch (error) {
-        toast({ title: "Error", description: "Could not load inventory items.", variant: "destructive" });
-      } finally {
-        setIsLoadingInventory(false);
-      }
+  const fetchInitialData = useCallback(async () => {
+    setIsLoadingCustomers(true);
+    try {
+      const fetchedCustomers = await getCustomersList();
+      setAllCustomers(fetchedCustomers);
+    } catch (error) {
+      toast({ title: "Error", description: "Could not fetch customer data.", variant: "destructive" });
+    } finally {
+      setIsLoadingCustomers(false);
     }
-    fetchInitialData();
+    
+    setIsLoadingInventory(true);
+    try {
+      const items = await getInventoryItems();
+      setAllInventoryItems(items);
+    } catch (error) {
+      toast({ title: "Error", description: "Could not load inventory items.", variant: "destructive" });
+    } finally {
+      setIsLoadingInventory(false);
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); 
 
+  useEffect(() => {
+    fetchInitialData();
+  }, [fetchInitialData]);
+
 
   const watchedPaperQuality = form.watch("paperQuality");
-  const watchedPaperGsm = form.watch("paperGsm"); 
-  const watchedPaperThicknessMm = form.watch("targetPaperThicknessMm"); 
+  // const watchedPaperGsm = form.watch("paperGsm"); // Not used in this simplified version
+  // const watchedPaperThicknessMm = form.watch("targetPaperThicknessMm"); // Not used in this simplified version
   const targetPaperUnit = getPaperQualityUnit(watchedPaperQuality as PaperQualityType);
 
 
@@ -344,17 +334,6 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
       workflowSteps: job.workflowSteps || [],
       linkedJobCardIds: job.linkedJobCardIds || [],
       pdfDataUri: job.pdfDataUri,
-      // Explicitly clear optimizer fields
-      masterSheetSizeWidth: undefined, 
-      masterSheetSizeHeight: undefined,
-      wastagePercentage: undefined,
-      cuttingLayoutDescription: "",
-      selectedMasterSheetGsm: undefined,
-      selectedMasterSheetThicknessMm: undefined,
-      selectedMasterSheetQuality: "",
-      sourceInventoryItemId: "",
-      sheetsPerMasterSheet: undefined,
-      totalMasterSheetsNeeded: undefined,
     });
     applyWorkflow(job);
     form.trigger("customerName"); 
@@ -380,102 +359,18 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
   }, [currentWorkflowSteps, form]);
 
   const filteredInventoryForDisplay = useMemo(() => {
-    if (!watchedPaperQuality) {
+    if (!watchedPaperQuality || watchedPaperQuality === "") {
       return [];
     }
-    let items = allInventoryItems.filter(item => item.type === 'Master Sheet' && item.paperQuality === watchedPaperQuality);
-    const currentCustomerName = form.getValues('customerName')?.toLowerCase();
-
-    if (watchedPaperQuality === 'SBS' || watchedPaperQuality === 'GREYBACK' || watchedPaperQuality === 'WHITEBACK') {
-        if (watchedPaperGsm) {
-            let applicableGsmRanges: number[] = [];
-            if ([200, 210, 220, 230].includes(watchedPaperGsm)) applicableGsmRanges = [200, 210, 220, 230];
-            else if ([250, 260].includes(watchedPaperGsm)) applicableGsmRanges = [230, 250, 260];
-            else if ([270, 280].includes(watchedPaperGsm)) applicableGsmRanges = [270, 280];
-            else if ([290, 300].includes(watchedPaperGsm)) applicableGsmRanges = [290, 300, 310];
-            else if (watchedPaperGsm === 320) applicableGsmRanges = [310, 320, 330];
-            else if (watchedPaperGsm === 350) applicableGsmRanges = [340, 350, 360];
-            else if (watchedPaperGsm === 400) applicableGsmRanges = [370, 380, 390, 410];
-            else applicableGsmRanges = [watchedPaperGsm];
-            items = items.filter(item => item.paperGsm !== undefined && applicableGsmRanges.includes(item.paperGsm));
-        } else {
-            items = []; 
-        }
-    } else if (watchedPaperQuality === 'ART_PAPER_GLOSS' || watchedPaperQuality === 'ART_PAPER_MATT') {
-        if (watchedPaperGsm) {
-            let applicableGsmRanges: number[] = [];
-            if ([90, 100].includes(watchedPaperGsm)) applicableGsmRanges = [90, 100, 110, 115];
-            else if (watchedPaperGsm === 120) applicableGsmRanges = [110, 115, 120, 130];
-            else if (watchedPaperGsm === 130) {
-                applicableGsmRanges = (currentCustomerName === 'ganga acrowools') ? [130] : [120, 130, 150];
-            }
-            else if (watchedPaperGsm === 150) applicableGsmRanges = [150, 170];
-            else if (watchedPaperGsm === 170) {
-                applicableGsmRanges = (currentCustomerName === 'ganga acrowools') ? [170] : [150, 170];
-            }
-            else applicableGsmRanges = [watchedPaperGsm];
-            items = items.filter(item => item.paperGsm !== undefined && applicableGsmRanges.includes(item.paperGsm));
-        } else {
-            items = [];
-        }
-    } else if (watchedPaperQuality === 'GG_KAPPA' || watchedPaperQuality === 'WG_KAPPA') {
-        if (watchedPaperThicknessMm) {
-            if (watchedPaperThicknessMm >= 0.80 && watchedPaperThicknessMm <= 0.92) {
-                items = items.filter(item => item.paperThicknessMm && item.paperThicknessMm >= 0.82 && item.paperThicknessMm <= 0.92);
-            } else if (watchedPaperThicknessMm === 1.00) {
-                items = items.filter(item => item.paperThicknessMm && item.paperThicknessMm >= 0.92 && item.paperThicknessMm <= 1.1);
-            } else if (watchedPaperThicknessMm === 1.1 || watchedPaperThicknessMm === 1.2) {
-                items = items.filter(item => item.paperThicknessMm && item.paperThicknessMm >= 1.1 && item.paperThicknessMm <= 1.2);
-            } else if (watchedPaperThicknessMm >= 1.3 && watchedPaperThicknessMm <= 1.5) {
-                items = items.filter(item => item.paperThicknessMm && item.paperThicknessMm >= 1.3 && item.paperThicknessMm <= 1.5);
-            } else { 
-                items = items.filter(item => item.paperThicknessMm === watchedPaperThicknessMm);
-            }
-        } else {
-             items = [];
-        }
-    } else if (watchedPaperQuality === 'BUTTER_PAPER') {
-        // No GSM filtering, `items` already contains all Butter Paper.
-    } else if (['JAPANESE_PAPER', 'IMPORTED_PAPER', 'GOLDEN_SHEET', 'MDF'].includes(watchedPaperQuality)) {
-        const unit = getPaperQualityUnit(watchedPaperQuality);
-        if (unit === 'gsm' && watchedPaperGsm) {
-            items = items.filter(item => item.paperGsm === watchedPaperGsm);
-        } else if (unit === 'mm' && watchedPaperThicknessMm) {
-            items = items.filter(item => item.paperThicknessMm === watchedPaperThicknessMm);
-        }
-        // If no spec, all items of this quality are shown (already filtered by quality above).
-    } else { // For any other unlisted quality
-        const unit = getPaperQualityUnit(watchedPaperQuality);
-        if (unit === 'gsm' && watchedPaperGsm) {
-            items = items.filter(item => item.paperGsm === watchedPaperGsm);
-        } else if (unit === 'mm' && watchedPaperThicknessMm) {
-            items = items.filter(item => item.paperThicknessMm === watchedPaperThicknessMm);
-        }
-    }
+    let items = allInventoryItems.filter(item => 
+        item.type === 'Master Sheet' && 
+        item.paperQuality === watchedPaperQuality
+    );
     
-    items.sort((a, b) => {
-      const unitA = getPaperQualityUnit(a.paperQuality as PaperQualityType);
-      const valA = unitA === 'gsm' ? a.paperGsm : a.paperThicknessMm;
-      const unitB = getPaperQualityUnit(b.paperQuality as PaperQualityType);
-      const valB = unitB === 'gsm' ? b.paperGsm : b.paperThicknessMm;
-
-      if (valA === undefined && valB !== undefined) return 1;
-      if (valA !== undefined && valB === undefined) return -1;
-      if (valA === undefined && valB === undefined) {
-          if ((a.masterSheetSizeWidth || 0) !== (b.masterSheetSizeWidth || 0)) {
-            return (a.masterSheetSizeWidth || 0) - (b.masterSheetSizeWidth || 0);
-          }
-          return (a.masterSheetSizeHeight || 0) - (b.masterSheetSizeHeight || 0);
-      }
-      if (valA! < valB!) return -1;
-      if (valA! > valB!) return 1;
-      if ((a.masterSheetSizeWidth || 0) !== (b.masterSheetSizeWidth || 0)) {
-        return (a.masterSheetSizeWidth || 0) - (b.masterSheetSizeWidth || 0);
-      }
-      return (a.masterSheetSizeHeight || 0) - (b.masterSheetSizeHeight || 0);
-    });
+    // Simplified sorting for stability
+    items.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
     return items;
-  }, [allInventoryItems, watchedPaperQuality, watchedPaperGsm, watchedPaperThicknessMm, form]);
+  }, [allInventoryItems, watchedPaperQuality]);
 
 
   async function onSubmit(values: JobCardFormValues) {
@@ -521,16 +416,6 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
         workflowSteps: [],
         linkedJobCardIds: [],
         pdfDataUri: undefined,
-        masterSheetSizeWidth: undefined,
-        masterSheetSizeHeight: undefined,
-        wastagePercentage: undefined,
-        cuttingLayoutDescription: "",
-        selectedMasterSheetGsm: undefined,
-        selectedMasterSheetThicknessMm: undefined,
-        selectedMasterSheetQuality: "",
-        sourceInventoryItemId: "",
-        sheetsPerMasterSheet: undefined,
-        totalMasterSheetsNeeded: undefined,
       });
       setCurrentWorkflowSteps([]);
       setCustomerInputValue(initialJobData?.customerName || initialCustomerName || "");
@@ -853,11 +738,10 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
                         <FormMessage />
                     </FormItem>
                 )} />
-                 <Button type="button" variant="outline" className="w-full md:mt-0 mt-4 font-body" disabled> {/* Optimizer commented out */}
+                 <Button type="button" variant="outline" className="w-full md:mt-0 mt-4 font-body" disabled> 
                     <Wand2 className="mr-2 h-4 w-4" /> Optimize Master Sheet (Coming Soon)
                  </Button>
             </div>
-            {/* Optimizer related display fields are removed */}
           </CardContent>
         </Card>
 
@@ -865,7 +749,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
           <CardHeader>
             <CardTitle className="font-headline flex items-center"><Archive className="mr-2 h-5 w-5 text-primary"/>Relevant Inventory</CardTitle>
             <CardDescription className="font-body">
-                Available master sheets based on selected Target Paper Quality and GSM/Thickness.
+                Available master sheets based on selected Target Paper Quality. (Detailed GSM/Thickness filtering coming soon)
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -874,13 +758,13 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
                 <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
                 <p className="text-muted-foreground font-body">Loading inventory...</p>
               </div>
-            ) : !watchedPaperQuality ? (
+            ) : !watchedPaperQuality || watchedPaperQuality === "" ? (
               <p className="text-muted-foreground font-body text-center py-4">
                 Select a 'Target Paper Quality' above to see relevant stock.
               </p>
             ) : filteredInventoryForDisplay.length === 0 ? (
               <p className="text-muted-foreground font-body text-center py-4">
-                No inventory items match the selected criteria.
+                No inventory items match the selected paper quality.
               </p>
             ) : (
               <ScrollArea className="h-[250px] border rounded-md">
@@ -1114,16 +998,6 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
                     workflowSteps: [],
                     linkedJobCardIds: [],
                     pdfDataUri: undefined,
-                    masterSheetSizeWidth: undefined,
-                    masterSheetSizeHeight: undefined,
-                    wastagePercentage: undefined,
-                    cuttingLayoutDescription: "",
-                    selectedMasterSheetGsm: undefined,
-                    selectedMasterSheetThicknessMm: undefined,
-                    selectedMasterSheetQuality: "",
-                    sourceInventoryItemId: "",
-                    sheetsPerMasterSheet: undefined,
-                    totalMasterSheetsNeeded: undefined,
                 }); 
                 setCurrentWorkflowSteps([]); 
                 setCustomerInputValue(initialJobData?.customerName || initialCustomerName || "");
