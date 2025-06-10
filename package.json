@@ -51,6 +51,7 @@
     "maxrects-packer": "^2.7.3",
     "next": "^15.3.3",
     "nodemailer": "^6.9.14",
+    "openai": "^5.2.0",
     "patch-package": "^8.0.0",
     "qrcode": "^1.5.3",
     "react": "^18.3.1",
