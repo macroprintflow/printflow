@@ -207,6 +207,9 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
 
 
   const watchedPaperQuality = form.watch("paperQuality");
+  const watchedPaperGsm = form.watch("paperGsm");
+  const watchedPaperThicknessMm = form.watch("targetPaperThicknessMm");
+  const watchedCustomerName = form.watch("customerName");
   const targetPaperUnit = getPaperQualityUnit(watchedPaperQuality as PaperQualityType);
 
   const fetchJobsForThisCustomer = async (customerName: string) => {
@@ -416,6 +419,86 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
   ] as const;
 
   const linkedJobCardIds = form.watch('linkedJobCardIds') || [];
+
+  const filteredInventoryForDisplay = useMemo(() => {
+    if (!watchedPaperQuality) return [];
+
+    let filtered = allInventoryItems.filter(
+      (item) => item.type === 'Master Sheet' && item.paperQuality === watchedPaperQuality && (item.availableStock ?? 0) > 0
+    );
+
+    const isGangaAcrowools = watchedCustomerName?.toLowerCase().includes("ganga acrowools");
+    const targetGsm = watchedPaperGsm;
+    const targetThickness = watchedPaperThicknessMm;
+
+    switch (watchedPaperQuality) {
+      case 'SBS':
+        if (isGangaAcrowools) {
+          // For Ganga Acrowools, filter by exact GSM or show all if no GSM specified
+          if (targetGsm) {
+            filtered = filtered.filter(item => item.paperGsm === targetGsm);
+          }
+        } else {
+          // Standard SBS filtering: +/- 10 GSM, or all SBS if no GSM specified
+          if (targetGsm) {
+            filtered = filtered.filter(item => item.paperGsm && item.paperGsm >= targetGsm - 10 && item.paperGsm <= targetGsm + 10);
+          }
+        }
+        break;
+      case 'GREYBACK':
+      case 'WHITEBACK':
+        // Filter by exact GSM or +/- 5 GSM, or all if no GSM specified
+        if (targetGsm) {
+          filtered = filtered.filter(item => item.paperGsm && (item.paperGsm === targetGsm || (item.paperGsm >= targetGsm - 5 && item.paperGsm <= targetGsm + 5)));
+        }
+        break;
+      case 'ART_PAPER_GLOSS':
+      case 'ART_PAPER_MATT':
+        // Filter by exact GSM, or all if no GSM specified
+        if (targetGsm) {
+          filtered = filtered.filter(item => item.paperGsm === targetGsm);
+        }
+        break;
+      case 'BUTTER_PAPER':
+        // Show all butter paper, no specific GSM/Thickness filter needed for display
+        break;
+      case 'JAPANESE_PAPER':
+      case 'IMPORTED_PAPER':
+      case 'GOLDEN_SHEET':
+      case 'KRAFT_PAPER':
+        // Filter by exact GSM if provided, otherwise show all of this quality
+        if (targetGsm) {
+          filtered = filtered.filter(item => item.paperGsm === targetGsm);
+        }
+        break;
+      case 'GG_KAPPA':
+      case 'WG_KAPPA':
+      case 'MDF':
+        // Filter by exact Thickness (mm) if provided, otherwise show all of this quality
+        if (targetThickness) {
+          filtered = filtered.filter(item => item.paperThicknessMm === targetThickness);
+        }
+        break;
+      default:
+        // For any other paper quality, show all items of that quality if no specific spec provided
+        if (targetPaperUnit === 'gsm' && targetGsm) {
+             filtered = filtered.filter(item => item.paperGsm === targetGsm);
+        } else if (targetPaperUnit === 'mm' && targetThickness) {
+             filtered = filtered.filter(item => item.paperThicknessMm === targetThickness);
+        }
+        break;
+    }
+
+    return filtered.sort((a, b) => {
+      const specA = a.paperGsm ?? a.paperThicknessMm ?? 0;
+      const specB = b.paperGsm ?? b.paperThicknessMm ?? 0;
+      if (specA !== specB) return specA - specB;
+      const areaA = (a.masterSheetSizeWidth || 0) * (a.masterSheetSizeHeight || 0);
+      const areaB = (b.masterSheetSizeWidth || 0) * (b.masterSheetSizeHeight || 0);
+      return areaA - areaB;
+    });
+  }, [allInventoryItems, watchedPaperQuality, watchedPaperGsm, watchedPaperThicknessMm, watchedCustomerName, targetPaperUnit]);
+
 
   return (
     <Form {...form}>
