@@ -25,11 +25,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { cn } from "@/lib/utils";
 import { CalendarIcon, Loader2, ArrowRight, ArrowLeft, CheckCircle, Archive, XCircle } from "lucide-react";
 import { format } from "date-fns";
-import type { JobCardData, PaperQualityType, InventoryItem } from "@/lib/definitions";
-import { PAPER_QUALITY_OPTIONS, getPaperQualityUnit, getPaperQualityLabel, KAPPA_MDF_QUALITIES, createJobCard } from "@/lib/definitions"; // createJobCard is currently unused here but kept for potential future use in final submission.
-import { getInventoryItems } from "@/lib/actions/jobActions";
+import type { JobCardData, PaperQualityType, InventoryItem, JobCardFormValues } from "@/lib/definitions";
+import { PAPER_QUALITY_OPTIONS, getPaperQualityUnit, getPaperQualityLabel } from "@/lib/definitions";
+import { getInventoryItems, createJobCard } from "@/lib/actions/jobActions";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
+import { handlePrintJobCard } from "@/lib/printUtils";
 
 // Helper function
 const formatInventoryItemForDisplay = (item: InventoryItem): string => {
@@ -74,7 +75,7 @@ const Step2Schema = z.object({
 });
 
 const Step3InventorySchema = z.object({
-  inventorySelectionPlaceholder: z.string().optional(), // May not be needed if selection is direct
+  inventorySelectionPlaceholder: z.string().optional(),
   selectedInventoryItemId: z.string().optional(),
 });
 
@@ -181,7 +182,7 @@ export function NewJobMultiStepModal({
     let isValid = false;
     if (currentStep === 1) isValid = await form.trigger(["jobName", "customerName", "dispatchDate"]);
     else if (currentStep === 2) isValid = await form.trigger(["jobSizeWidth", "jobSizeHeight", "netQuantity", "grossQuantity", "paperQuality", "paperGsm", "targetPaperThicknessMm"]);
-    else if (currentStep === 3) isValid = await form.trigger(["selectedInventoryItemId"]); // Validation for selection can be added here if needed
+    else if (currentStep === 3) isValid = await form.trigger(["selectedInventoryItemId"]); 
     
     if (isValid) {
       if (currentStep < MAX_STEPS) {
@@ -200,38 +201,62 @@ export function NewJobMultiStepModal({
 
   const onSubmit = async (data: MultiStepJobFormValues) => {
     setIsSubmitting(true);
-    console.log("Multi-step form submitted (Steps 1-4):", data);
-
-    // Placeholder: Actual job creation logic will be more involved.
-    // For now, just using a subset of data.
-    const jobCardPayload: Partial<JobCardData> = {
+    
+    const jobCardPayload: JobCardFormValues = {
       jobName: data.jobName,
-      customerName: data.customerName, 
-      date: new Date().toISOString().split('T')[0],
+      customerName: data.customerName,
+      // customerId: undefined, // This would be set if we had customer selection in the modal
       dispatchDate: data.dispatchDate ? format(data.dispatchDate, "yyyy-MM-dd") : undefined,
-      jobSizeWidth: data.jobSizeWidth,
-      jobSizeHeight: data.jobSizeHeight,
-      netQuantity: data.netQuantity,
-      grossQuantity: data.grossQuantity,
+      jobSizeWidth: data.jobSizeWidth!,
+      jobSizeHeight: data.jobSizeHeight!,
+      netQuantity: data.netQuantity!,
+      grossQuantity: data.grossQuantity!,
       paperQuality: data.paperQuality as PaperQualityType,
       paperGsm: data.paperQuality && getPaperQualityUnit(data.paperQuality as PaperQualityType) === 'gsm' ? data.paperGsm : undefined,
       targetPaperThicknessMm: data.paperQuality && getPaperQualityUnit(data.paperQuality as PaperQualityType) === 'mm' ? data.targetPaperThicknessMm : undefined,
       remarks: data.remarks,
-      // Kind of job, workflow, etc., would be set in a real scenario or in later steps
-      // For this example, we're just passing the selected inventory item ID conceptually
-      sourceInventoryItemId: data.selectedInventoryItemId,
+      // Default empty values for other required fields in JobCardFormValues
+      kindOfJob: "",
+      printingFront: "",
+      printingBack: "",
+      coating: "",
+      die: "",
+      hotFoilStamping: "",
+      emboss: "",
+      pasting: "",
+      boxMaking: "",
+      workflowSteps: [], // Workflow not managed in this simplified modal for now
+      linkedJobCardIds: [], // Linking not managed in this modal
     };
+
+    if (data.selectedInventoryItemId) {
+      const selectedItem = allPaperInventory.find(item => item.id === data.selectedInventoryItemId);
+      if (selectedItem) {
+        jobCardPayload.sourceInventoryItemId = selectedItem.id;
+        jobCardPayload.masterSheetSizeWidth = selectedItem.masterSheetSizeWidth;
+        jobCardPayload.masterSheetSizeHeight = selectedItem.masterSheetSizeHeight;
+        jobCardPayload.selectedMasterSheetQuality = selectedItem.paperQuality as PaperQualityType;
+        const selectedUnit = getPaperQualityUnit(selectedItem.paperQuality as PaperQualityType);
+        jobCardPayload.selectedMasterSheetGsm = selectedUnit === 'gsm' ? selectedItem.paperGsm : undefined;
+        jobCardPayload.selectedMasterSheetThicknessMm = selectedUnit === 'mm' ? selectedItem.paperThicknessMm : undefined;
+        // Note: sheetsPerMasterSheet, totalMasterSheetsNeeded, wastagePercentage are not calculated in this modal
+      }
+    }
     
-    // Simulate API call
-    setTimeout(() => { 
-        toast({ title: "Form Submitted (Placeholder)", description: "Data from steps 1-4 logged to console. Actual creation pending." });
-        console.log("Placeholder Job Card Payload:", jobCardPayload);
-        setIsSubmitting(false);
+    const result = await createJobCard(jobCardPayload);
+    setIsSubmitting(false);
+
+    if (result.success && result.jobCard) {
+        toast({ title: "Job Card Created!", description: `Job ${result.jobCard.jobCardNumber} created successfully via guided steps.`});
+        handlePrintJobCard(result.jobCard, toast);
         setIsOpen(false);
         form.reset();
         setCurrentStep(1);
         if (onModalClose) onModalClose();
-    }, 1000);
+        router.push('/jobs');
+    } else {
+        toast({ title: "Error", description: result.message || "Failed to create job card.", variant: "destructive"});
+    }
   };
 
   const handleSelectInventoryItem = (itemId: string) => {
@@ -412,6 +437,7 @@ export function NewJobMultiStepModal({
                           <TableHead>Item Name</TableHead>
                           <TableHead className="text-right">Stock</TableHead>
                           <TableHead>Unit</TableHead>
+                          <TableHead>Location</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -427,6 +453,7 @@ export function NewJobMultiStepModal({
                             <TableCell>{formatInventoryItemForDisplay(item)}</TableCell>
                             <TableCell className="text-right">{item.availableStock?.toLocaleString() ?? 0}</TableCell>
                             <TableCell>{item.unit}</TableCell>
+                            <TableCell>{item.locationCode || '-'}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -510,7 +537,7 @@ export function NewJobMultiStepModal({
           ) : (
             <Button onClick={form.handleSubmit(onSubmit)} disabled={isSubmitting}>
               {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <CheckCircle className="mr-2 h-4 w-4" />}
-              {isSubmitting ? "Submitting..." : "Submit (Placeholder)"}
+              {isSubmitting ? "Creating Job..." : "Create Job Card"}
             </Button>
           )}
         </DialogFooter>
