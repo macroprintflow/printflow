@@ -279,16 +279,16 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
                 if (!item.paperGsm) return false;
                 const itemGsm = item.paperGsm;
 
-                if (watchedPaperQuality === "ART_PAPER_MATT" && currentCustomerName === "ganga acrowools" && watchedPaperGsm === 130) {
-                    return itemGsm >= 130 && itemGsm <= 170;
+                if (currentCustomerName === "ganga acrowools") {
+                    return itemGsm === watchedPaperGsm;
                 }
                 // Standard Art Paper rules
-                if (watchedPaperGsm === 100) return itemGsm >= 90 && itemGsm <= 100;
-                if (watchedPaperGsm === 120) return itemGsm >= 120 && itemGsm <= 130;
-                if (watchedPaperGsm === 130) return itemGsm >= 130 && itemGsm <= 150; 
+                if (watchedPaperGsm === 100) return itemGsm >= 90 && itemGsm <= 110;
+                if (watchedPaperGsm === 115 || watchedPaperGsm === 120) return itemGsm >= 120 && itemGsm <= 130;
+                if (watchedPaperGsm === 130) return itemGsm >= 130 && itemGsm <= 150;
                 if (watchedPaperGsm === 150) return itemGsm >= 150 && itemGsm <= 170;
                 if (watchedPaperGsm === 170) return itemGsm >= 170 && itemGsm <= 180;
-                return false; 
+                return false;
             });
         } else {
             finalFilteredItems = qualityFilteredItems;
@@ -303,7 +303,18 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
         }
     } else if (["GG_KAPPA", "WG_KAPPA", "MDF"].includes(watchedPaperQuality)) {
         if (watchedPaperThicknessMm !== undefined && watchedPaperThicknessMm > 0) {
-            finalFilteredItems = qualityFilteredItems.filter(item => item.paperThicknessMm === watchedPaperThicknessMm);
+            finalFilteredItems = qualityFilteredItems.filter(item => {
+                if (item.paperThicknessMm === undefined) return false;
+                const thickness = item.paperThicknessMm;
+                const selected = watchedPaperThicknessMm;
+                if (["GG_KAPPA", "WG_KAPPA"].includes(watchedPaperQuality)) {
+                    if (selected >= 0.8 && selected <= 0.92) return thickness >= 0.82 && thickness <= 0.92;
+                    if (selected === 1.0) return thickness >= 0.92 && thickness <= 1.1;
+                    if (selected >= 1.1 && selected <= 1.2) return thickness >= 1.1 && thickness <= 1.2;
+                    if (selected >= 1.3 && selected <= 1.5) return thickness >= 1.3 && thickness <= 1.5;
+                }
+                return thickness === selected;
+            });
         } else {
             finalFilteredItems = qualityFilteredItems;
         }
