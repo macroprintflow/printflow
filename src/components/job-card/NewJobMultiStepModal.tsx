@@ -23,7 +23,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { CalendarIcon, Loader2, ArrowRight, ArrowLeft, CheckCircle, Archive, XCircle } from "lucide-react";
+import { CalendarIcon, Loader2, ArrowRight, ArrowLeft, CheckCircle, Archive, XCircle, Filter } from "lucide-react";
 import { format } from "date-fns";
 import type { JobCardData, PaperQualityType, InventoryItem, JobCardFormValues } from "@/lib/definitions";
 import { PAPER_QUALITY_OPTIONS, getPaperQualityUnit, getPaperQualityLabel } from "@/lib/definitions";
@@ -75,7 +75,7 @@ const Step2Schema = z.object({
 });
 
 const Step3InventorySchema = z.object({
-  inventorySelectionPlaceholder: z.string().optional(),
+  inventorySelectionPlaceholder: z.string().optional(), // Not used for validation, just for form structure
   selectedInventoryItemId: z.string().optional(),
 });
 
@@ -106,8 +106,10 @@ export function NewJobMultiStepModal({
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [allPaperInventory, setAllPaperInventory] = useState<InventoryItem[]>([]);
+  const [allInventory, setAllInventory] = useState<InventoryItem[]>([]);
   const [isLoadingInventory, setIsLoadingInventory] = useState(false);
+  const [selectedPaperQualityFilter, setSelectedPaperQualityFilter] = useState<PaperQualityType | "ALL_QUALITIES">("ALL_QUALITIES");
+
 
   const form = useForm<MultiStepJobFormValues>({
     resolver: zodResolver(
@@ -135,8 +137,8 @@ export function NewJobMultiStepModal({
     mode: "onChange",
   });
 
-  const watchedPaperQuality = form.watch("paperQuality");
-  const targetPaperUnit = getPaperQualityUnit(watchedPaperQuality as PaperQualityType);
+  const watchedPaperQualityFromStep2 = form.watch("paperQuality"); // Target quality
+  const targetPaperUnit = getPaperQualityUnit(watchedPaperQualityFromStep2 as PaperQualityType);
   const watchedSelectedInventoryItemId = form.watch("selectedInventoryItemId");
 
   useEffect(() => {
@@ -165,10 +167,9 @@ export function NewJobMultiStepModal({
         setIsLoadingInventory(true);
         try {
           const items = await getInventoryItems();
-          const paperItems = items.filter(item => item.type === 'Master Sheet' && (item.availableStock ?? 0) > 0);
-          setAllPaperInventory(paperItems);
+          setAllInventory(items);
         } catch (error) {
-          toast({ title: "Error", description: "Could not load paper inventory.", variant: "destructive" });
+          toast({ title: "Error", description: "Could not load inventory.", variant: "destructive" });
         } finally {
           setIsLoadingInventory(false);
         }
@@ -176,6 +177,24 @@ export function NewJobMultiStepModal({
     }
     fetchInventory();
   }, [isOpen, toast]);
+
+  const filteredPaperInventory = useMemo(() => {
+    let items = allInventory.filter(item => item.type === 'Master Sheet' && (item.availableStock ?? 0) > 0);
+    if (selectedPaperQualityFilter !== "ALL_QUALITIES" && selectedPaperQualityFilter !== "") {
+      items = items.filter(item => item.paperQuality === selectedPaperQualityFilter);
+    }
+    return items.sort((a,b) => formatInventoryItemForDisplay(a).localeCompare(formatInventoryItemForDisplay(b)));
+  }, [allInventory, selectedPaperQualityFilter]);
+
+  useEffect(() => {
+    // If an item is selected and the filter changes to hide it, clear the selection.
+    if (watchedSelectedInventoryItemId) {
+      const isSelectedItemVisible = filteredPaperInventory.some(item => item.id === watchedSelectedInventoryItemId);
+      if (!isSelectedItemVisible) {
+        form.setValue("selectedInventoryItemId", undefined);
+      }
+    }
+  }, [filteredPaperInventory, watchedSelectedInventoryItemId, form]);
 
 
   const handleNext = async () => {
@@ -205,7 +224,6 @@ export function NewJobMultiStepModal({
     const jobCardPayload: JobCardFormValues = {
       jobName: data.jobName,
       customerName: data.customerName,
-      // customerId: undefined, // This would be set if we had customer selection in the modal
       dispatchDate: data.dispatchDate ? format(data.dispatchDate, "yyyy-MM-dd") : undefined,
       jobSizeWidth: data.jobSizeWidth!,
       jobSizeHeight: data.jobSizeHeight!,
@@ -215,7 +233,6 @@ export function NewJobMultiStepModal({
       paperGsm: data.paperQuality && getPaperQualityUnit(data.paperQuality as PaperQualityType) === 'gsm' ? data.paperGsm : undefined,
       targetPaperThicknessMm: data.paperQuality && getPaperQualityUnit(data.paperQuality as PaperQualityType) === 'mm' ? data.targetPaperThicknessMm : undefined,
       remarks: data.remarks,
-      // Default empty values for other required fields in JobCardFormValues
       kindOfJob: "",
       printingFront: "",
       printingBack: "",
@@ -225,12 +242,12 @@ export function NewJobMultiStepModal({
       emboss: "",
       pasting: "",
       boxMaking: "",
-      workflowSteps: [], // Workflow not managed in this simplified modal for now
-      linkedJobCardIds: [], // Linking not managed in this modal
+      workflowSteps: [], 
+      linkedJobCardIds: [],
     };
 
     if (data.selectedInventoryItemId) {
-      const selectedItem = allPaperInventory.find(item => item.id === data.selectedInventoryItemId);
+      const selectedItem = allInventory.find(item => item.id === data.selectedInventoryItemId); // Search in allInventory
       if (selectedItem) {
         jobCardPayload.sourceInventoryItemId = selectedItem.id;
         jobCardPayload.masterSheetSizeWidth = selectedItem.masterSheetSizeWidth;
@@ -239,7 +256,6 @@ export function NewJobMultiStepModal({
         const selectedUnit = getPaperQualityUnit(selectedItem.paperQuality as PaperQualityType);
         jobCardPayload.selectedMasterSheetGsm = selectedUnit === 'gsm' ? selectedItem.paperGsm : undefined;
         jobCardPayload.selectedMasterSheetThicknessMm = selectedUnit === 'mm' ? selectedItem.paperThicknessMm : undefined;
-        // Note: sheetsPerMasterSheet, totalMasterSheetsNeeded, wastagePercentage are not calculated in this modal
       }
     }
     
@@ -252,6 +268,7 @@ export function NewJobMultiStepModal({
         setIsOpen(false);
         form.reset();
         setCurrentStep(1);
+        setSelectedPaperQualityFilter("ALL_QUALITIES");
         if (onModalClose) onModalClose();
         router.push('/jobs');
     } else {
@@ -410,20 +427,41 @@ export function NewJobMultiStepModal({
         return (
           <Form {...form}>
             <div className="space-y-4">
-              <FormLabel className="flex items-center"><Archive className="mr-2 h-4 w-4 text-muted-foreground" />Select Master Sheet from Inventory</FormLabel>
+              <FormItem>
+                <FormLabel htmlFor="paperQualityFilter" className="flex items-center"><Filter className="mr-2 h-4 w-4 text-muted-foreground" />Filter by Paper Quality</FormLabel>
+                <Select 
+                    value={selectedPaperQualityFilter} 
+                    onValueChange={(value) => setSelectedPaperQualityFilter(value as PaperQualityType | "ALL_QUALITIES")}
+                >
+                    <FormControl>
+                        <SelectTrigger id="paperQualityFilter">
+                            <SelectValue placeholder="Select paper quality to filter" />
+                        </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                        <SelectItem value="ALL_QUALITIES">All Qualities</SelectItem>
+                        {PAPER_QUALITY_OPTIONS.filter(opt => opt.value !== "").map(option => (
+                            <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+              </FormItem>
+
               {isLoadingInventory ? (
                 <div className="flex items-center justify-center h-40">
                   <Loader2 className="mr-2 h-6 w-6 animate-spin text-primary" />
                   <span>Loading inventory...</span>
                 </div>
-              ) : allPaperInventory.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">No paper inventory items found with available stock.</p>
+              ) : filteredPaperInventory.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No paper inventory items match {selectedPaperQualityFilter === "ALL_QUALITIES" ? "your criteria" : `"${getPaperQualityLabel(selectedPaperQualityFilter as PaperQualityType)}"`} or have available stock.
+                </p>
               ) : (
                 <>
                   {watchedSelectedInventoryItemId && (
                     <div className="p-2 mb-2 border rounded-md bg-secondary/50 flex justify-between items-center">
                       <p className="text-sm font-medium">
-                        Selected: {formatInventoryItemForDisplay(allPaperInventory.find(item => item.id === watchedSelectedInventoryItemId)!)}
+                        Selected: {formatInventoryItemForDisplay(allInventory.find(item => item.id === watchedSelectedInventoryItemId)!)}
                       </p>
                       <Button variant="ghost" size="sm" onClick={handleClearInventorySelection} className="text-destructive hover:text-destructive">
                         <XCircle className="mr-1 h-4 w-4"/> Clear
@@ -441,7 +479,7 @@ export function NewJobMultiStepModal({
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {allPaperInventory.map(item => (
+                        {filteredPaperInventory.map(item => (
                           <TableRow 
                             key={item.id} 
                             onClick={() => handleSelectInventoryItem(item.id)}
@@ -503,6 +541,7 @@ export function NewJobMultiStepModal({
     if (!openState) {
         form.reset();
         setCurrentStep(1);
+        setSelectedPaperQualityFilter("ALL_QUALITIES");
         if (onModalClose) {
             onModalClose();
         }
