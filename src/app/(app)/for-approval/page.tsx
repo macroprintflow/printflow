@@ -9,12 +9,12 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { UploadCloud, FileText, CheckCircle, Send, Loader2, AlertTriangle, Eye, Download, Mail } from "lucide-react";
-import { useState, type FormEvent, type ChangeEvent, useEffect, useCallback, useMemo } from "react";
+import { UploadCloud, FileText, CheckCircle, Send, Loader2, AlertTriangle, Eye, Download, Mail, Upload } from "lucide-react"; // Added Upload icon
+import { useState, type FormEvent, type ChangeEvent, useEffect, useCallback, useMemo, useRef } from "react"; // Added useRef
 import type { DesignSubmission, SubmitDesignInput, SubmitDesignOutput, PlateTypeValue, ColorProfileValue } from "@/lib/definitions";
 import { PLATE_TYPES, COLOR_PROFILES } from "@/lib/definitions";
 import { submitDesignForApproval } from "@/ai/flows/design-submission-flow";
-import { getDesignSubmissions, updateDesignSubmissionStatus, getJobCardById } from "@/lib/actions/jobActions"; // Added getJobCardById
+import { getDesignSubmissions, updateDesignSubmissionStatus, getJobCardById } from "@/lib/actions/jobActions"; 
 import { sendPlateEmail, type SendPlateEmailInput as SendPlateEmailFlowInput } from "@/ai/flows/send-plate-email-flow"; 
 
 
@@ -44,6 +44,8 @@ export default function ForApprovalPage() {
   const [colorProfile, setColorProfile] = useState<ColorProfileValue | "">("");
   const [otherColorProfileDetail, setOtherColorProfileDetail] = useState("");
   const [activeTab, setActiveTab] = useState<PlateTypeValue>("old");
+
+  const hiddenFileInputRef = useRef<HTMLInputElement>(null);
 
 
   const fetchAndSetDesigns = useCallback(async () => {
@@ -85,6 +87,10 @@ export default function ForApprovalPage() {
     } else {
       setSelectedFile(null);
     }
+  };
+
+  const handleCustomUploadButtonClick = () => {
+    hiddenFileInputRef.current?.click();
   };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -145,8 +151,8 @@ export default function ForApprovalPage() {
       setPlateType("old");
       setColorProfile("");
       setOtherColorProfileDetail("");
-      const fileInput = document.getElementById('pdfFile') as HTMLInputElement;
-      if (fileInput) fileInput.value = "";
+      if (hiddenFileInputRef.current) hiddenFileInputRef.current.value = "";
+
 
     } catch (error) {
       console.error("Submission error:", error);
@@ -180,8 +186,6 @@ export default function ForApprovalPage() {
   };
   
   const handleSendEmailToPlateManufacturer = async (design: DesignSubmission) => {
-    // This function is currently not called as the button is disabled.
-    // Kept for future re-enablement.
     if (!design.pdfDataUri) {
         toast({ title: "Error", description: "No PDF found for this design to email.", variant: "destructive" });
         return;
@@ -335,15 +339,25 @@ export default function ForApprovalPage() {
             )}
 
             <div>
-              <Label htmlFor="pdfFile" className="font-body">Upload PDF Artwork</Label>
+              <Label className="font-body">Upload PDF Artwork</Label>
               <Input 
                 id="pdfFile" 
                 type="file"
                 accept=".pdf"
                 onChange={handleFileChange}
-                className="font-body text-sm file:mr-4 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                ref={hiddenFileInputRef}
+                className="hidden" // Hide the actual file input
               />
-               {selectedFile && <p className="text-xs text-muted-foreground mt-1">Selected: {selectedFile.name}</p>}
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={handleCustomUploadButtonClick} 
+                className="w-full font-body justify-start text-muted-foreground hover:text-foreground"
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                {selectedFile ? selectedFile.name : "Upload File"}
+              </Button>
+               {selectedFile && <p className="text-xs text-muted-foreground mt-1">Selected: {selectedFile.name} (Click button above to change)</p>}
             </div>
             <div>
               <Label htmlFor="jobName" className="font-body">Job Name (e.g., Spring Catalog 2025)</Label>
