@@ -4,7 +4,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import type { JobCardFormValues, InventorySuggestion, JobTemplateData, PaperQualityType, WorkflowProcessStepDefinition, JobCardData, WorkflowStep, DesignSubmission, CustomerListItem, InventoryItem } from '@/lib/definitions';
-import { JobCardSchema, KINDS_OF_JOB_OPTIONS, PRINTING_MACHINE_OPTIONS, COATING_OPTIONS, DIE_OPTIONS, DIE_MACHINE_OPTIONS, HOT_FOIL_OPTIONS, YES_NO_OPTIONS, BOX_MAKING_OPTIONS, PAPER_QUALITY_OPTIONS, getPaperQualityLabel, getPaperQualityUnit, PRODUCTION_PROCESS_STEPS, KAPPA_MDF_QUALITIES } from "@/lib/definitions";
+import { JobCardSchema, KINDS_OF_JOB_OPTIONS, PRINTING_MACHINE_OPTIONS, COATING_OPTIONS, DIE_OPTIONS, DIE_MACHINE_OPTIONS, HOT_FOIL_OPTIONS, YES_NO_OPTIONS, BOX_MAKING_OPTIONS, PAPER_QUALITY_OPTIONS, getPaperQualityLabel, getPaperQualityUnit, PRODUCTION_PROCESS_STEPS, KAPPA_MDF_QUALITIES } from '@/lib/definitions';
 import { createJobCard, getInventoryItems } from "@/lib/actions/jobActions"; 
 import { getCustomersList, getJobsByCustomerName } from "@/lib/actions/customerActions";
 import { handlePrintJobCard } from "@/lib/printUtils"; 
@@ -19,7 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { CalendarIcon, Wand2, Link2, PlusCircle, Loader2, RotateCcw, ListOrdered, Users, Briefcase as BriefcaseIcon, Search, Archive, Warehouse } from "lucide-react";
+import { CalendarIcon, Wand2, Link2, PlusCircle, Loader2, RotateCcw, ListOrdered, Users, Briefcase as BriefcaseIcon, Search } from "lucide-react";
 import { format } from "date-fns";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 // import { InventoryOptimizationModal } from "./InventoryOptimizationModal"; // Optimizer commented out
@@ -37,23 +37,6 @@ interface JobCardFormProps {
   initialCustomerName?: string;
   initialJobData?: JobCardData; 
 }
-
-const formatInventoryItemForDisplay = (item: InventoryItem): string => {
-  if (item.type === 'Master Sheet' && item.paperQuality) {
-    const qualityLabel = getPaperQualityLabel(item.paperQuality as PaperQualityType);
-    const unit = getPaperQualityUnit(item.paperQuality as PaperQualityType);
-    let spec = '';
-    if (unit === 'mm' && item.paperThicknessMm) spec = `${item.paperThicknessMm}mm`;
-    else if (unit === 'gsm' && item.paperGsm) spec = `${item.paperGsm}GSM`;
-    
-    const size = (item.masterSheetSizeWidth && item.masterSheetSizeHeight) 
-      ? `(${item.masterSheetSizeWidth.toFixed(1)}x${item.masterSheetSizeHeight.toFixed(1)}in)` 
-      : '';
-    return `${qualityLabel} ${spec} ${size}`.trim().replace(/\s\s+/g, ' ');
-  }
-  return item.name || "Unnamed Item";
-};
-
 
 export function JobCardForm({ initialJobName, initialCustomerName, initialJobData }: JobCardFormProps) {
   // const [isModalOpen, setIsModalOpen] = useState(false); // Optimizer commented out
@@ -82,8 +65,10 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
 
   const [isLinkJobsModalOpen, setIsLinkJobsModalOpen] = useState(false);
 
+  // State for inventory items and loading
   const [allInventoryItems, setAllInventoryItems] = useState<InventoryItem[]>([]);
   const [isLoadingInventory, setIsLoadingInventory] = useState(true);
+
 
   const form = useForm<JobCardFormValues>({
     resolver: zodResolver(JobCardSchema),
@@ -204,7 +189,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
     } finally {
       setIsLoadingCustomers(false);
     }
-    
+
     setIsLoadingInventory(true);
     try {
       const items = await getInventoryItems();
@@ -222,109 +207,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
 
 
   const watchedPaperQuality = form.watch("paperQuality");
-  const watchedPaperGsm = form.watch("paperGsm");
-  const watchedPaperThicknessMm = form.watch("targetPaperThicknessMm");
-  const watchedCustomerName = form.watch("customerName"); 
-
   const targetPaperUnit = getPaperQualityUnit(watchedPaperQuality as PaperQualityType);
-
-  const filteredInventoryForDisplay = useMemo(() => {
-    if (!watchedPaperQuality || watchedPaperQuality === "") {
-      return [];
-    }
-
-    let qualityFilteredItems = allInventoryItems.filter(item => item.type === 'Master Sheet' && item.paperQuality === watchedPaperQuality);
-    let finalFilteredItems: InventoryItem[] = [];
-
-    if (watchedPaperQuality === "SBS") {
-      if (watchedPaperGsm !== undefined && watchedPaperGsm > 0) {
-        finalFilteredItems = qualityFilteredItems.filter(item => {
-          if (!item.paperGsm) return false;
-          const itemGsm = item.paperGsm;
-          if (watchedPaperGsm >= 200 && watchedPaperGsm <= 230) return itemGsm >= 200 && itemGsm <= 230;
-          if (watchedPaperGsm >= 231 && watchedPaperGsm <= 260) return itemGsm >= 230 && itemGsm <= 260; // Catches 230, 250, 260
-          if (watchedPaperGsm >= 261 && watchedPaperGsm <= 280) return itemGsm >= 270 && itemGsm <= 280; // Catches 270, 280
-          if (watchedPaperGsm >= 281 && watchedPaperGsm <= 300) return itemGsm >= 290 && itemGsm <= 310; // Catches 290, 300
-          if (watchedPaperGsm >= 301 && watchedPaperGsm <= 320) return itemGsm >= 310 && itemGsm <= 330; // Catches 320
-          if (watchedPaperGsm >= 321 && watchedPaperGsm <= 350) return itemGsm >= 340 && itemGsm <= 360; // Catches 350
-          if (watchedPaperGsm >= 351 && watchedPaperGsm <= 400) return itemGsm >= 370 && itemGsm <= 410; // Catches 400
-          return false;
-        });
-      } else {
-        finalFilteredItems = qualityFilteredItems;
-      }
-    } else if (watchedPaperQuality === "GREYBACK" || watchedPaperQuality === "WHITEBACK") {
-        if (watchedPaperGsm !== undefined && watchedPaperGsm > 0) {
-            finalFilteredItems = qualityFilteredItems.filter(item => {
-                if (!item.paperGsm) return false;
-                const itemGsm = item.paperGsm;
-                if (watchedPaperGsm >= 200 && watchedPaperGsm <= 230) return itemGsm >= 200 && itemGsm <= 230;
-                if (watchedPaperGsm === 250) return itemGsm === 250;
-                if (watchedPaperGsm === 270) return itemGsm === 270;
-                if (watchedPaperGsm === 280) return itemGsm === 280;
-                if (watchedPaperGsm === 300) return itemGsm === 300 || itemGsm === 310;
-                if (watchedPaperGsm === 320) return itemGsm === 320 || itemGsm === 330;
-                if (watchedPaperGsm === 350) return itemGsm === 350 || itemGsm === 360;
-                if (watchedPaperGsm === 380) return itemGsm === 380 || itemGsm === 390;
-                if (watchedPaperGsm === 400) return itemGsm === 400 || itemGsm === 410;
-                return false;
-            });
-        } else {
-            finalFilteredItems = qualityFilteredItems;
-        }
-    } else if (watchedPaperQuality === "ART_PAPER_GLOSS" || watchedPaperQuality === "ART_PAPER_MATT") {
-        if (watchedPaperGsm !== undefined && watchedPaperGsm > 0) {
-            const currentCustomerName = watchedCustomerName?.toLowerCase();
-            finalFilteredItems = qualityFilteredItems.filter(item => {
-                if (!item.paperGsm) return false;
-                const itemGsm = item.paperGsm;
-
-                if (watchedPaperQuality === "ART_PAPER_MATT" && currentCustomerName === "ganga acrowools" && watchedPaperGsm === 130) {
-                    return itemGsm >= 130 && itemGsm <= 170;
-                }
-                // Standard Art Paper rules
-                if (watchedPaperGsm === 100) return itemGsm >= 90 && itemGsm <= 100;
-                if (watchedPaperGsm === 120) return itemGsm >= 120 && itemGsm <= 130;
-                if (watchedPaperGsm === 130) return itemGsm >= 130 && itemGsm <= 150; 
-                if (watchedPaperGsm === 150) return itemGsm >= 150 && itemGsm <= 170;
-                if (watchedPaperGsm === 170) return itemGsm >= 170 && itemGsm <= 180;
-                return false; 
-            });
-        } else {
-            finalFilteredItems = qualityFilteredItems;
-        }
-    } else if (watchedPaperQuality === "BUTTER_PAPER") {
-        finalFilteredItems = qualityFilteredItems; // Show all Butter Paper regardless of form GSM
-    } else if (["JAPANESE_PAPER", "IMPORTED_PAPER", "GOLDEN_SHEET", "KRAFT_PAPER"].includes(watchedPaperQuality)) {
-        if (watchedPaperGsm !== undefined && watchedPaperGsm > 0) {
-            finalFilteredItems = qualityFilteredItems.filter(item => item.paperGsm === watchedPaperGsm);
-        } else {
-            finalFilteredItems = qualityFilteredItems;
-        }
-    } else if (["GG_KAPPA", "WG_KAPPA", "MDF"].includes(watchedPaperQuality)) {
-        if (watchedPaperThicknessMm !== undefined && watchedPaperThicknessMm > 0) {
-            finalFilteredItems = qualityFilteredItems.filter(item => item.paperThicknessMm === watchedPaperThicknessMm);
-        } else {
-            finalFilteredItems = qualityFilteredItems;
-        }
-    } else {
-      finalFilteredItems = qualityFilteredItems;
-    }
-    
-    return finalFilteredItems.sort((a, b) => {
-      const unit = getPaperQualityUnit(a.paperQuality as PaperQualityType);
-      if (unit === 'gsm' && a.paperGsm !== undefined && b.paperGsm !== undefined) {
-        if (a.paperGsm !== b.paperGsm) return a.paperGsm - b.paperGsm;
-      } else if (unit === 'mm' && a.paperThicknessMm !== undefined && b.paperThicknessMm !== undefined) {
-        if (a.paperThicknessMm !== b.paperThicknessMm) return a.paperThicknessMm - b.paperThicknessMm;
-      }
-      const sizeA = (a.masterSheetSizeWidth || 0) * (a.masterSheetSizeHeight || 0);
-      const sizeB = (b.masterSheetSizeWidth || 0) * (b.masterSheetSizeHeight || 0);
-      if (sizeA !== sizeB) return sizeA - sizeB;
-      return (a.id || "").localeCompare(b.id || "");
-    });
-  }, [allInventoryItems, watchedPaperQuality, watchedPaperGsm, watchedPaperThicknessMm, watchedCustomerName]);
-
 
   const fetchJobsForThisCustomer = async (customerName: string) => {
     if (!customerName) {
@@ -831,59 +714,6 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
                     <Wand2 className="mr-2 h-4 w-4" /> Optimize Master Sheet (Coming Soon)
                  </Button>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-headline flex items-center"><Archive className="mr-2 h-5 w-5 text-primary"/>Relevant Inventory</CardTitle>
-            <CardDescription className="font-body">
-                Available master sheets based on selected Target Paper Quality & GSM/Thickness.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoadingInventory ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
-                <p className="text-muted-foreground font-body">Loading inventory...</p>
-              </div>
-            ) : !watchedPaperQuality || watchedPaperQuality === "" ? (
-              <p className="text-muted-foreground font-body text-center py-4">
-                Select a 'Target Paper Quality' above to see relevant stock.
-              </p>
-            ) : filteredInventoryForDisplay.length === 0 ? (
-              <p className="text-muted-foreground font-body text-center py-4">
-                No inventory items match the selected paper quality and GSM/Thickness criteria.
-              </p>
-            ) : (
-              <ScrollArea className="h-[250px] border rounded-md">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="font-body">Item Description</TableHead>
-                      <TableHead className="font-body text-right">Available Stock</TableHead>
-                      <TableHead className="font-body">Unit</TableHead>
-                      <TableHead className="font-body">Location</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredInventoryForDisplay.map(item => (
-                      <TableRow key={item.id}>
-                        <TableCell className="font-body text-sm">{formatInventoryItemForDisplay(item)}</TableCell>
-                        <TableCell className="font-body text-right">{(item.availableStock ?? 0).toLocaleString()}</TableCell>
-                        <TableCell className="font-body text-sm">{item.unit || '-'}</TableCell>
-                        <TableCell className="font-body text-sm">
-                           <div className="flex items-center">
-                             {item.locationCode && <Warehouse className="mr-1.5 h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />}
-                             {item.locationCode || '-'}
-                           </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </ScrollArea>
-            )}
           </CardContent>
         </Card>
         
