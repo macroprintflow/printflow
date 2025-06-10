@@ -233,21 +233,21 @@ export function NewJobMultiStepModal({
       paperGsm: data.paperQuality && getPaperQualityUnit(data.paperQuality as PaperQualityType) === 'gsm' ? data.paperGsm : undefined,
       targetPaperThicknessMm: data.paperQuality && getPaperQualityUnit(data.paperQuality as PaperQualityType) === 'mm' ? data.targetPaperThicknessMm : undefined,
       remarks: data.remarks,
-      kindOfJob: "",
-      printingFront: "",
-      printingBack: "",
-      coating: "",
-      die: "",
-      hotFoilStamping: "",
-      emboss: "",
-      pasting: "",
-      boxMaking: "",
-      workflowSteps: [], 
-      linkedJobCardIds: [],
+      kindOfJob: "", // Defaulting, not collected in modal
+      printingFront: "", // Defaulting
+      printingBack: "", // Defaulting
+      coating: "", // Defaulting
+      die: "", // Defaulting
+      hotFoilStamping: "", // Defaulting
+      emboss: "", // Defaulting
+      pasting: "", // Defaulting
+      boxMaking: "", // Defaulting
+      workflowSteps: [], // Defaulting
+      linkedJobCardIds: [], // Defaulting
     };
 
     if (data.selectedInventoryItemId) {
-      const selectedItem = allInventory.find(item => item.id === data.selectedInventoryItemId); // Search in allInventory
+      const selectedItem = allInventory.find(item => item.id === data.selectedInventoryItemId);
       if (selectedItem) {
         jobCardPayload.sourceInventoryItemId = selectedItem.id;
         jobCardPayload.masterSheetSizeWidth = selectedItem.masterSheetSizeWidth;
@@ -324,7 +324,7 @@ export function NewJobMultiStepModal({
                         </Button>
                       </FormControl>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
+                    <PopoverContent className="w-auto p-0" onOpenAutoFocus={(e) => e.preventDefault()}>
                       <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
                     </PopoverContent>
                   </Popover>
@@ -531,7 +531,7 @@ export function NewJobMultiStepModal({
     switch (currentStep) {
       case 1: return "Step 1: Basic Information";
       case 2: return "Step 2: Job Specifications";
-      case 3: return "Step 3: Select Master Sheet"; 
+      case 3: return "Step 3: Select Master Sheet from Inventory"; 
       case 4: return "Step 4: Additional Details & Submit"; 
       default: return "Create New Job";
     }
@@ -560,7 +560,7 @@ export function NewJobMultiStepModal({
         </DialogHeader>
         
         <ScrollArea className="max-h-[60vh]">
-            <div className="px-1 py-4">{renderStepContent()}</div>
+            <div className="p-4">{renderStepContent()}</div>
         </ScrollArea>
 
         <DialogFooter className="pt-4 border-t">
