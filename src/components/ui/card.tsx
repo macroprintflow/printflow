@@ -10,7 +10,7 @@ const Card = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "rounded-3xl border border-white/5 bg-card/20 bg-gradient-to-br from-white/10 via-white/5 to-transparent text-card-foreground shadow-lg shadow-black/5 backdrop-blur-xl [box-shadow:inset_0_0_0_1px_rgba(255,255,255,0.08),_inset_0_1px_3px_rgba(0,0,0,0.06)]",
+      "card-glass-halo rounded-3xl bg-card/20 bg-gradient-to-br from-white/10 via-white/5 to-transparent text-card-foreground backdrop-blur-xl [box-shadow:inset_0_0_0_1px_rgba(255,255,255,0.08),_inset_0_1px_3px_rgba(0,0,0,0.06)]", // Removed direct border and outer shadow, added card-glass-halo class
       className
     )}
     {...props}
