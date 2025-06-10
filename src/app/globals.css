@@ -32,19 +32,19 @@
   --popover-foreground: 0 0% 95%;
 
   --primary: 212 100% 58%; /* Brighter blue for dark mode */
-  --primary-foreground: 0 0% 95%; /* Updated from 100% */
+  --primary-foreground: 0 0% 95%;
 
   --secondary: 240 4% 15%; 
-  --secondary-foreground: 0 0% 85%; /* Updated from 70% */
+  --secondary-foreground: 0 0% 85%;
 
   --muted: 240 4% 15%;
-  --muted-foreground: 240 3% 75%; /* Updated from 240 2% 60% */
+  --muted-foreground: 240 3% 75%;
 
   --accent: 212 100% 58%; /* Using primary blue as accent for dark mode */
-  --accent-foreground: 0 0% 95%; /* Updated from 100% */
+  --accent-foreground: 0 0% 95%;
 
   --destructive: 0 70% 55%;
-  --destructive-foreground: 0 0% 95%; /* Updated from 100% */
+  --destructive-foreground: 0 0% 95%;
 
   --border: 240 2% 23%; 
   --input: 240 4% 18%; 
@@ -146,23 +146,23 @@
     inset: 0;
     border-radius: 28px; /* Matches Tailwind's rounded-[28px] */
     pointer-events: none;
-    border: 1.5px solid rgba(255,255,255,0.15); /* User specified border for halo */
-    box-shadow: 0 0 12px 2px rgba(255,255,255,0.08); /* User specified outer halo/glow from border */
+    border: 1.5px solid rgba(255,255,255,0.15);
+    box-shadow: 0 0 12px 2px rgba(255,255,255,0.08);
     z-index: 1;
   }
 
   .card-glass-halo::after {
     content: "";
     position: absolute;
-    top: 8px;
-    left: 16px;
-    right: 16px;
-    height: 18%;
-    background: linear-gradient(90deg, rgba(255,255,255,0.18), rgba(255,255,255,0.04));
-    border-radius: 999px; /* pill shape */
-    filter: blur(2px);
+    top: 6px;
+    left: 12px;
+    right: 12px;
+    height: 8%;
+    background: linear-gradient(100deg,rgba(255,255,255,0.09) 0%,rgba(255,255,255,0.03) 100%);
+    border-radius: 999px;
+    filter: blur(5px);
     pointer-events: none;
-    z-index: 1; /* Same level as halo border, or adjust if needed */
+    z-index: 2;
   }
 }
     
