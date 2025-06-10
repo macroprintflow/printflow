@@ -32,19 +32,19 @@
   --popover-foreground: 0 0% 95%;
 
   --primary: 212 100% 58%; /* Brighter blue for dark mode */
-  --primary-foreground: 0 0% 100%;
+  --primary-foreground: 0 0% 95%; /* Updated from 100% */
 
   --secondary: 240 4% 15%; 
-  --secondary-foreground: 0 0% 70%;
+  --secondary-foreground: 0 0% 85%; /* Updated from 70% */
 
   --muted: 240 4% 15%;
-  --muted-foreground: 240 2% 60%;
+  --muted-foreground: 240 3% 75%; /* Updated from 240 2% 60% */
 
   --accent: 212 100% 58%; /* Using primary blue as accent for dark mode */
-  --accent-foreground: 0 0% 100%;
+  --accent-foreground: 0 0% 95%; /* Updated from 100% */
 
   --destructive: 0 70% 55%;
-  --destructive-foreground: 0 0% 100%;
+  --destructive-foreground: 0 0% 95%; /* Updated from 100% */
 
   --border: 240 2% 23%; 
   --input: 240 4% 18%; 
