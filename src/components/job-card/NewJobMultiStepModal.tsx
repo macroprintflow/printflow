@@ -50,14 +50,23 @@ const formatInventoryItemForDisplay = (item: InventoryItem): string => {
 };
 
 const getSbsGsmRange = (targetGsm: number): { min: number; max: number } | null => {
-  if (targetGsm >= 200 && targetGsm <= 230) return { min: 200, max: 230 }; // Covers 200, 210, 220, 230
-  if (targetGsm > 230 && targetGsm <= 260) return { min: 230, max: 260 }; // Covers 250, 260 (adjusting slightly for overlaps)
+  if (targetGsm >= 200 && targetGsm <= 230) return { min: 200, max: 230 }; 
+  if (targetGsm > 230 && targetGsm < 270) return { min: 230, max: 260 }; // For target 250,260
   if (targetGsm >= 270 && targetGsm <= 280) return { min: 270, max: 280 };
-  if (targetGsm >= 290 && targetGsm <= 310) return { min: 290, max: 310 }; // Covers 290, 300
-  if (targetGsm >= 310 && targetGsm <= 330) return { min: 310, max: 330 }; // Covers 320
-  if (targetGsm >= 340 && targetGsm <= 360) return { min: 340, max: 360 }; // Covers 350
-  if (targetGsm >= 370 && targetGsm <= 410) return { min: 370, max: 410 }; // Covers 400
+  if (targetGsm >= 290 && targetGsm < 310) return { min: 290, max: 310 }; // For target 290,300
+  if (targetGsm >= 310 && targetGsm < 340) return { min: 310, max: 330 }; // For target 320
+  if (targetGsm >= 340 && targetGsm < 370) return { min: 340, max: 360 }; // For target 350
+  if (targetGsm >= 370 && targetGsm <= 410) return { min: 370, max: 410 }; // For target 400
   return null;
+};
+
+const getArtPaperGsmRanges = (targetGsm: number): number[] | null => {
+  if (targetGsm === 100) return [90, 100, 110];
+  if (targetGsm === 115 || targetGsm === 120) return [120, 130];
+  if (targetGsm === 130) return [130, 140, 150];
+  if (targetGsm === 150) return [150, 160, 170];
+  if (targetGsm === 170) return [170, 180];
+  return null; // No specific range rule applies for other target GSMs
 };
 
 
@@ -187,44 +196,63 @@ export function NewJobMultiStepModal({
   const filteredPaperInventory = useMemo(() => {
     let items = allInventory.filter(item => item.type === 'Master Sheet' && (item.availableStock ?? 0) > 0);
 
+    // Apply Step 3's direct paper quality filter
     if (selectedPaperQualityFilter !== "ALL_QUALITIES" && selectedPaperQualityFilter !== "") {
       items = items.filter(item => item.paperQuality === selectedPaperQualityFilter);
     }
 
+    // Get target specifications from Step 2
     const targetQualityFromStep2 = form.getValues("paperQuality") as PaperQualityType | "";
     const targetGsmFromStep2 = form.getValues("paperGsm");
     const targetThicknessMmFromStep2 = form.getValues("targetPaperThicknessMm");
-    const targetUnitForStep2Quality = getPaperQualityUnit(targetQualityFromStep2 as PaperQualityType);
+    const customerNameStep1 = form.getValues("customerName")?.toLowerCase() || "";
 
-    if (targetQualityFromStep2 && targetQualityFromStep2 !== "") {
-      if (selectedPaperQualityFilter === "ALL_QUALITIES" || selectedPaperQualityFilter === targetQualityFromStep2) {
-        
+    // Check if Step 2's target quality is relevant for current Step 3 filter
+    const isStep2QualityRelevant = (selectedPaperQualityFilter === "ALL_QUALITIES" || selectedPaperQualityFilter === targetQualityFromStep2);
+
+    if (targetQualityFromStep2 && targetQualityFromStep2 !== "" && isStep2QualityRelevant) {
+        // If Step 3 filter is "ALL_QUALITIES", we must first narrow down items to Step 2's target quality
         if (selectedPaperQualityFilter === "ALL_QUALITIES") {
             items = items.filter(item => item.paperQuality === targetQualityFromStep2);
         }
 
         if (targetQualityFromStep2 === "SBS") {
-          if (targetGsmFromStep2 && targetGsmFromStep2 > 0) {
-            const range = getSbsGsmRange(targetGsmFromStep2);
-            if (range) {
-              items = items.filter(item => item.paperGsm && item.paperGsm >= range.min && item.paperGsm <= range.max);
-            } else { 
-              items = items.filter(item => item.paperGsm === targetGsmFromStep2);
+            if (targetGsmFromStep2 && targetGsmFromStep2 > 0) {
+                const sbsRange = getSbsGsmRange(targetGsmFromStep2);
+                if (sbsRange) {
+                    items = items.filter(item => item.paperGsm && item.paperGsm >= sbsRange.min && item.paperGsm <= sbsRange.max);
+                } else { // If target GSM doesn't fit a specific range, try exact match
+                    items = items.filter(item => item.paperGsm === targetGsmFromStep2);
+                }
             }
-          }
         } else if (targetQualityFromStep2 === "WHITEBACK" || targetQualityFromStep2 === "GREYBACK") {
-          if (targetGsmFromStep2 && targetGsmFromStep2 > 0) {
-            items = items.filter(item => item.paperGsm && item.paperGsm >= targetGsmFromStep2 - 5 && item.paperGsm <= targetGsmFromStep2 + 5);
-          }
-        } else if (targetUnitForStep2Quality === 'gsm' && targetGsmFromStep2 && targetGsmFromStep2 > 0) {
-          items = items.filter(item => item.paperGsm === targetGsmFromStep2);
-        } else if (targetUnitForStep2Quality === 'mm' && targetThicknessMmFromStep2 && targetThicknessMmFromStep2 > 0) {
-          items = items.filter(item => item.paperThicknessMm === targetThicknessMmFromStep2);
+            if (targetGsmFromStep2 && targetGsmFromStep2 > 0) {
+                items = items.filter(item => item.paperGsm && item.paperGsm >= targetGsmFromStep2 - 5 && item.paperGsm <= targetGsmFromStep2 + 5);
+            }
+        } else if (targetQualityFromStep2 === "ART_PAPER_GLOSS" || targetQualityFromStep2 === "ART_PAPER_MATT") {
+            if (targetGsmFromStep2 && targetGsmFromStep2 > 0) {
+                if (customerNameStep1.includes("ganga acrowools")) {
+                    items = items.filter(item => item.paperGsm === targetGsmFromStep2);
+                } else {
+                    const artRanges = getArtPaperGsmRanges(targetGsmFromStep2);
+                    if (artRanges) {
+                        items = items.filter(item => item.paperGsm && artRanges.includes(item.paperGsm));
+                    } else { // If no specific range rule, filter by exact target GSM
+                        items = items.filter(item => item.paperGsm === targetGsmFromStep2);
+                    }
+                }
+            }
+        } else { // For other paper qualities, or if GSM/Thickness is not applicable (e.g. Butter Paper)
+            const unit = getPaperQualityUnit(targetQualityFromStep2 as PaperQualityType);
+            if (unit === 'gsm' && targetGsmFromStep2 && targetGsmFromStep2 > 0) {
+                items = items.filter(item => item.paperGsm === targetGsmFromStep2);
+            } else if (unit === 'mm' && targetThicknessMmFromStep2 && targetThicknessMmFromStep2 > 0) {
+                items = items.filter(item => item.paperThicknessMm === targetThicknessMmFromStep2);
+            }
         }
-      }
     }
     return items.sort((a,b) => formatInventoryItemForDisplay(a).localeCompare(formatInventoryItemForDisplay(b)));
-  }, [allInventory, selectedPaperQualityFilter, form.watch("paperQuality"), form.watch("paperGsm"), form.watch("targetPaperThicknessMm")]);
+  }, [allInventory, selectedPaperQualityFilter, form.watch("paperQuality"), form.watch("paperGsm"), form.watch("targetPaperThicknessMm"), form.watch("customerName")]);
 
 
   useEffect(() => {
@@ -469,7 +497,7 @@ export function NewJobMultiStepModal({
           <Form {...form}>
             <div className="space-y-4">
               <FormItem>
-                <FormLabel htmlFor="paperQualityFilter" className="flex items-center"><Filter className="mr-2 h-4 w-4 text-muted-foreground" />Filter by Paper Quality</FormLabel>
+                <FormLabel htmlFor="paperQualityFilter" className="flex items-center"><Filter className="mr-2 h-4 w-4 text-muted-foreground" />Filter by Paper Quality (in Inventory)</FormLabel>
                 <Select 
                     value={selectedPaperQualityFilter} 
                     onValueChange={(value) => setSelectedPaperQualityFilter(value as PaperQualityType | "ALL_QUALITIES")}
@@ -486,11 +514,10 @@ export function NewJobMultiStepModal({
                         ))}
                     </SelectContent>
                 </Select>
-                 <FormDescription className="text-xs">
-                    List is refined by specifications from Step 2 if "All Qualities" or a matching quality is selected.
-                    SBS paper items are shown if their GSM is within a specific range of the target GSM.
-                    Whiteback/Greyback items shown if GSM is within +/- 5 of target. Other qualities match exactly.
-                  </FormDescription>
+                <FormDescription className="text-xs">
+                    List may also be refined by target specifications from Step 2 if "All Qualities" or a matching quality is selected.
+                    Special GSM ranges apply for SBS (+/- range), Whiteback/Greyback (+/- 5GSM), and Art Paper (Ganga Acrowools: exact; Others: range).
+                </FormDescription>
               </FormItem>
 
               {isLoadingInventory ? (
@@ -500,7 +527,7 @@ export function NewJobMultiStepModal({
                 </div>
               ) : filteredPaperInventory.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">
-                  No paper inventory items match {selectedPaperQualityFilter === "ALL_QUALITIES" ? "your criteria" : `"${getPaperQualityLabel(selectedPaperQualityFilter as PaperQualityType)}"`} or have available stock.
+                  No paper inventory items match {selectedPaperQualityFilter === "ALL_QUALITIES" ? "your criteria from Step 2" : `"${getPaperQualityLabel(selectedPaperQualityFilter as PaperQualityType)}"`} or have available stock.
                 </p>
               ) : (
                 <>
