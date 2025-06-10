@@ -40,6 +40,10 @@ function NewJobPageContent() {
   
   const [activeTab, setActiveTab] = useState(fromCustomerJobId ? "create-new" : "from-design");
 
+  // Glass Tile styling for cards
+  const cardBaseStyle = "rounded-[16px] border border-white/15 bg-background/50 backdrop-blur-xl shadow-md shadow-black/10 [box-shadow:inset_0_0_0_2px_rgba(255,255,255,0.14)]";
+
+
   useEffect(() => {
     async function fetchDesigns() {
       setIsLoadingDesigns(true);
@@ -167,7 +171,7 @@ function NewJobPageContent() {
      return (
       <div className="flex justify-center items-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="ml-2 font-body">Loading job details for re-order...</p>
+        <p className="ml-2 font-body text-base">Loading job details for re-order...</p>
       </div>
     );
   }
@@ -177,18 +181,18 @@ function NewJobPageContent() {
       <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
          <div>
             <h2 className="text-2xl font-headline font-semibold text-foreground">New Job Card Options</h2>
-            <p className="text-sm text-muted-foreground font-body">
+            <p className="font-body text-base text-muted-foreground">
                 Create a job from an approved design, pre-fill from a past job, or start fresh.
             </p>
         </div>
         <div className="flex gap-2">
-          <Button asChild variant="outline" size="sm">
+          <Button asChild variant="outline" size="sm" className="font-body">
             <Link href="/templates">
               <LayoutList className="mr-2 h-4 w-4" />
               Manage Job Templates
             </Link>
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setIsViewAllJobsModalOpen(true)}>
+          <Button variant="outline" size="sm" onClick={() => setIsViewAllJobsModalOpen(true)} className="font-body">
             <Eye className="mr-2 h-4 w-4" />
             View All Created Jobs
           </Button>
@@ -235,13 +239,13 @@ function NewJobPageContent() {
         </TabsList>
 
         <TabsContent value="from-design">
-          <Card className="shadow-lg">
+          <Card className={cardBaseStyle}>
             <CardHeader>
                 <CardTitle className="font-headline flex items-center text-xl">
                     <FileCheck2 className="mr-3 h-6 w-6 text-green-600" />
                     Select an Approved Design
                 </CardTitle>
-                <CardDescription className="font-body">
+                <CardDescription className="font-body text-base">
                     Choosing a design will pre-fill Job Name, Customer Name, and link the PDF to the new job card. The form will appear under the "Create New Job" tab.
                 </CardDescription>
             </CardHeader>
@@ -249,12 +253,12 @@ function NewJobPageContent() {
               {isLoadingDesigns ? (
                 <div className="flex justify-center items-center py-10">
                   <Loader2 className="mr-2 h-8 w-8 animate-spin text-primary" />
-                  <p className="text-muted-foreground font-body">Loading approved designs...</p>
+                  <p className="text-muted-foreground font-body text-base">Loading approved designs...</p>
                 </div>
               ) : approvedDesigns.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
                   {approvedDesigns.map(design => (
-                    <Card key={design.id} className="overflow-hidden hover:shadow-xl transition-shadow duration-300 group">
+                    <Card key={design.id} className={`${cardBaseStyle} overflow-hidden group`}>
                       <div className="relative h-40 w-full">
                         <Image 
                             src={`https://placehold.co/600x400.png?text=${encodeURIComponent(design.pdfName)}`}
@@ -268,7 +272,7 @@ function NewJobPageContent() {
                         <CardTitle className="font-body text-md font-semibold truncate group-hover:text-primary transition-colors">
                             {design.pdfName}
                         </CardTitle>
-                        <CardDescription className="text-xs font-body">
+                        <CardDescription className="text-xs font-body text-base">
                             Job: {design.jobName} | Cust: {design.customerName}
                         </CardDescription>
                       </CardHeader>
@@ -288,7 +292,7 @@ function NewJobPageContent() {
                  <div className="text-center py-12">
                     <Image src="https://placehold.co/300x200.png?text=No+Approved+Designs" alt="No Approved Designs" width={300} height={200} className="mb-6 rounded-lg mx-auto" data-ai-hint="empty state document"/>
                     <h3 className="text-xl font-semibold mb-2 font-headline">No Approved Designs Available</h3>
-                    <p className="text-muted-foreground font-body">
+                    <p className="text-muted-foreground font-body text-base">
                     Upload and approve designs in the 'For Approval' section to start a job from them.
                     </p>
                 </div>
@@ -299,20 +303,20 @@ function NewJobPageContent() {
 
         <TabsContent value="create-new">
            {creationMode === 'creation_options' && (
-                <Card className="shadow-lg">
+                <Card className={cardBaseStyle}>
                     <CardHeader>
                         <CardTitle className="font-headline flex items-center text-xl">
                         <FilePlus2 className="mr-3 h-6 w-6 text-primary" />
                         How would you like to start this new job?
                         </CardTitle>
-                        <CardDescription className="font-body">
+                        <CardDescription className="font-body text-base">
                             You can pre-fill details from a customer's past job or start with a blank form using a guided process.
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6">
                         <Button
                             variant="outline"
-                            className="h-auto py-6 text-lg flex flex-col items-center justify-center gap-2 hover:shadow-md transition-shadow"
+                            className="h-auto py-6 text-lg flex flex-col items-center justify-center gap-2 hover:shadow-md transition-shadow font-body"
                             onClick={() => handleSetCreationPath('prefill_full_form')}
                         >
                             <FileText className="h-8 w-8 mb-2 text-primary" />
@@ -320,7 +324,7 @@ function NewJobPageContent() {
                         </Button>
                         <Button
                             variant="outline"
-                            className="h-auto py-6 text-lg flex flex-col items-center justify-center gap-2 hover:shadow-md transition-shadow"
+                            className="h-auto py-6 text-lg flex flex-col items-center justify-center gap-2 hover:shadow-md transition-shadow font-body"
                             onClick={() => handleSetCreationPath('guided_steps')}
                         >
                             <FilePlus2 className="h-8 w-8 mb-2 text-primary" />
@@ -332,14 +336,14 @@ function NewJobPageContent() {
            
            {creationMode === 'show_form' && (
             <div ref={jobFormCardRef}>
-                <Card className="shadow-lg">
+                <Card className={cardBaseStyle}>
                     <CardHeader>
                         <CardTitle className="font-headline flex items-center text-xl">
                             <FilePlus2 className="mr-3 h-6 w-6 text-primary" />
                             {initialJobDataForForm?.jobName?.startsWith("Re-order:") ? "Re-order Job" : 
                             initialJobDataForForm ? "Create Job from Design" : "Create New Job Card"}
                         </CardTitle>
-                        <CardDescription className="font-body">
+                        <CardDescription className="font-body text-base">
                             {initialJobDataForForm?.jobName?.startsWith("Re-order:")
                             ? "Review and adjust details for this re-order. A new job card will be created."
                             : initialJobDataForForm 
@@ -368,7 +372,7 @@ function NewJobPageContent() {
 
 export default function NewJobPage() {
   return (
-    <Suspense fallback={<div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /><p className="ml-2 font-body">Loading page...</p></div>}>
+    <Suspense fallback={<div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /><p className="ml-2 font-body text-base">Loading page...</p></div>}>
       <NewJobPageContent />
     </Suspense>
   );
