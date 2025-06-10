@@ -25,13 +25,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { cn } from "@/lib/utils";
 import { CalendarIcon, Loader2, ArrowRight, ArrowLeft, CheckCircle, Archive } from "lucide-react";
 import { format } from "date-fns";
-import type { JobCardData, PaperQualityType, InventoryItem } from "@/lib/definitions"; // Added InventoryItem
-import { PAPER_QUALITY_OPTIONS, getPaperQualityUnit, getPaperQualityLabel, KAPPA_MDF_QUALITIES, createJobCard } from "@/lib/definitions"; // Added getPaperQualityLabel
-import { getInventoryItems } from "@/lib/actions/jobActions"; // Added getInventoryItems
+import type { JobCardData, PaperQualityType, InventoryItem } from "@/lib/definitions";
+import { PAPER_QUALITY_OPTIONS, getPaperQualityUnit, getPaperQualityLabel, KAPPA_MDF_QUALITIES, createJobCard } from "@/lib/definitions";
+import { getInventoryItems } from "@/lib/actions/jobActions";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 
-// Helper function (copied from JobCardForm for now, consider moving to a shared utility)
+// Helper function
 const formatInventoryItemForDisplay = (item: InventoryItem): string => {
   if (item.type === 'Master Sheet') {
     const qualityLabel = item.paperQuality ? getPaperQualityLabel(item.paperQuality as PaperQualityType) : 'Paper';
@@ -75,7 +75,7 @@ const Step2Schema = z.object({
 
 const Step3InventorySchema = z.object({
   inventorySelectionPlaceholder: z.string().optional(), 
-  selectedInventoryItemId: z.string().optional(), // To store ID of selected item later
+  selectedInventoryItemId: z.string().optional(),
 });
 
 const Step4Schema = z.object({
@@ -159,7 +159,7 @@ export function NewJobMultiStepModal({
 
   useEffect(() => {
     async function fetchInventory() {
-      if (isOpen) { // Fetch only when modal is open
+      if (isOpen) { 
         setIsLoadingInventory(true);
         try {
           const items = await getInventoryItems();
@@ -180,7 +180,7 @@ export function NewJobMultiStepModal({
     let isValid = false;
     if (currentStep === 1) isValid = await form.trigger(["jobName", "customerName", "dispatchDate"]);
     else if (currentStep === 2) isValid = await form.trigger(["jobSizeWidth", "jobSizeHeight", "netQuantity", "grossQuantity", "paperQuality", "paperGsm", "targetPaperThicknessMm"]);
-    else if (currentStep === 3) isValid = await form.trigger(["selectedInventoryItemId"]); // Add validation if selection becomes mandatory
+    else if (currentStep === 3) isValid = await form.trigger(["selectedInventoryItemId"]); 
     
     if (isValid) {
       if (currentStep < MAX_STEPS) {
@@ -214,7 +214,6 @@ export function NewJobMultiStepModal({
       paperGsm: data.paperQuality && getPaperQualityUnit(data.paperQuality as PaperQualityType) === 'gsm' ? data.paperGsm : undefined,
       targetPaperThicknessMm: data.paperQuality && getPaperQualityUnit(data.paperQuality as PaperQualityType) === 'mm' ? data.targetPaperThicknessMm : undefined,
       remarks: data.remarks,
-      // TODO: Link selectedInventoryItemId to actual master sheet details for the job card
       kindOfJob: "", 
       printingFront: "",
       printingBack: "",
@@ -379,51 +378,49 @@ export function NewJobMultiStepModal({
         );
       case 3: 
         return (
-          <div className="space-y-4">
-            <FormLabel className="flex items-center"><Archive className="mr-2 h-4 w-4 text-muted-foreground" />Available Paper Inventory</FormLabel>
-            {isLoadingInventory ? (
-              <div className="flex items-center justify-center h-40">
-                <Loader2 className="mr-2 h-6 w-6 animate-spin text-primary" />
-                <span>Loading inventory...</span>
-              </div>
-            ) : allPaperInventory.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">No paper inventory items found.</p>
-            ) : (
-              <ScrollArea className="h-[300px] border rounded-md">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Item Name</TableHead>
-                      <TableHead className="text-right">Stock</TableHead>
-                      <TableHead>Unit</TableHead>
-                      <TableHead>Location</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {allPaperInventory.map(item => (
-                      <TableRow 
-                        key={item.id}
-                        // onClick={() => form.setValue('selectedInventoryItemId', item.id)} // Placeholder for selection
-                        // className={form.watch('selectedInventoryItemId') === item.id ? "bg-accent" : "cursor-pointer hover:bg-muted/50"}
-                      >
-                        <TableCell>{formatInventoryItemForDisplay(item)}</TableCell>
-                        <TableCell className="text-right">{item.availableStock?.toLocaleString() ?? 0}</TableCell>
-                        <TableCell>{item.unit}</TableCell>
-                        <TableCell>{item.locationCode || '-'}</TableCell>
+          <Form {...form}>
+            <div className="space-y-4">
+              <FormLabel className="flex items-center"><Archive className="mr-2 h-4 w-4 text-muted-foreground" />Available Paper Inventory</FormLabel>
+              {isLoadingInventory ? (
+                <div className="flex items-center justify-center h-40">
+                  <Loader2 className="mr-2 h-6 w-6 animate-spin text-primary" />
+                  <span>Loading inventory...</span>
+                </div>
+              ) : allPaperInventory.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">No paper inventory items found.</p>
+              ) : (
+                <ScrollArea className="h-[300px] border rounded-md">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Item Name</TableHead>
+                        <TableHead className="text-right">Stock</TableHead>
+                        <TableHead>Unit</TableHead>
+                        <TableHead>Location</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </ScrollArea>
-            )}
-            <FormDescription>Filters and selection for inventory will be added later. For now, this list is for display.</FormDescription>
-             <FormField control={form.control} name="selectedInventoryItemId" render={({ field }) => (
-                <FormItem className="hidden"> {/* Hidden field to store selection later */}
-                  <FormControl><Input {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
-          </div>
+                    </TableHeader>
+                    <TableBody>
+                      {allPaperInventory.map(item => (
+                        <TableRow key={item.id}>
+                          <TableCell>{formatInventoryItemForDisplay(item)}</TableCell>
+                          <TableCell className="text-right">{item.availableStock?.toLocaleString() ?? 0}</TableCell>
+                          <TableCell>{item.unit}</TableCell>
+                          <TableCell>{item.locationCode || '-'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+              )}
+              <FormDescription>Filters and selection for inventory will be added later. For now, this list is for display.</FormDescription>
+               <FormField control={form.control} name="selectedInventoryItemId" render={({ field }) => (
+                  <FormItem className="hidden"> 
+                    <FormControl><Input {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+            </div>
+          </Form>
         );
       case 4: 
         return (
