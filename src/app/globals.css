@@ -3,10 +3,9 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Add Glacial Indifference font-face rules here */
 @font-face {
   font-family: 'Glacial Indifference';
-  src: url('/fonts/GlacialIndifference-Regular.woff') format('woff'); /* Updated path */
+  src: url('/fonts/GlacialIndifference-Regular.woff') format('woff');
   font-weight: normal;
   font-style: normal;
   font-display: swap;
@@ -14,41 +13,40 @@
 
 @font-face {
   font-family: 'Glacial Indifference';
-  src: url('/fonts/GlacialIndifference-Bold.woff') format('woff'); /* Updated path */
+  src: url('/fonts/GlacialIndifference-Bold.woff') format('woff');
   font-weight: bold;
   font-style: normal;
   font-display: swap;
 }
 
-/* Default to dark theme HSL Variables */
 :root {
-  --background: 240 4% 9%; /* Dark gray for body background */
-  --foreground: 0 0% 95%; 
+  --background: 240 4% 9%;
+  --foreground: 0 0% 95%;
   
-  --card: 240 4% 12%; 
+  --card: 240 4% 12%;
   --card-foreground: 0 0% 95%;
 
   --popover: 240 4% 12%;
   --popover-foreground: 0 0% 95%;
 
-  --primary: 212 100% 58%; /* Brighter blue for dark mode */
+  --primary: 212 100% 58%;
   --primary-foreground: 0 0% 95%;
 
-  --secondary: 240 4% 15%; 
+  --secondary: 240 4% 15%;
   --secondary-foreground: 0 0% 85%;
 
   --muted: 240 4% 15%;
   --muted-foreground: 240 3% 75%;
 
-  --accent: 212 100% 58%; /* Using primary blue as accent for dark mode */
+  --accent: 212 100% 58%;
   --accent-foreground: 0 0% 95%;
 
   --destructive: 0 70% 55%;
   --destructive-foreground: 0 0% 95%;
 
-  --border: 240 2% 23%; 
-  --input: 240 4% 18%; 
-  --ring: 212 100% 58%; /* Focus ring blue */
+  --border: 240 2% 23%;
+  --input: 240 4% 18%;
+  --ring: 212 100% 58%;
   
   --chart-1: 220 70% 50%;
   --chart-2: 160 60% 45%;
@@ -56,43 +54,40 @@
   --chart-4: 280 65% 60%;
   --chart-5: 340 75% 55%;
   
-  --radius: 20px; 
+  --radius: 20px;
 }
-
 
 @layer base {
   body {
     font-family: 'Glacial Indifference', -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
-    color: hsl(var(--foreground)); 
+    color: hsl(var(--foreground));
     margin: 0;
     padding: 0;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     transition: all 0.3s ease;
-    @apply bg-background text-foreground; 
+    @apply bg-background text-foreground;
     
-    /* Custom background image */
     background-image: url('/images/189271609765514.jpg');
     background-size: cover;
     background-position: center center;
     background-repeat: no-repeat;
     background-attachment: fixed;
-    position: relative; /* Needed for z-index stacking of pseudo-element */
+    position: relative;
   }
 
   body::before {
     content: "";
-    position: fixed; /* Cover the viewport */
+    position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.3); /* Black overlay with 30% opacity */
-    z-index: -1; /* Place it behind the content but on top of the body's background image */
+    background-color: rgba(0, 0, 0, 0.3);
+    z-index: -1;
   }
 }
 
-/* Original Transitions */
 .fade-in {
   animation: fadeIn 0.4s ease-in;
 }
@@ -108,14 +103,9 @@
   }
 }
 
-/* Tailwind CSS Animate Keyframes (from ShadCN) */
-@layer base {
-  /* :root HSL variables are now dark mode by default */
-}
-
 @keyframes accordion-down {
   from {
-    height: 0px; 
+    height: 0px;
   }
   to {
     height: var(--radix-accordion-content-height);
@@ -127,23 +117,22 @@
     height: var(--radix-accordion-content-height);
   }
   to {
-    height: 0px; 
+    height: 0px;
   }
 }
 
-/* Custom CSS for Card Halo Effect */
 @layer components {
   .card-glass-halo {
-    position: relative; /* Ensure the card itself is a positioning context */
+    position: relative;
   }
 
   .card-glass-halo::before {
     content: '';
     position: absolute;
     inset: 0;
-    border-radius: 28px; 
+    border-radius: 28px;
     pointer-events: none;
-    box-shadow: 0 0 5px 1px rgba(255,255,255,0.15); /* Further reduced blur, slightly increased opacity */
+    box-shadow: 0 0 4px 1px rgba(255,255,255,0.15);
     z-index: 1;
   }
 
@@ -156,14 +145,13 @@
     height: 100%;
     background: radial-gradient(
       ellipse at 70% 20%, 
-      rgba(255,255,255,0.10) 0%,  /* Reduced opacity */
-      rgba(255,255,255,0.05) 40%, /* Reduced opacity */
-      rgba(255,255,255,0.00) 70%  /* Reduced opacity */
+      rgba(255,255,255,0.10) 0%,
+      rgba(255,255,255,0.05) 40%,
+      rgba(255,255,255,0.00) 70%
     );
-    border-radius: inherit; 
-    filter: blur(5px); /* Slightly increased blur for diffusion */
+    border-radius: inherit;
+    filter: blur(5px);
     pointer-events: none;
     z-index: 2;
   }
 }
-    
