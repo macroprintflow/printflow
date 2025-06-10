@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/sidebar';
 import AppLogo from '@/components/AppLogo';
 import { Header } from '@/components/layout/Header';
-import { LayoutDashboard, Briefcase, FileUp, FilePlus2, CalendarCheck2, ClipboardList, UserCircle, Settings, Archive, LogOut, type LucideIcon, ShoppingBag, Check, Loader2, ChevronRight, ListChecks, ChevronDown, Users, UserRoundPlus, Terminal } from 'lucide-react'; // Added Terminal
+import { LayoutDashboard, Briefcase, FileUp, FilePlus2, CalendarCheck2, ClipboardList, UserCircle, Settings, Archive, LogOut, type LucideIcon, ShoppingBag, Check, Loader2, ChevronRight, ListChecks, ChevronDown, Users, UserRoundPlus, Terminal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -45,8 +45,8 @@ import { auth } from '@/lib/firebase/clientApp';
 import { useToast } from '@/hooks/use-toast';
 import type { UserRole } from '@/lib/definitions';
 import { AddCustomerDialog } from '@/components/customer/AddCustomerDialog';
-import { ConsoleProvider } from '@/contexts/ConsoleContext'; // Import ConsoleProvider
-import { ConsoleLogViewer } from '@/components/dev/ConsoleLogViewer'; // Import ConsoleLogViewer
+import { ConsoleProvider } from '@/contexts/ConsoleContext';
+import { ConsoleLogViewer } from '@/components/dev/ConsoleLogViewer';
 
 interface NavItem {
   href: string;
@@ -85,7 +85,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [isJobsSubmenuOpen, setIsJobsSubmenuOpen] = React.useState(pathname.startsWith('/jobs'));
   const [isCustomersSubmenuOpen, setIsCustomersSubmenuOpen] = React.useState(pathname.startsWith('/customers') || pathname === ('/customers/new'));
   const [isAddCustomerDialogOpen, setIsAddCustomerDialogOpen] = React.useState(false);
-  const [isConsoleViewerOpen, setIsConsoleViewerOpen] = React.useState(false); // State for console viewer
+  const [isConsoleViewerOpen, setIsConsoleViewerOpen] = React.useState(false);
 
 
   React.useEffect(() => {
@@ -231,7 +231,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <ClientOnlyWrapper>
-    <ConsoleProvider> {/* Wrap with ConsoleProvider */}
+    <ConsoleProvider>
       <SidebarProvider defaultOpen>
         <Sidebar variant="sidebar" collapsible="icon" className="bg-card text-card-foreground">
           <SidebarHeader className="p-4 justify-between items-center">
