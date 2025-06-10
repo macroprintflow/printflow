@@ -10,7 +10,7 @@ export default function DashboardPage() {
 
       {/* Dashboard Stats Cards */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
+        <Card className="bg-card/60 backdrop-blur-xl rounded-2xl border border-white/10">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium font-body">Total Jobs Today</CardTitle>
             <TrendingUp className="h-5 w-5 text-muted-foreground" />
@@ -21,7 +21,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-card/60 backdrop-blur-xl rounded-2xl border border-white/10">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium font-body">Jobs In Progress</CardTitle>
             <ListChecks className="h-5 w-5 text-muted-foreground" />
@@ -32,7 +32,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-card/60 backdrop-blur-xl rounded-2xl border border-white/10">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium font-body">Completed Today</CardTitle>
             <CheckCircle2 className="h-5 w-5 text-muted-foreground" />
@@ -43,7 +43,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-card/60 backdrop-blur-xl rounded-2xl border border-white/10">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium font-body">Avg. Wastage</CardTitle>
             <BarChart className="h-5 w-5 text-muted-foreground" />
@@ -56,15 +56,15 @@ export default function DashboardPage() {
       </div>
 
       {/* Welcome Message */}
-      <Card>
+      <Card className="bg-card/60 backdrop-blur-xl rounded-2xl border border-white/10">
         <CardHeader>
-          <CardTitle className="font-headline">Welcome to PrintFlow</CardTitle>
-          <CardDescription className="font-body">
+          <CardTitle className="font-headline text-xl">Welcome to PrintFlow</CardTitle>
+          <CardDescription className="font-body text-base">
             Manage your printing and packaging jobs efficiently.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="font-body">
+          <p className="font-body text-base">
             This is your main dashboard. From here, you can get an overview of ongoing jobs, production status, and key performance indicators. Use the sidebar to navigate to different sections of the application.
           </p>
         </CardContent>
