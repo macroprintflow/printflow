@@ -3,14 +3,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { BarChart, TrendingUp, ListChecks, CheckCircle2 } from "lucide-react";
 
 export default function DashboardPage() {
+  const cardBaseStyle = "rounded-[16px] border border-white/15 bg-background/50 backdrop-blur-xl shadow-md shadow-black/10 [box-shadow:inset_0_0_0_2px_rgba(255,255,255,0.14)]";
+
   return (
     <div className="grid gap-6 p-6">
-      {/* GPT Assistant Panel Removed */}
-      {/* GPT Code Editor Removed */}
-
       {/* Dashboard Stats Cards */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="bg-card/60 backdrop-blur-xl rounded-2xl border border-white/10">
+        <Card className={cardBaseStyle}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium font-body">Total Jobs Today</CardTitle>
             <TrendingUp className="h-5 w-5 text-muted-foreground" />
@@ -21,7 +20,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-card/60 backdrop-blur-xl rounded-2xl border border-white/10">
+        <Card className={cardBaseStyle}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium font-body">Jobs In Progress</CardTitle>
             <ListChecks className="h-5 w-5 text-muted-foreground" />
@@ -32,7 +31,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-card/60 backdrop-blur-xl rounded-2xl border border-white/10">
+        <Card className={cardBaseStyle}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium font-body">Completed Today</CardTitle>
             <CheckCircle2 className="h-5 w-5 text-muted-foreground" />
@@ -43,7 +42,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-card/60 backdrop-blur-xl rounded-2xl border border-white/10">
+        <Card className={cardBaseStyle}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium font-body">Avg. Wastage</CardTitle>
             <BarChart className="h-5 w-5 text-muted-foreground" />
@@ -56,7 +55,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Welcome Message */}
-      <Card className="bg-card/60 backdrop-blur-xl rounded-2xl border border-white/10">
+      <Card className={cardBaseStyle}>
         <CardHeader>
           <CardTitle className="font-headline text-xl">Welcome to PrintFlow</CardTitle>
           <CardDescription className="font-body text-base">
