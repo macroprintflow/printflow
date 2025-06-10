@@ -20,7 +20,7 @@
 :root {
   --background: 240 4% 9%;
   --foreground: 0 0% 95%;
-  --card: 240 4% 12%;
+ --card: transparent;
   --card-foreground: 0 0% 95%;
   --popover: 240 4% 12%;
   --popover-foreground: 0 0% 95%;
@@ -43,7 +43,7 @@
   --chart-4: 280 65% 60%;
   --chart-5: 340 75% 55%;
   --radius: 20px;
-  --sidebar-background: var(--card);
+  --sidebar-background: transparent;
   --sidebar-foreground: var(--card-foreground);
 }
 @layer base {

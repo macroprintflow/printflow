@@ -180,7 +180,7 @@ const Sidebar = React.forwardRef<
       return (
         <div
           className={cn(
-            "flex h-full w-[--sidebar-width] flex-col bg-sidebar/70 backdrop-blur-2xl text-sidebar-foreground",
+            "flex h-full w-[--sidebar-width] flex-col bg-sidebar/20 backdrop-blur-2xl text-sidebar-foreground",
             className
           )}
           ref={ref}
@@ -198,7 +198,7 @@ const Sidebar = React.forwardRef<
             data-sidebar="sidebar"
             data-mobile="true"
             className={cn(
-              "w-[--sidebar-width] p-0 bg-sidebar/80 backdrop-blur-xl text-sidebar-foreground border-white/10 [&>button]:hidden", 
+              "w-[--sidebar-width] p-0 bg-sidebar/20 backdrop-blur-xl text-sidebar-foreground border-white/10 [&>button]:hidden", 
               className
             )}
             style={
@@ -250,7 +250,7 @@ const Sidebar = React.forwardRef<
         >
           <div
             data-sidebar="sidebar"
-            className="bg-sidebar/70 backdrop-blur-2xl text-sidebar-foreground flex h-full w-full flex-col group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:border-white/10 group-data-[variant=floating]:shadow"
+            className="bg-sidebar/20 backdrop-blur-2xl text-sidebar-foreground flex h-full w-full flex-col group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:border-white/10 group-data-[variant=floating]:shadow"
           >
             {children}
           </div>
@@ -286,7 +286,6 @@ const SidebarTrigger = React.forwardRef<
   )
 })
 SidebarTrigger.displayName = "SidebarTrigger"
-
 const SidebarRail = React.forwardRef<
   HTMLButtonElement,
   React.ComponentProps<"button">
@@ -343,7 +342,7 @@ const SidebarInput = React.forwardRef<
       ref={ref}
       data-sidebar="input"
       className={cn(
-        "h-8 w-full bg-sidebar/50 text-sidebar-foreground shadow-none focus-visible:ring-2 focus-visible:ring-ring",
+        "h-8 w-full bg-sidebar/20 text-sidebar-foreground shadow-none focus-visible:ring-2 focus-visible:ring-ring",
         className
       )}
       {...props}
@@ -390,7 +389,7 @@ const SidebarSeparator = React.forwardRef<
     <Separator
       ref={ref}
       data-sidebar="separator"
-      className={cn("mx-2 w-auto bg-border/50", className)}
+      className={cn("mx-2 w-auto bg-border/20", className)}
       {...props}
     />
   )
@@ -516,8 +515,8 @@ const sidebarMenuButtonVariants = cva(
   "peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md p-3 font-semibold text-left outline-none ring-ring transition-all focus-visible:ring-2 active:shadow-sm disabled:pointer-events-none disabled:opacity-50 group-has-[[data-sidebar=menu-action]]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[state=open]:bg-accent/20 data-[state=open]:text-accent-foreground group-data-[collapsible=icon]:!size-10 group-data-[collapsible=icon]:!p-2 [&>span:last-child]:truncate [&>svg]:size-5 [&>svg]:shrink-0",
   {
     variants: { 
-      variant: { 
-        default: "bg-transparent text-sidebar-foreground hover:bg-accent/10 hover:text-accent-foreground data-[active=true]:bg-primary/80 data-[active=true]:text-primary-foreground",
+ variant: {
+ default: "bg-[rgba(255,255,255,0.1)] text-[#FFFFFF] hover:bg-[rgba(255,255,255,0.2)] data-[active=true]:bg-[rgba(255,255,255,0.3)]",
         outline: 
           "bg-transparent shadow-[0_0_0_1px_hsl(var(--border)/0.5)_inset] hover:bg-accent/10 hover:text-accent-foreground",
       },

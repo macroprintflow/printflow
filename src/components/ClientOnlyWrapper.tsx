@@ -15,4 +15,5 @@ export default function ClientOnlyWrapper({ children }: { children: ReactNode })
   }
 
   return <>{children}</>;
+  
 }

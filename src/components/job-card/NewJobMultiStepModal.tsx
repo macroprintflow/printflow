@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, type Dispatch, type SetStateAction, useMemo } from "react";
+import React, { useState, useEffect, type Dispatch, type SetStateAction, useMemo, useRef } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -24,7 +24,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { CalendarIcon, Loader2, ArrowRight, ArrowLeft, CheckCircle, Archive, XCircle, Filter } from "lucide-react";
-import { format } from "date-fns";
+import { format, isValid } from "date-fns";
 import type { JobCardData, PaperQualityType, InventoryItem, JobCardFormValues } from "@/lib/definitions";
 import { PAPER_QUALITY_OPTIONS, getPaperQualityUnit, getPaperQualityLabel } from "@/lib/definitions";
 import { getInventoryItems, createJobCard } from "@/lib/actions/jobActions";
@@ -98,11 +98,22 @@ const Step3InventorySchema = z.object({
   selectedInventoryItemId: z.string().optional(),
 });
 
-const Step4Schema = z.object({
-  remarks: z.string().optional(),
+const Step4ProcessSchema = z.object({
+  kindOfJob: z.enum(["METPET", "NORMAL", "NO_PRINTING", ""]).optional(),
+  printingFront: z.enum(["SM74", "SORSZ", "DOMINANT", "NO_PRINTING", ""]).optional(),
+  printingBack: z.enum(["SM74", "SORSZ", "DOMINANT", "NO_PRINTING", ""]).optional(),
+  coating: z.enum(["TEXTURE_UV", "VARNISH_GLOSS", "VARNISH_MATT", "UV_ONLY", "NO_COATING", ""]).optional(),
+  die: z.enum(["NEW", "OLD", ""]).optional(),
+  hotFoilStamping: z.enum(["GOLDEN", "SILVER", "COPPER", "NO_LEAF", ""]).optional(),
+  emboss: z.enum(["YES", "NO", ""]).optional(),
+  pasting: z.enum(["YES", "NO", ""]).optional(),
+  boxMaking: z.enum(["MACHINE", "MANUAL", "COMBINED", ""]).optional(),
 });
 
-const MultiStepJobSchema = Step1Schema.merge(Step2Schema).merge(Step3InventorySchema).merge(Step4Schema);
+const Step5Schema = z.object({
+  remarks: z.string().optional(),
+});
+const MultiStepJobSchema = Step1Schema.merge(Step2Schema).merge(Step3InventorySchema).merge(Step4ProcessSchema).merge(Step5Schema);
 type MultiStepJobFormValues = z.infer<typeof MultiStepJobSchema>;
 
 interface NewJobMultiStepModalProps {
@@ -112,7 +123,7 @@ interface NewJobMultiStepModalProps {
   onModalClose?: () => void;
 }
 
-const MAX_STEPS = 4;
+const MAX_STEPS = 5;
 
 export function NewJobMultiStepModal({
   isOpen,
@@ -127,6 +138,7 @@ export function NewJobMultiStepModal({
 
   const [allInventory, setAllInventory] = useState<InventoryItem[]>([]);
   const [isLoadingInventory, setIsLoadingInventory] = useState(false);
+  const firstInputRef = useRef<HTMLInputElement>(null);
   const [selectedPaperQualityFilter, setSelectedPaperQualityFilter] = useState<PaperQualityType | "ALL_QUALITIES">("ALL_QUALITIES");
 
 
@@ -135,7 +147,8 @@ export function NewJobMultiStepModal({
         currentStep === 1 ? Step1Schema :
         currentStep === 2 ? Step2Schema :
         currentStep === 3 ? Step3InventorySchema : 
-        currentStep === 4 ? Step4Schema : 
+        currentStep === 4 ? Step4ProcessSchema : 
+        currentStep === 5 ? Step5Schema : 
         MultiStepJobSchema
     ),
     defaultValues: {
@@ -150,7 +163,16 @@ export function NewJobMultiStepModal({
       paperGsm: initialData?.paperGsm || undefined,
       targetPaperThicknessMm: initialData?.targetPaperThicknessMm || undefined,
       selectedInventoryItemId: undefined,
-      remarks: initialData?.remarks || "",
+      kindOfJob: initialData?.kindOfJob || "",
+      printingFront: initialData?.printingFront || "",
+      printingBack: initialData?.printingBack || "",
+      coating: initialData?.coating || "",
+      die: initialData?.die || "",
+      hotFoilStamping: initialData?.hotFoilStamping || "",
+      emboss: initialData?.emboss || "",
+      pasting: initialData?.pasting || "",
+      boxMaking: initialData?.boxMaking || "",
+      remarks: initialData?.remarks || "", // This is now for Step 5
     },
     mode: "onChange",
   });
@@ -171,7 +193,15 @@ export function NewJobMultiStepModal({
         paperGsm: initialData.paperGsm || undefined,
         targetPaperThicknessMm: initialData.targetPaperThicknessMm || undefined,
         selectedInventoryItemId: undefined,
-        remarks: initialData.remarks || "",
+        kindOfJob: initialData.kindOfJob || "",
+        printingFront: initialData.printingFront || "",
+        printingBack: initialData.printingBack || "",
+        coating: initialData.coating || "",
+        die: initialData.die || "",
+        hotFoilStamping: initialData.hotFoilStamping || "",
+        emboss: initialData.emboss || "",
+        pasting: initialData.pasting || "",
+        boxMaking: initialData.boxMaking || "",
       });
     }
   }, [initialData, form]);
@@ -193,25 +223,27 @@ export function NewJobMultiStepModal({
     fetchInventory();
   }, [isOpen, toast]);
 
+  useEffect(() => {
+    if (isOpen && firstInputRef.current) {
+      firstInputRef.current.focus();
+    }
+  }, [isOpen, currentStep]);
+
   const filteredPaperInventory = useMemo(() => {
     let items = allInventory.filter(item => item.type === 'Master Sheet' && (item.availableStock ?? 0) > 0);
 
-    // Apply Step 3's direct paper quality filter
     if (selectedPaperQualityFilter !== "ALL_QUALITIES" && selectedPaperQualityFilter !== "") {
       items = items.filter(item => item.paperQuality === selectedPaperQualityFilter);
     }
 
-    // Get target specifications from Step 2
     const targetQualityFromStep2 = form.getValues("paperQuality") as PaperQualityType | "";
     const targetGsmFromStep2 = form.getValues("paperGsm");
     const targetThicknessMmFromStep2 = form.getValues("targetPaperThicknessMm");
     const customerNameStep1 = form.getValues("customerName")?.toLowerCase() || "";
 
-    // Check if Step 2's target quality is relevant for current Step 3 filter
     const isStep2QualityRelevant = (selectedPaperQualityFilter === "ALL_QUALITIES" || selectedPaperQualityFilter === targetQualityFromStep2);
 
     if (targetQualityFromStep2 && targetQualityFromStep2 !== "" && isStep2QualityRelevant) {
-        // If Step 3 filter is "ALL_QUALITIES", we must first narrow down items to Step 2's target quality
         if (selectedPaperQualityFilter === "ALL_QUALITIES") {
             items = items.filter(item => item.paperQuality === targetQualityFromStep2);
         }
@@ -221,7 +253,7 @@ export function NewJobMultiStepModal({
                 const sbsRange = getSbsGsmRange(targetGsmFromStep2);
                 if (sbsRange) {
                     items = items.filter(item => item.paperGsm && item.paperGsm >= sbsRange.min && item.paperGsm <= sbsRange.max);
-                } else { // If target GSM doesn't fit a specific range, try exact match
+                } else { 
                     items = items.filter(item => item.paperGsm === targetGsmFromStep2);
                 }
             }
@@ -237,12 +269,12 @@ export function NewJobMultiStepModal({
                     const artRanges = getArtPaperGsmRanges(targetGsmFromStep2);
                     if (artRanges) {
                         items = items.filter(item => item.paperGsm && artRanges.includes(item.paperGsm));
-                    } else { // If no specific range rule, filter by exact target GSM
+                    } else { 
                         items = items.filter(item => item.paperGsm === targetGsmFromStep2);
                     }
                 }
             }
-        } else { // For other paper qualities, or if GSM/Thickness is not applicable (e.g. Butter Paper)
+        } else { 
             const unit = getPaperQualityUnit(targetQualityFromStep2 as PaperQualityType);
             if (unit === 'gsm' && targetGsmFromStep2 && targetGsmFromStep2 > 0) {
                 items = items.filter(item => item.paperGsm === targetGsmFromStep2);
@@ -269,7 +301,8 @@ export function NewJobMultiStepModal({
     let isValid = false;
     if (currentStep === 1) isValid = await form.trigger(["jobName", "customerName", "dispatchDate"]);
     else if (currentStep === 2) isValid = await form.trigger(["jobSizeWidth", "jobSizeHeight", "netQuantity", "grossQuantity", "paperQuality", "paperGsm", "targetPaperThicknessMm"]);
-    else if (currentStep === 3) isValid = await form.trigger(["selectedInventoryItemId"]); 
+    else if (currentStep === 3) isValid = await form.trigger(["selectedInventoryItemId"]);
+    else if (currentStep === 4) isValid = await form.trigger(["kindOfJob", "printingFront", "printingBack", "coating", "die", "hotFoilStamping", "emboss", "pasting", "boxMaking"]);
     
     if (isValid) {
       if (currentStep < MAX_STEPS) {
@@ -300,16 +333,16 @@ export function NewJobMultiStepModal({
       paperQuality: data.paperQuality as PaperQualityType,
       paperGsm: data.paperQuality && getPaperQualityUnit(data.paperQuality as PaperQualityType) === 'gsm' ? data.paperGsm : undefined,
       targetPaperThicknessMm: data.paperQuality && getPaperQualityUnit(data.paperQuality as PaperQualityType) === 'mm' ? data.targetPaperThicknessMm : undefined,
-      remarks: data.remarks,
-      kindOfJob: "", 
-      printingFront: "", 
-      printingBack: "", 
-      coating: "", 
-      die: "", 
-      hotFoilStamping: "", 
-      emboss: "", 
-      pasting: "", 
-      boxMaking: "", 
+      kindOfJob: data.kindOfJob || "",
+      printingFront: data.printingFront || "",
+      printingBack: data.printingBack || "",
+      coating: data.coating || "",
+      die: data.die || "",
+      hotFoilStamping: data.hotFoilStamping || "",
+      emboss: data.emboss || "",
+      pasting: data.pasting || "",
+      boxMaking: data.boxMaking || "",
+      remarks: data.remarks || "",
       workflowSteps: [], 
       linkedJobCardIds: [], 
     };
@@ -352,6 +385,15 @@ export function NewJobMultiStepModal({
     form.setValue("selectedInventoryItemId", undefined, { shouldValidate: true });
   };
 
+  const kindOfJobOptions = [{ value: 'METPET', label: 'MetPet' }, { value: 'NORMAL', label: 'Normal' }, { value: 'NO_PRINTING', label: 'No Printing' }, { value: '', label: 'Select...' }];
+  const printingOptions = [{ value: 'SM74', label: 'SM74' }, { value: 'SORSZ', label: 'SORSZ' }, { value: 'DOMINANT', label: 'Dominant' }, { value: 'NO_PRINTING', label: 'No Printing' }, { value: '', label: 'Select...' }];
+  const coatingOptions = [{ value: 'TEXTURE_UV', label: 'Texture UV' }, { value: 'VARNISH_GLOSS', label: 'Varnish Gloss' }, { value: 'VARNISH_MATT', label: 'Varnish Matt' }, { value: 'UV_ONLY', label: 'UV Only' }, { value: 'NO_COATING', label: 'No Coating' }, { value: '', label: 'Select...' }];
+  const dieOptions = [{ value: 'NEW', label: 'New' }, { value: 'OLD', label: 'Old' }, { value: '', label: 'Select...' }];
+  const hotFoilOptions = [{ value: 'GOLDEN', label: 'Golden' }, { value: 'SILVER', label: 'Silver' }, { value: 'COPPER', label: 'Copper' }, { value: 'NO_LEAF', label: 'No Leaf' }, { value: '', label: 'Select...' }];
+  const yesNoOptions = [{ value: 'YES', label: 'Yes' }, { value: 'NO', label: 'No' }, { value: '', label: 'Select...' }];
+  const boxMakingOptions = [{ value: 'MACHINE', label: 'Machine' }, { value: 'MANUAL', label: 'Manual' }, { value: 'COMBINED', label: 'Combined' }, { value: '', label: 'Select...' }];
+
+
   const renderStepContent = () => {
     const targetPaperUnit = getPaperQualityUnit(form.watch("paperQuality") as PaperQualityType);
     switch (currentStep) {
@@ -365,6 +407,7 @@ export function NewJobMultiStepModal({
                   <FormControl>
                     <Input id="msJobName" {...field} placeholder="e.g., Premium Product Box" 
                            value={field.value || ''}
+                           ref={firstInputRef} 
                     />
                   </FormControl>
                   <FormMessage />
@@ -412,9 +455,11 @@ export function NewJobMultiStepModal({
                     <FormItem><FormLabel htmlFor="msJobSizeWidth">Job Width (in)</FormLabel><FormControl>
                     <Input 
                         id="msJobSizeWidth" type="number" {...field} 
+                        tabIndex={0}
                         value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
                         onChange={e => { const numValue = parseFloat(e.target.value); field.onChange(isNaN(numValue) ? undefined : numValue); }}
                         placeholder="e.g., 8.5" 
+                        ref={currentStep === 2 ? firstInputRef : null} 
                     />
                     </FormControl><FormMessage /></FormItem>
                   )} />
@@ -422,6 +467,7 @@ export function NewJobMultiStepModal({
                     <FormItem><FormLabel htmlFor="msJobSizeHeight">Job Height (in)</FormLabel><FormControl>
                     <Input 
                         id="msJobSizeHeight" type="number" {...field} 
+                        tabIndex={0}
                         value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
                         onChange={e => { const numValue = parseFloat(e.target.value); field.onChange(isNaN(numValue) ? undefined : numValue); }}
                         placeholder="e.g., 11" 
@@ -434,6 +480,7 @@ export function NewJobMultiStepModal({
                     <FormItem><FormLabel htmlFor="msNetQuantity">Net Quantity</FormLabel><FormControl>
                     <Input 
                         id="msNetQuantity" type="number" {...field} 
+                        tabIndex={0}
                         value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
                         onChange={e => { const numValue = parseFloat(e.target.value); field.onChange(isNaN(numValue) ? undefined : numValue); }}
                         placeholder="e.g., 1000" 
@@ -444,6 +491,7 @@ export function NewJobMultiStepModal({
                     <FormItem><FormLabel htmlFor="msGrossQuantity">Gross Quantity</FormLabel><FormControl>
                     <Input 
                         id="msGrossQuantity" type="number" {...field} 
+                        tabIndex={0}
                         value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
                         onChange={e => { const numValue = parseFloat(e.target.value); field.onChange(isNaN(numValue) ? undefined : numValue); }}
                         placeholder="e.g., 1100" 
@@ -503,7 +551,7 @@ export function NewJobMultiStepModal({
                     onValueChange={(value) => setSelectedPaperQualityFilter(value as PaperQualityType | "ALL_QUALITIES")}
                 >
                     <FormControl>
-                        <SelectTrigger id="paperQualityFilter">
+                        <SelectTrigger id="paperQualityFilter" ref={currentStep === 3 ? firstInputRef : null}>
                             <SelectValue placeholder="Select paper quality to filter" />
                         </SelectTrigger>
                     </FormControl>
@@ -583,17 +631,159 @@ export function NewJobMultiStepModal({
         );
       case 4: 
         return (
-          <Form {...form}>
+           <Form {...form}>
             <form className="space-y-4">
-              <FormField control={form.control} name="remarks" render={({ field }) => (
+              <FormField control={form.control} name="kindOfJob" render={({ field }) => (
                 <FormItem>
-                  <FormLabel htmlFor="msRemarks">Remarks (Optional)</FormLabel>
-                  <FormControl><Textarea id="msRemarks" {...field} value={field.value || ''} placeholder="Any additional notes or instructions..." rows={4} /></FormControl>
+                  <FormLabel>Kind of Job</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || ""}>
+                    <FormControl><SelectTrigger ref={currentStep === 4 ? firstInputRef : null}><SelectValue placeholder="Select kind of job" /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      {kindOfJobOptions.map(option => (
+                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )} />
-            </form>
-          </Form>
+              <FormField control={form.control} name="printingFront" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Printing (Front)</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || ""}>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Select printing machine" /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      {printingOptions.map(option => (
+                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={form.control} name="printingBack" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Printing (Back)</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || ""}>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Select printing machine" /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      {printingOptions.map(option => (
+                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={form.control} name="coating" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Coating</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || ""}>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Select coating type" /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      {coatingOptions.map(option => (
+                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={form.control} name="die" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Die</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || ""}>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Select die type" /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      {dieOptions.map(option => (
+                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={form.control} name="hotFoilStamping" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Hot Foil Stamping</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || ""}>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Select foil type" /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      {hotFoilOptions.map(option => (
+                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={form.control} name="emboss" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Emboss</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || ""}>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Select option" /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      {yesNoOptions.map(option => (
+                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
+               <FormField control={form.control} name="pasting" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Pasting</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || ""}>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Select option" /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      {yesNoOptions.map(option => (
+                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={form.control} name="boxMaking" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Box Making</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || ""}>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Select option" /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      {boxMakingOptions.map(option => (
+                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              </form>
+            </Form>
+        );
+      case 5:
+        return (
+            <Form {...form}>
+                <form className="space-y-4">
+                    <FormField control={form.control} name="remarks" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel htmlFor="msRemarks">Remarks (Optional)</FormLabel>
+                            <FormControl>
+                                <Textarea 
+                                    id="msRemarks" 
+                                    {...field} 
+                                    value={field.value || ''} 
+                                    placeholder="Any additional notes or special instructions for this job..." 
+                                    rows={4}
+                                    ref={currentStep === 5 ? firstInputRef : null}
+                                />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
+                </form>
+            </Form>
         );
       default:
         return null;
@@ -605,7 +795,8 @@ export function NewJobMultiStepModal({
       case 1: return "Step 1: Basic Information";
       case 2: return "Step 2: Job Specifications";
       case 3: return "Step 3: Select Master Sheet from Inventory"; 
-      case 4: return "Step 4: Additional Details & Submit"; 
+      case 4: return "Step 4: Define Processes";
+      case 5: return "Step 5: Remarks & Submit";
       default: return "Create New Job";
     }
   };
@@ -657,4 +848,3 @@ export function NewJobMultiStepModal({
     </Dialog>
   );
 }
-
