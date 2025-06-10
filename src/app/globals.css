@@ -143,25 +143,25 @@
     inset: 0;
     border-radius: 28px; 
     pointer-events: none;
-    box-shadow: 0 0 12px 2px rgba(255,255,255,0.08);
+    box-shadow: 0 0 20px 4px rgba(255,255,255,0.1); /* Increased halo effect */
     z-index: 1;
   }
 
   .card-glass-halo::after {
     content: "";
     position: absolute;
-    top: 0;      /* Changed from -16% */
-    left: 0;     /* Changed from -16% */
-    width: 100%; /* Changed from 80% */
-    height: 100%;/* Changed from 65% */
+    top: 0;      
+    left: 0;     
+    width: 100%; 
+    height: 100%;
     background: radial-gradient(
-      ellipse at 70% 20%, /* Shifted origin from top left */
-      rgba(255,255,255,0.10) 0%,  /* Reduced opacity from 0.25 */
-      rgba(255,255,255,0.05) 40%, /* Reduced opacity from 0.13 and adjusted stop */
-      rgba(255,255,255,0.00) 70%  /* Reduced opacity from 0.07 and adjusted stop */
+      ellipse at 70% 20%, 
+      rgba(255,255,255,0.10) 0%,  
+      rgba(255,255,255,0.05) 40%, 
+      rgba(255,255,255,0.00) 70%  
     );
-    border-radius: inherit; /* Added to ensure it matches parent's border-radius */
-    filter: blur(5px); /* Increased blur from 4px */
+    border-radius: inherit; 
+    filter: blur(5px); 
     pointer-events: none;
     z-index: 2;
   }
