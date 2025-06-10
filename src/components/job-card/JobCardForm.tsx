@@ -228,6 +228,118 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
   const watchedCustomerName = form.watch("customerName");
   const targetPaperUnit = getPaperQualityUnit(watchedPaperQuality as PaperQualityType);
 
+<<<<<<< HEAD
+=======
+  const filteredInventoryForDisplay = useMemo(() => {
+    if (!watchedPaperQuality || watchedPaperQuality === "") {
+      return [];
+    }
+
+    let qualityFilteredItems = allInventoryItems.filter(item => item.type === 'Master Sheet' && item.paperQuality === watchedPaperQuality);
+    let finalFilteredItems: InventoryItem[] = [];
+
+    if (watchedPaperQuality === "SBS") {
+      if (watchedPaperGsm !== undefined && watchedPaperGsm > 0) {
+        finalFilteredItems = qualityFilteredItems.filter(item => {
+          if (!item.paperGsm) return false;
+          const itemGsm = item.paperGsm;
+          if (watchedPaperGsm >= 200 && watchedPaperGsm <= 230) return itemGsm >= 200 && itemGsm <= 230;
+          if (watchedPaperGsm >= 231 && watchedPaperGsm <= 260) return itemGsm >= 230 && itemGsm <= 260; // Catches 230, 250, 260
+          if (watchedPaperGsm >= 261 && watchedPaperGsm <= 280) return itemGsm >= 270 && itemGsm <= 280; // Catches 270, 280
+          if (watchedPaperGsm >= 281 && watchedPaperGsm <= 300) return itemGsm >= 290 && itemGsm <= 310; // Catches 290, 300
+          if (watchedPaperGsm >= 301 && watchedPaperGsm <= 320) return itemGsm >= 310 && itemGsm <= 330; // Catches 320
+          if (watchedPaperGsm >= 321 && watchedPaperGsm <= 350) return itemGsm >= 340 && itemGsm <= 360; // Catches 350
+          if (watchedPaperGsm >= 351 && watchedPaperGsm <= 400) return itemGsm >= 370 && itemGsm <= 410; // Catches 400
+          return false;
+        });
+      } else {
+        finalFilteredItems = qualityFilteredItems;
+      }
+    } else if (watchedPaperQuality === "GREYBACK" || watchedPaperQuality === "WHITEBACK") {
+        if (watchedPaperGsm !== undefined && watchedPaperGsm > 0) {
+            finalFilteredItems = qualityFilteredItems.filter(item => {
+                if (!item.paperGsm) return false;
+                const itemGsm = item.paperGsm;
+                if (watchedPaperGsm >= 200 && watchedPaperGsm <= 230) return itemGsm >= 200 && itemGsm <= 230;
+                if (watchedPaperGsm === 250) return itemGsm === 250;
+                if (watchedPaperGsm === 270) return itemGsm === 270;
+                if (watchedPaperGsm === 280) return itemGsm === 280;
+                if (watchedPaperGsm === 300) return itemGsm === 300 || itemGsm === 310;
+                if (watchedPaperGsm === 320) return itemGsm === 320 || itemGsm === 330;
+                if (watchedPaperGsm === 350) return itemGsm === 350 || itemGsm === 360;
+                if (watchedPaperGsm === 380) return itemGsm === 380 || itemGsm === 390;
+                if (watchedPaperGsm === 400) return itemGsm === 400 || itemGsm === 410;
+                return false;
+            });
+        } else {
+            finalFilteredItems = qualityFilteredItems;
+        }
+    } else if (watchedPaperQuality === "ART_PAPER_GLOSS" || watchedPaperQuality === "ART_PAPER_MATT") {
+        if (watchedPaperGsm !== undefined && watchedPaperGsm > 0) {
+            const currentCustomerName = watchedCustomerName?.toLowerCase();
+            finalFilteredItems = qualityFilteredItems.filter(item => {
+                if (!item.paperGsm) return false;
+                const itemGsm = item.paperGsm;
+
+                if (currentCustomerName === "ganga acrowools") {
+                    return itemGsm === watchedPaperGsm;
+                }
+                // Standard Art Paper rules
+                if (watchedPaperGsm === 100) return itemGsm >= 90 && itemGsm <= 110;
+                if (watchedPaperGsm === 115 || watchedPaperGsm === 120) return itemGsm >= 120 && itemGsm <= 130;
+                if (watchedPaperGsm === 130) return itemGsm >= 130 && itemGsm <= 150;
+                if (watchedPaperGsm === 150) return itemGsm >= 150 && itemGsm <= 170;
+                if (watchedPaperGsm === 170) return itemGsm >= 170 && itemGsm <= 180;
+                return false;
+            });
+        } else {
+            finalFilteredItems = qualityFilteredItems;
+        }
+    } else if (watchedPaperQuality === "BUTTER_PAPER") {
+        finalFilteredItems = qualityFilteredItems; // Show all Butter Paper regardless of form GSM
+    } else if (["JAPANESE_PAPER", "IMPORTED_PAPER", "GOLDEN_SHEET", "KRAFT_PAPER"].includes(watchedPaperQuality)) {
+        if (watchedPaperGsm !== undefined && watchedPaperGsm > 0) {
+            finalFilteredItems = qualityFilteredItems.filter(item => item.paperGsm === watchedPaperGsm);
+        } else {
+            finalFilteredItems = qualityFilteredItems;
+        }
+    } else if (["GG_KAPPA", "WG_KAPPA", "MDF"].includes(watchedPaperQuality)) {
+        if (watchedPaperThicknessMm !== undefined && watchedPaperThicknessMm > 0) {
+            finalFilteredItems = qualityFilteredItems.filter(item => {
+                if (item.paperThicknessMm === undefined) return false;
+                const thickness = item.paperThicknessMm;
+                const selected = watchedPaperThicknessMm;
+                if (["GG_KAPPA", "WG_KAPPA"].includes(watchedPaperQuality)) {
+                    if (selected >= 0.8 && selected <= 0.92) return thickness >= 0.82 && thickness <= 0.92;
+                    if (selected === 1.0) return thickness >= 0.92 && thickness <= 1.1;
+                    if (selected >= 1.1 && selected <= 1.2) return thickness >= 1.1 && thickness <= 1.2;
+                    if (selected >= 1.3 && selected <= 1.5) return thickness >= 1.3 && thickness <= 1.5;
+                }
+                return thickness === selected;
+            });
+        } else {
+            finalFilteredItems = qualityFilteredItems;
+        }
+    } else {
+      finalFilteredItems = qualityFilteredItems;
+    }
+    
+    return finalFilteredItems.sort((a, b) => {
+      const unit = getPaperQualityUnit(a.paperQuality as PaperQualityType);
+      if (unit === 'gsm' && a.paperGsm !== undefined && b.paperGsm !== undefined) {
+        if (a.paperGsm !== b.paperGsm) return a.paperGsm - b.paperGsm;
+      } else if (unit === 'mm' && a.paperThicknessMm !== undefined && b.paperThicknessMm !== undefined) {
+        if (a.paperThicknessMm !== b.paperThicknessMm) return a.paperThicknessMm - b.paperThicknessMm;
+      }
+      const sizeA = (a.masterSheetSizeWidth || 0) * (a.masterSheetSizeHeight || 0);
+      const sizeB = (b.masterSheetSizeWidth || 0) * (b.masterSheetSizeHeight || 0);
+      if (sizeA !== sizeB) return sizeA - sizeB;
+      return (a.id || "").localeCompare(b.id || "");
+    });
+  }, [allInventoryItems, watchedPaperQuality, watchedPaperGsm, watchedPaperThicknessMm, watchedCustomerName]);
+
+
+>>>>>>> 84af9ef156060b1747b6bb9a860e314d138cf4c4
   const fetchJobsForThisCustomer = async (customerName: string) => {
     if (!customerName) {
       setJobsForCustomer([]);
