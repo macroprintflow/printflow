@@ -344,9 +344,11 @@ export default function ForApprovalPage() {
               />
               <Button 
                 type="button" 
-                variant="outline" 
                 onClick={handleCustomUploadButtonClick} 
-                className="w-full font-body text-base justify-start text-muted-foreground/80 hover:text-foreground bg-secondary/30 backdrop-blur-md border border-white/20 rounded-xl hover:bg-secondary/50 h-12"
+                className="w-full font-body text-base justify-start text-muted-foreground/80 hover:text-foreground h-12 rounded-xl
+                           border border-white/15 bg-secondary/20 backdrop-blur-lg shadow-md shadow-black/10 
+                           [box-shadow:inset_0_0_0_1.5px_rgba(255,255,255,0.15)] 
+                           hover:bg-secondary/30"
               >
                 <Upload className="mr-2 h-4 w-4" />
                 {selectedFile ? selectedFile.name : "Upload File"}
@@ -373,7 +375,14 @@ export default function ForApprovalPage() {
                 className="font-body text-base bg-input/30 backdrop-blur-md border-white/20 rounded-xl"
               />
             </div>
-            <Button type="submit" className="font-body text-base bg-primary/70 backdrop-blur-md border border-primary/50 rounded-xl hover:bg-primary/80 h-12 px-6" disabled={isSubmitting}>
+            <Button 
+              type="submit" 
+              className="font-body text-base h-12 px-6 rounded-xl
+                         border border-primary/30 bg-primary/20 backdrop-blur-lg shadow-md shadow-black/10
+                         [box-shadow:inset_0_0_0_1.5px_hsla(var(--primary-hsl)/0.3)] 
+                         hover:bg-primary/30 text-primary-foreground" 
+              disabled={isSubmitting}
+            >
               {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
               {isSubmitting ? "Submitting..." : "Submit for Approval"}
             </Button>
@@ -426,18 +435,40 @@ export default function ForApprovalPage() {
                   <div className="flex gap-2 mt-2 sm:mt-0 flex-shrink-0 items-center flex-wrap justify-end">
                     {design.pdfDataUri && (
                       <>
-                        <Button variant="outline" size="sm" onClick={() => handleViewPdf(design.pdfDataUri)} className="font-body text-sm bg-secondary/30 backdrop-blur-md border-white/20 rounded-xl hover:bg-secondary/50" title="View PDF">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => handleViewPdf(design.pdfDataUri)} 
+                          className="font-body text-sm rounded-xl
+                                     border border-white/15 bg-foreground/5 backdrop-blur-lg shadow-md shadow-black/5 
+                                     [box-shadow:inset_0_0_0_1px_rgba(255,255,255,0.1)] 
+                                     hover:bg-foreground/10" 
+                          title="View PDF"
+                        >
                           <Eye className="mr-1 h-4 w-4" /> View PDF
                         </Button>
-                        <Button variant="outline" size="sm" onClick={() => handleDownloadPdf(design.pdfDataUri, design.jobName, design.customerName, design.date)} className="font-body text-sm bg-secondary/30 backdrop-blur-md border-white/20 rounded-xl hover:bg-secondary/50" title="Download PDF">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => handleDownloadPdf(design.pdfDataUri, design.jobName, design.customerName, design.date)} 
+                          className="font-body text-sm rounded-xl
+                                     border border-white/15 bg-foreground/5 backdrop-blur-lg shadow-md shadow-black/5 
+                                     [box-shadow:inset_0_0_0_1px_rgba(255,255,255,0.1)] 
+                                     hover:bg-foreground/10" 
+                          title="Download PDF"
+                        >
                           <Download className="mr-1 h-4 w-4" /> Download
                         </Button>
                       </>
                     )}
                     {design.status === 'approved' && design.plateType === 'new' && (
-                       <Button variant="outline" size="sm" 
-                          // onClick={() => handleSendEmailToPlateManufacturer(design)} 
-                          className="font-body text-sm text-blue-400 border-blue-500/50 bg-blue-500/20 backdrop-blur-md rounded-xl hover:bg-blue-500/40" 
+                       <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="font-body text-sm text-blue-400 rounded-xl
+                                     border border-blue-500/40 bg-blue-500/20 backdrop-blur-lg shadow-md shadow-black/5 
+                                     [box-shadow:inset_0_0_0_1px_rgba(var(--color-blue-500-rgb)/0.3)] 
+                                     hover:bg-blue-500/30"
                           disabled // Keep disabled for "Coming Soon"
                           title="Email Plate Maker (Coming Soon)"
                         >
@@ -446,10 +477,26 @@ export default function ForApprovalPage() {
                     )}
                     {design.status === 'pending' && (
                       <>
-                        <Button variant="outline" size="sm" onClick={() => handleApproval(design.id, true)} className="font-body text-sm bg-secondary/30 backdrop-blur-md border-white/20 rounded-xl hover:bg-secondary/50">
-                          <CheckCircle className="mr-1 h-4 w-4 text-green-400" /> Approve
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => handleApproval(design.id, true)} 
+                          className="font-body text-sm text-green-400 rounded-xl
+                                     border border-green-500/40 bg-green-500/10 backdrop-blur-lg shadow-md shadow-black/5 
+                                     [box-shadow:inset_0_0_0_1px_rgba(var(--color-green-500-rgb)/0.3)] 
+                                     hover:bg-green-500/20"
+                        >
+                          <CheckCircle className="mr-1 h-4 w-4" /> Approve
                         </Button>
-                        <Button variant="outline" size="sm" onClick={() => handleApproval(design.id, false)} className="font-body text-sm text-red-400 border-red-500/50 bg-red-500/20 backdrop-blur-md rounded-xl hover:bg-red-500/40">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => handleApproval(design.id, false)} 
+                          className="font-body text-sm text-red-400 rounded-xl
+                                     border border-red-500/40 bg-red-500/10 backdrop-blur-lg shadow-md shadow-black/5 
+                                     [box-shadow:inset_0_0_0_1px_rgba(var(--color-red-500-rgb)/0.3)] 
+                                     hover:bg-red-500/20"
+                        >
                            <AlertTriangle className="mr-1 h-4 w-4" /> Reject
                         </Button>
                       </>
