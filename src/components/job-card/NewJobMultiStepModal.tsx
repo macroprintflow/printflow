@@ -21,9 +21,9 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { cn } from "@/lib/utils";
-import { CalendarIcon, Loader2, ArrowRight, ArrowLeft, CheckCircle } from "lucide-react";
+import { CalendarIcon, Loader2, ArrowRight, ArrowLeft, CheckCircle, Archive } from "lucide-react";
 import { format } from "date-fns";
 import type { JobCardData, PaperQualityType } from "@/lib/definitions";
 import { PAPER_QUALITY_OPTIONS, getPaperQualityUnit, KAPPA_MDF_QUALITIES, createJobCard } from "@/lib/definitions";
@@ -54,11 +54,15 @@ const Step2Schema = z.object({
     }
 });
 
-const Step3Schema = z.object({
+const Step3InventorySchema = z.object({
+  inventorySelectionPlaceholder: z.string().optional(), // Placeholder, no actual validation needed yet
+});
+
+const Step4Schema = z.object({ // Formerly Step3Schema
   remarks: z.string().optional(),
 });
 
-const MultiStepJobSchema = Step1Schema.merge(Step2Schema).merge(Step3Schema);
+const MultiStepJobSchema = Step1Schema.merge(Step2Schema).merge(Step3InventorySchema).merge(Step4Schema);
 type MultiStepJobFormValues = z.infer<typeof MultiStepJobSchema>;
 
 interface NewJobMultiStepModalProps {
@@ -68,7 +72,7 @@ interface NewJobMultiStepModalProps {
   onModalClose?: () => void;
 }
 
-const MAX_STEPS = 3;
+const MAX_STEPS = 4; // Increased from 3 to 4
 
 export function NewJobMultiStepModal({
   isOpen,
@@ -85,8 +89,9 @@ export function NewJobMultiStepModal({
     resolver: zodResolver(
         currentStep === 1 ? Step1Schema :
         currentStep === 2 ? Step2Schema :
-        currentStep === 3 ? Step3Schema :
-        MultiStepJobSchema // Fallback, though currentStep should always be 1, 2, or 3
+        currentStep === 3 ? Step3InventorySchema : // New step 3
+        currentStep === 4 ? Step4Schema : // Old step 3 is now step 4
+        MultiStepJobSchema
     ),
     defaultValues: {
       jobName: initialData?.jobName || "",
@@ -99,6 +104,7 @@ export function NewJobMultiStepModal({
       paperQuality: (initialData?.paperQuality as typeof PAPER_QUALITY_OPTIONS[number]['value']) || "",
       paperGsm: initialData?.paperGsm || undefined,
       targetPaperThicknessMm: initialData?.targetPaperThicknessMm || undefined,
+      inventorySelectionPlaceholder: "", // Initialize placeholder
       remarks: initialData?.remarks || "",
     },
     mode: "onChange",
@@ -120,6 +126,7 @@ export function NewJobMultiStepModal({
         paperQuality: (initialData.paperQuality as typeof PAPER_QUALITY_OPTIONS[number]['value']) || "",
         paperGsm: initialData.paperGsm || undefined,
         targetPaperThicknessMm: initialData.targetPaperThicknessMm || undefined,
+        inventorySelectionPlaceholder: "",
         remarks: initialData.remarks || "",
       });
     }
@@ -129,7 +136,8 @@ export function NewJobMultiStepModal({
     let isValid = false;
     if (currentStep === 1) isValid = await form.trigger(["jobName", "customerName", "dispatchDate"]);
     else if (currentStep === 2) isValid = await form.trigger(["jobSizeWidth", "jobSizeHeight", "netQuantity", "grossQuantity", "paperQuality", "paperGsm", "targetPaperThicknessMm"]);
-    // Step 3 doesn't need validation for next, it's the submit step now.
+    else if (currentStep === 3) isValid = true; // Placeholder step for inventory, always valid for now
+    // Step 4 doesn't need validation for next, it's the submit step now.
     
     if (isValid) {
       if (currentStep < MAX_STEPS) {
@@ -148,9 +156,8 @@ export function NewJobMultiStepModal({
 
   const onSubmit = async (data: MultiStepJobFormValues) => {
     setIsSubmitting(true);
-    console.log("Multi-step form submitted (Steps 1-3):", data);
+    console.log("Multi-step form submitted (Steps 1-4):", data);
 
-    // For now, just log and close. Actual submission to createJobCard would happen here.
     const jobCardPayload: JobCardData = {
       jobName: data.jobName,
       customerName: data.customerName, 
@@ -164,7 +171,8 @@ export function NewJobMultiStepModal({
       paperGsm: data.paperQuality && getPaperQualityUnit(data.paperQuality as PaperQualityType) === 'gsm' ? data.paperGsm : undefined,
       targetPaperThicknessMm: data.paperQuality && getPaperQualityUnit(data.paperQuality as PaperQualityType) === 'mm' ? data.targetPaperThicknessMm : undefined,
       remarks: data.remarks,
-      // Default other fields as empty or standard values as JobCardForm does
+      // Placeholder for inventory selection - not used in payload yet
+      // data.inventorySelectionPlaceholder would be available here
       kindOfJob: "", 
       printingFront: "",
       printingBack: "",
@@ -174,20 +182,17 @@ export function NewJobMultiStepModal({
       emboss: "",
       pasting: "",
       boxMaking: "",
-      workflowSteps: [], // Or a default workflow
+      workflowSteps: [],
       linkedJobCardIds: [],
     };
     
-    // Simulate API call for now
-    // In a real scenario, you'd call `await createJobCard(jobCardPayload);`
     setTimeout(() => { 
-        toast({ title: "Form Submitted (Placeholder)", description: "Data from steps 1-3 logged to console. Actual creation pending." });
+        toast({ title: "Form Submitted (Placeholder)", description: "Data from steps 1-4 logged to console. Actual creation pending." });
         setIsSubmitting(false);
         setIsOpen(false);
         form.reset();
         setCurrentStep(1);
         if (onModalClose) onModalClose();
-        // router.push('/jobs'); // Potentially navigate after successful submission
     }, 1000);
   };
 
@@ -330,7 +335,24 @@ export function NewJobMultiStepModal({
             </form>
           </Form>
         );
-      case 3:
+      case 3: // New Inventory Placeholder Step
+        return (
+          <Form {...form}>
+            <form className="space-y-4">
+              <FormField control={form.control} name="inventorySelectionPlaceholder" render={({ field }) => (
+                <FormItem>
+                  <FormLabel htmlFor="msInventoryPlaceholder" className="flex items-center"><Archive className="mr-2 h-4 w-4 text-muted-foreground" />Inventory Selection</FormLabel>
+                  <FormControl>
+                    <Input id="msInventoryPlaceholder" {...field} placeholder="Inventory selection UI will be here" value="Placeholder for Inventory Selection UI" readOnly className="bg-muted/30 border-dashed text-center cursor-not-allowed" />
+                  </FormControl>
+                  <FormDescription>This area will allow you to select from available inventory based on the paper specifications from Step 2. Filters and actual selection functionality will be added later.</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )} />
+            </form>
+          </Form>
+        );
+      case 4: // Old Step 3 (Remarks) is now Step 4
         return (
           <Form {...form}>
             <form className="space-y-4">
@@ -353,7 +375,8 @@ export function NewJobMultiStepModal({
     switch (currentStep) {
       case 1: return "Step 1: Basic Information";
       case 2: return "Step 2: Job Specifications";
-      case 3: return "Step 3: Additional Details & Submit";
+      case 3: return "Step 3: Select Inventory (Placeholder)"; // New title
+      case 4: return "Step 4: Additional Details & Submit"; // Old step 3 title
       default: return "Create New Job";
     }
   };
