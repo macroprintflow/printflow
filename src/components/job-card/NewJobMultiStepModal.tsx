@@ -23,10 +23,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { CalendarIcon, Loader2, ArrowRight, ArrowLeft, CheckCircle, Archive } from "lucide-react";
+import { CalendarIcon, Loader2, ArrowRight, ArrowLeft, CheckCircle, Archive, XCircle } from "lucide-react";
 import { format } from "date-fns";
 import type { JobCardData, PaperQualityType, InventoryItem } from "@/lib/definitions";
-import { PAPER_QUALITY_OPTIONS, getPaperQualityUnit, getPaperQualityLabel, KAPPA_MDF_QUALITIES, createJobCard } from "@/lib/definitions";
+import { PAPER_QUALITY_OPTIONS, getPaperQualityUnit, getPaperQualityLabel, KAPPA_MDF_QUALITIES, createJobCard } from "@/lib/definitions"; // createJobCard is currently unused here but kept for potential future use in final submission.
 import { getInventoryItems } from "@/lib/actions/jobActions";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
@@ -74,7 +74,7 @@ const Step2Schema = z.object({
 });
 
 const Step3InventorySchema = z.object({
-  inventorySelectionPlaceholder: z.string().optional(), 
+  inventorySelectionPlaceholder: z.string().optional(), // May not be needed if selection is direct
   selectedInventoryItemId: z.string().optional(),
 });
 
@@ -136,6 +136,7 @@ export function NewJobMultiStepModal({
 
   const watchedPaperQuality = form.watch("paperQuality");
   const targetPaperUnit = getPaperQualityUnit(watchedPaperQuality as PaperQualityType);
+  const watchedSelectedInventoryItemId = form.watch("selectedInventoryItemId");
 
   useEffect(() => {
     if (initialData) {
@@ -163,7 +164,7 @@ export function NewJobMultiStepModal({
         setIsLoadingInventory(true);
         try {
           const items = await getInventoryItems();
-          const paperItems = items.filter(item => item.type === 'Master Sheet');
+          const paperItems = items.filter(item => item.type === 'Master Sheet' && (item.availableStock ?? 0) > 0);
           setAllPaperInventory(paperItems);
         } catch (error) {
           toast({ title: "Error", description: "Could not load paper inventory.", variant: "destructive" });
@@ -180,7 +181,7 @@ export function NewJobMultiStepModal({
     let isValid = false;
     if (currentStep === 1) isValid = await form.trigger(["jobName", "customerName", "dispatchDate"]);
     else if (currentStep === 2) isValid = await form.trigger(["jobSizeWidth", "jobSizeHeight", "netQuantity", "grossQuantity", "paperQuality", "paperGsm", "targetPaperThicknessMm"]);
-    else if (currentStep === 3) isValid = await form.trigger(["selectedInventoryItemId"]); 
+    else if (currentStep === 3) isValid = await form.trigger(["selectedInventoryItemId"]); // Validation for selection can be added here if needed
     
     if (isValid) {
       if (currentStep < MAX_STEPS) {
@@ -201,7 +202,9 @@ export function NewJobMultiStepModal({
     setIsSubmitting(true);
     console.log("Multi-step form submitted (Steps 1-4):", data);
 
-    const jobCardPayload: JobCardData = {
+    // Placeholder: Actual job creation logic will be more involved.
+    // For now, just using a subset of data.
+    const jobCardPayload: Partial<JobCardData> = {
       jobName: data.jobName,
       customerName: data.customerName, 
       date: new Date().toISOString().split('T')[0],
@@ -214,27 +217,29 @@ export function NewJobMultiStepModal({
       paperGsm: data.paperQuality && getPaperQualityUnit(data.paperQuality as PaperQualityType) === 'gsm' ? data.paperGsm : undefined,
       targetPaperThicknessMm: data.paperQuality && getPaperQualityUnit(data.paperQuality as PaperQualityType) === 'mm' ? data.targetPaperThicknessMm : undefined,
       remarks: data.remarks,
-      kindOfJob: "", 
-      printingFront: "",
-      printingBack: "",
-      coating: "",
-      die: "",
-      hotFoilStamping: "",
-      emboss: "",
-      pasting: "",
-      boxMaking: "",
-      workflowSteps: [],
-      linkedJobCardIds: [],
+      // Kind of job, workflow, etc., would be set in a real scenario or in later steps
+      // For this example, we're just passing the selected inventory item ID conceptually
+      sourceInventoryItemId: data.selectedInventoryItemId,
     };
     
+    // Simulate API call
     setTimeout(() => { 
         toast({ title: "Form Submitted (Placeholder)", description: "Data from steps 1-4 logged to console. Actual creation pending." });
+        console.log("Placeholder Job Card Payload:", jobCardPayload);
         setIsSubmitting(false);
         setIsOpen(false);
         form.reset();
         setCurrentStep(1);
         if (onModalClose) onModalClose();
     }, 1000);
+  };
+
+  const handleSelectInventoryItem = (itemId: string) => {
+    form.setValue("selectedInventoryItemId", itemId, { shouldValidate: true });
+  };
+  
+  const handleClearInventorySelection = () => {
+    form.setValue("selectedInventoryItemId", undefined, { shouldValidate: true });
   };
 
   const renderStepContent = () => {
@@ -380,42 +385,58 @@ export function NewJobMultiStepModal({
         return (
           <Form {...form}>
             <div className="space-y-4">
-              <FormLabel className="flex items-center"><Archive className="mr-2 h-4 w-4 text-muted-foreground" />Available Paper Inventory</FormLabel>
+              <FormLabel className="flex items-center"><Archive className="mr-2 h-4 w-4 text-muted-foreground" />Select Master Sheet from Inventory</FormLabel>
               {isLoadingInventory ? (
                 <div className="flex items-center justify-center h-40">
                   <Loader2 className="mr-2 h-6 w-6 animate-spin text-primary" />
                   <span>Loading inventory...</span>
                 </div>
               ) : allPaperInventory.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">No paper inventory items found.</p>
+                <p className="text-sm text-muted-foreground text-center py-4">No paper inventory items found with available stock.</p>
               ) : (
-                <ScrollArea className="h-[300px] border rounded-md">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Item Name</TableHead>
-                        <TableHead className="text-right">Stock</TableHead>
-                        <TableHead>Unit</TableHead>
-                        <TableHead>Location</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {allPaperInventory.map(item => (
-                        <TableRow key={item.id}>
-                          <TableCell>{formatInventoryItemForDisplay(item)}</TableCell>
-                          <TableCell className="text-right">{item.availableStock?.toLocaleString() ?? 0}</TableCell>
-                          <TableCell>{item.unit}</TableCell>
-                          <TableCell>{item.locationCode || '-'}</TableCell>
+                <>
+                  {watchedSelectedInventoryItemId && (
+                    <div className="p-2 mb-2 border rounded-md bg-secondary/50 flex justify-between items-center">
+                      <p className="text-sm font-medium">
+                        Selected: {formatInventoryItemForDisplay(allPaperInventory.find(item => item.id === watchedSelectedInventoryItemId)!)}
+                      </p>
+                      <Button variant="ghost" size="sm" onClick={handleClearInventorySelection} className="text-destructive hover:text-destructive">
+                        <XCircle className="mr-1 h-4 w-4"/> Clear
+                      </Button>
+                    </div>
+                  )}
+                  <ScrollArea className="h-[250px] border rounded-md">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Item Name</TableHead>
+                          <TableHead className="text-right">Stock</TableHead>
+                          <TableHead>Unit</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </ScrollArea>
+                      </TableHeader>
+                      <TableBody>
+                        {allPaperInventory.map(item => (
+                          <TableRow 
+                            key={item.id} 
+                            onClick={() => handleSelectInventoryItem(item.id)}
+                            className={cn(
+                              "cursor-pointer hover:bg-muted/50",
+                              watchedSelectedInventoryItemId === item.id && "bg-primary/10 hover:bg-primary/20"
+                            )}
+                          >
+                            <TableCell>{formatInventoryItemForDisplay(item)}</TableCell>
+                            <TableCell className="text-right">{item.availableStock?.toLocaleString() ?? 0}</TableCell>
+                            <TableCell>{item.unit}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </ScrollArea>
+                </>
               )}
-              <FormDescription>Filters and selection for inventory will be added later. For now, this list is for display.</FormDescription>
                <FormField control={form.control} name="selectedInventoryItemId" render={({ field }) => (
                   <FormItem className="hidden"> 
-                    <FormControl><Input {...field} /></FormControl>
+                    <FormControl><Input {...field} value={field.value || ''} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
@@ -445,7 +466,7 @@ export function NewJobMultiStepModal({
     switch (currentStep) {
       case 1: return "Step 1: Basic Information";
       case 2: return "Step 2: Job Specifications";
-      case 3: return "Step 3: View Available Inventory"; 
+      case 3: return "Step 3: Select Master Sheet"; 
       case 4: return "Step 4: Additional Details & Submit"; 
       default: return "Create New Job";
     }
