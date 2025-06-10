@@ -4,7 +4,8 @@
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Archive, Printer, Paintbrush, Box, Package, MagnetIcon, ShoppingCart, Edit } from "lucide-react"; // Changed PlusCircle to Edit
+import { Archive, Printer, Paintbrush, Box, Package, MagnetIcon, ShoppingCart, Edit, Upload } from "lucide-react"; // Added Upload
+import { useToast } from '@/hooks/use-toast'; // Added useToast
 
 const mainCategories = [
   { name: "Paper", slug: "paper", icon: Printer, description: "Master sheets and paper stock." },
@@ -16,7 +17,14 @@ const mainCategories = [
 ];
 
 export default function InventoryCategorySelectionPage() {
-  // Removed state and handler for AddItemDialog
+  const { toast } = useToast(); // Initialize toast
+
+  const handleImportCsvClick = () => {
+    toast({
+      title: "Coming Soon!",
+      description: "CSV import functionality will be available in a future update.",
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -31,6 +39,9 @@ export default function InventoryCategorySelectionPage() {
                 </CardDescription>
             </div>
             <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                <Button variant="outline" className="w-full sm:w-auto font-body" onClick={handleImportCsvClick}>
+                  <Upload className="mr-2 h-4 w-4" /> Import CSV
+                </Button>
                 <Button asChild variant="outline" className="w-full sm:w-auto font-body">
                   <Link href="/inventory/new-adjustment">
                     <Edit className="mr-2 h-4 w-4" /> Make Inventory Adjustment(s)
@@ -62,7 +73,6 @@ export default function InventoryCategorySelectionPage() {
           ))}
         </CardContent>
       </Card>
-      {/* AddItemDialog component usage removed */}
     </div>
   );
 }
