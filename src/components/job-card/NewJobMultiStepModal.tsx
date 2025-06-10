@@ -75,7 +75,7 @@ const Step2Schema = z.object({
 });
 
 const Step3InventorySchema = z.object({
-  inventorySelectionPlaceholder: z.string().optional(), // Not used for validation, just for form structure
+  inventorySelectionPlaceholder: z.string().optional(), 
   selectedInventoryItemId: z.string().optional(),
 });
 
@@ -137,7 +137,7 @@ export function NewJobMultiStepModal({
     mode: "onChange",
   });
 
-  const watchedPaperQualityFromStep2 = form.watch("paperQuality"); // Target quality
+  const watchedPaperQualityFromStep2 = form.watch("paperQuality"); 
   const targetPaperUnit = getPaperQualityUnit(watchedPaperQualityFromStep2 as PaperQualityType);
   const watchedSelectedInventoryItemId = form.watch("selectedInventoryItemId");
 
@@ -180,14 +180,38 @@ export function NewJobMultiStepModal({
 
   const filteredPaperInventory = useMemo(() => {
     let items = allInventory.filter(item => item.type === 'Master Sheet' && (item.availableStock ?? 0) > 0);
+  
+    const targetQualityFromStep2 = form.getValues("paperQuality");
+    const targetGsmFromStep2 = form.getValues("paperGsm");
+    const targetThicknessFromStep2 = form.getValues("targetPaperThicknessMm");
+    const targetUnitForStep2Quality = getPaperQualityUnit(targetQualityFromStep2 as PaperQualityType);
+  
     if (selectedPaperQualityFilter !== "ALL_QUALITIES" && selectedPaperQualityFilter !== "") {
+      // Filter by Step 3's dropdown
       items = items.filter(item => item.paperQuality === selectedPaperQualityFilter);
+    } else if (targetQualityFromStep2 && targetQualityFromStep2 !== "") {
+      // If Step 3 is "All Qualities", but Step 2 has a target quality, filter by Step 2's quality
+      items = items.filter(item => item.paperQuality === targetQualityFromStep2);
     }
+    // At this point, 'items' are filtered by the more specific quality filter (either Step 3 or Step 2 if Step 3 is "All")
+  
+    // Now, if a specific quality is effectively chosen (either by Step 3 filter or Step 2's target when Step 3 is "All"),
+    // and if that quality matches the target quality from Step 2, then apply GSM/Thickness filter from Step 2.
+    const currentEffectiveQualityFilter = selectedPaperQualityFilter === "ALL_QUALITIES" ? targetQualityFromStep2 : selectedPaperQualityFilter;
+
+    if (currentEffectiveQualityFilter && currentEffectiveQualityFilter === targetQualityFromStep2) {
+      if (targetUnitForStep2Quality === 'gsm' && targetGsmFromStep2 && targetGsmFromStep2 > 0) {
+        items = items.filter(item => item.paperGsm === targetGsmFromStep2);
+      } else if (targetUnitForStep2Quality === 'mm' && targetThicknessFromStep2 && targetThicknessFromStep2 > 0) {
+        items = items.filter(item => item.paperThicknessMm === targetThicknessFromStep2);
+      }
+    }
+  
     return items.sort((a,b) => formatInventoryItemForDisplay(a).localeCompare(formatInventoryItemForDisplay(b)));
-  }, [allInventory, selectedPaperQualityFilter]);
+  }, [allInventory, selectedPaperQualityFilter, form.watch("paperQuality"), form.watch("paperGsm"), form.watch("targetPaperThicknessMm")]);
+
 
   useEffect(() => {
-    // If an item is selected and the filter changes to hide it, clear the selection.
     if (watchedSelectedInventoryItemId) {
       const isSelectedItemVisible = filteredPaperInventory.some(item => item.id === watchedSelectedInventoryItemId);
       if (!isSelectedItemVisible) {
@@ -233,17 +257,17 @@ export function NewJobMultiStepModal({
       paperGsm: data.paperQuality && getPaperQualityUnit(data.paperQuality as PaperQualityType) === 'gsm' ? data.paperGsm : undefined,
       targetPaperThicknessMm: data.paperQuality && getPaperQualityUnit(data.paperQuality as PaperQualityType) === 'mm' ? data.targetPaperThicknessMm : undefined,
       remarks: data.remarks,
-      kindOfJob: "", // Defaulting, not collected in modal
-      printingFront: "", // Defaulting
-      printingBack: "", // Defaulting
-      coating: "", // Defaulting
-      die: "", // Defaulting
-      hotFoilStamping: "", // Defaulting
-      emboss: "", // Defaulting
-      pasting: "", // Defaulting
-      boxMaking: "", // Defaulting
-      workflowSteps: [], // Defaulting
-      linkedJobCardIds: [], // Defaulting
+      kindOfJob: "", 
+      printingFront: "", 
+      printingBack: "", 
+      coating: "", 
+      die: "", 
+      hotFoilStamping: "", 
+      emboss: "", 
+      pasting: "", 
+      boxMaking: "", 
+      workflowSteps: [], 
+      linkedJobCardIds: [], 
     };
 
     if (data.selectedInventoryItemId) {
@@ -324,7 +348,7 @@ export function NewJobMultiStepModal({
                         </Button>
                       </FormControl>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" onOpenAutoFocus={(e) => e.preventDefault()}>
+                    <PopoverContent className="w-auto p-0">
                       <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
                     </PopoverContent>
                   </Popover>
@@ -445,6 +469,9 @@ export function NewJobMultiStepModal({
                         ))}
                     </SelectContent>
                 </Select>
+                 <FormDescription className="text-xs">
+                    List is refined by specifications from Step 2 if "All Qualities" or matching quality is selected here.
+                  </FormDescription>
               </FormItem>
 
               {isLoadingInventory ? (
