@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, type Dispatch, type SetStateAction } from "react";
@@ -352,7 +353,7 @@ export function NewJobMultiStepModal({
     switch (currentStep) {
       case 1: return "Step 1: Basic Information";
       case 2: return "Step 2: Job Specifications";
-      case 3: return "Step 3: Additional Details &amp; Submit";
+      case 3: return "Step 3: Additional Details & Submit";
       default: return "Create New Job";
     }
   };
@@ -370,7 +371,7 @@ export function NewJobMultiStepModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleDialogClose}>
-      <DialogContent className="sm:max-w-lg font-body">
+      <DialogContent className="sm:max-w-xl font-body">
         <DialogHeader>
           <DialogTitle className="font-headline">{getDialogTitle()}</DialogTitle>
           <DialogDescription>
@@ -378,8 +379,8 @@ export function NewJobMultiStepModal({
           </DialogDescription>
         </DialogHeader>
         
-        <ScrollArea className="max-h-[60vh] p-1 pr-4 -mr-2">
-            <div className="py-4">{renderStepContent()}</div>
+        <ScrollArea className="max-h-[60vh]">
+            <div className="px-1 py-4">{renderStepContent()}</div>
         </ScrollArea>
 
         <DialogFooter className="pt-4 border-t">
