@@ -100,21 +100,21 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
       paperQuality: initialJobData.paperQuality,
       paperGsm: getPaperQualityUnit(initialJobData.paperQuality as PaperQualityType) === 'gsm' ? initialJobData.paperGsm : undefined,
       targetPaperThicknessMm: getPaperQualityUnit(initialJobData.paperQuality as PaperQualityType) === 'mm' ? initialJobData.targetPaperThicknessMm : undefined,
-      kindOfJob: initialJobData.kindOfJob || "",
-      printingFront: initialJobData.printingFront || "",
-      printingBack: initialJobData.printingBack || "",
-      coating: initialJobData.coating || "",
-      specialInks: initialJobData.specialInks,
-      die: initialJobData.die || "",
-      assignedDieMachine: initialJobData.assignedDieMachine,
-      hotFoilStamping: initialJobData.hotFoilStamping || "",
-      emboss: initialJobData.emboss || "",
-      pasting: initialJobData.pasting || "",
-      boxMaking: initialJobData.boxMaking || "",
-      remarks: initialJobData.remarks,
+      kindOfJob: initialJobData.kindOfJob ?? undefined,
+      printingFront: initialJobData.printingFront ?? undefined,
+      printingBack: initialJobData.printingBack ?? undefined,
+      coating: initialJobData.coating ?? undefined,
+      specialInks: initialJobData.specialInks ?? undefined,
+      die: initialJobData.die ?? undefined,
+      assignedDieMachine: initialJobData.assignedDieMachine ?? undefined,
+      hotFoilStamping: initialJobData.hotFoilStamping ?? undefined,
+      emboss: initialJobData.emboss ?? undefined,
+      pasting: initialJobData.pasting ?? undefined,
+      boxMaking: initialJobData.boxMaking ?? undefined,
+      remarks: initialJobData.remarks ?? undefined,
       dispatchDate: initialJobData.dispatchDate ? new Date(initialJobData.dispatchDate).toISOString() : undefined,
       workflowSteps: initialJobData.workflowSteps || [],
-      linkedJobCardIds: initialJobData.linkedJobCardIds || [],
+ linkedJobCardIds: initialJobData.linkedJobCardIds || [],
       pdfDataUri: initialJobData.pdfDataUri,
     }
     : { 
@@ -228,107 +228,6 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
   const watchedCustomerName = form.watch("customerName");
   const targetPaperUnit = getPaperQualityUnit(watchedPaperQuality as PaperQualityType);
 
-<<<<<<< HEAD
-=======
-  const filteredInventoryForDisplay = useMemo(() => {
-    if (!watchedPaperQuality || watchedPaperQuality === "") {
-      return [];
-    }
-
-    let qualityFilteredItems = allInventoryItems.filter(item => item.type === 'Master Sheet' && item.paperQuality === watchedPaperQuality);
-    let finalFilteredItems: InventoryItem[] = [];
-
-    if (watchedPaperQuality === "SBS") {
-      if (watchedPaperGsm !== undefined && watchedPaperGsm > 0) {
-        finalFilteredItems = qualityFilteredItems.filter(item => {
-          if (!item.paperGsm) return false;
-          const itemGsm = item.paperGsm;
-          if (watchedPaperGsm >= 200 && watchedPaperGsm <= 230) return itemGsm >= 200 && itemGsm <= 230;
-          if (watchedPaperGsm >= 231 && watchedPaperGsm <= 260) return itemGsm >= 230 && itemGsm <= 260; // Catches 230, 250, 260
-          if (watchedPaperGsm >= 261 && watchedPaperGsm <= 280) return itemGsm >= 270 && itemGsm <= 280; // Catches 270, 280
-          if (watchedPaperGsm >= 281 && watchedPaperGsm <= 300) return itemGsm >= 290 && itemGsm <= 310; // Catches 290, 300
-          if (watchedPaperGsm >= 301 && watchedPaperGsm <= 320) return itemGsm >= 310 && itemGsm <= 330; // Catches 320
-          if (watchedPaperGsm >= 321 && watchedPaperGsm <= 350) return itemGsm >= 340 && itemGsm <= 360; // Catches 350
-          if (watchedPaperGsm >= 351 && watchedPaperGsm <= 400) return itemGsm >= 370 && itemGsm <= 410; // Catches 400
-          return false;
-        });
-      } else {
-        finalFilteredItems = qualityFilteredItems;
-      }
-    } else if (watchedPaperQuality === "GREYBACK" || watchedPaperQuality === "WHITEBACK") {
-        if (watchedPaperGsm !== undefined && watchedPaperGsm > 0) {
-            finalFilteredItems = qualityFilteredItems.filter(item => {
-                if (!item.paperGsm) return false;
-                const itemGsm = item.paperGsm;
-                if (watchedPaperGsm >= 200 && watchedPaperGsm <= 230) return itemGsm >= 200 && itemGsm <= 230;
-                if (watchedPaperGsm === 250) return itemGsm === 250;
-                if (watchedPaperGsm === 270) return itemGsm === 270;
-                if (watchedPaperGsm === 280) return itemGsm === 280;
-                if (watchedPaperGsm === 300) return itemGsm === 300 || itemGsm === 310;
-                if (watchedPaperGsm === 320) return itemGsm === 320 || itemGsm === 330;
-                if (watchedPaperGsm === 350) return itemGsm === 350 || itemGsm === 360;
-                if (watchedPaperGsm === 380) return itemGsm === 380 || itemGsm === 390;
-                if (watchedPaperGsm === 400) return itemGsm === 400 || itemGsm === 410;
-                return false;
-            });
-        } else {
-            finalFilteredItems = qualityFilteredItems;
-        }
-    } else if (watchedPaperQuality === "ART_PAPER_GLOSS" || watchedPaperQuality === "ART_PAPER_MATT") {
-        if (watchedPaperGsm !== undefined && watchedPaperGsm > 0) {
-            const currentCustomerName = watchedCustomerName?.toLowerCase();
-            finalFilteredItems = qualityFilteredItems.filter(item => {
-                if (!item.paperGsm) return false;
-                const itemGsm = item.paperGsm;
-
-                if (watchedPaperQuality === "ART_PAPER_MATT" && currentCustomerName === "ganga acrowools" && watchedPaperGsm === 130) {
-                    return itemGsm >= 130 && itemGsm <= 170;
-                }
-                // Standard Art Paper rules
-                if (watchedPaperGsm === 100) return itemGsm >= 90 && itemGsm <= 100;
-                if (watchedPaperGsm === 120) return itemGsm >= 120 && itemGsm <= 130;
-                if (watchedPaperGsm === 130) return itemGsm >= 130 && itemGsm <= 150; 
-                if (watchedPaperGsm === 150) return itemGsm >= 150 && itemGsm <= 170;
-                if (watchedPaperGsm === 170) return itemGsm >= 170 && itemGsm <= 180;
-                return false; 
-            });
-        } else {
-            finalFilteredItems = qualityFilteredItems;
-        }
-    } else if (watchedPaperQuality === "BUTTER_PAPER") {
-        finalFilteredItems = qualityFilteredItems; // Show all Butter Paper regardless of form GSM
-    } else if (["JAPANESE_PAPER", "IMPORTED_PAPER", "GOLDEN_SHEET", "KRAFT_PAPER"].includes(watchedPaperQuality)) {
-        if (watchedPaperGsm !== undefined && watchedPaperGsm > 0) {
-            finalFilteredItems = qualityFilteredItems.filter(item => item.paperGsm === watchedPaperGsm);
-        } else {
-            finalFilteredItems = qualityFilteredItems;
-        }
-    } else if (["GG_KAPPA", "WG_KAPPA", "MDF"].includes(watchedPaperQuality)) {
-        if (watchedPaperThicknessMm !== undefined && watchedPaperThicknessMm > 0) {
-            finalFilteredItems = qualityFilteredItems.filter(item => item.paperThicknessMm === watchedPaperThicknessMm);
-        } else {
-            finalFilteredItems = qualityFilteredItems;
-        }
-    } else {
-      finalFilteredItems = qualityFilteredItems;
-    }
-    
-    return finalFilteredItems.sort((a, b) => {
-      const unit = getPaperQualityUnit(a.paperQuality as PaperQualityType);
-      if (unit === 'gsm' && a.paperGsm !== undefined && b.paperGsm !== undefined) {
-        if (a.paperGsm !== b.paperGsm) return a.paperGsm - b.paperGsm;
-      } else if (unit === 'mm' && a.paperThicknessMm !== undefined && b.paperThicknessMm !== undefined) {
-        if (a.paperThicknessMm !== b.paperThicknessMm) return a.paperThicknessMm - b.paperThicknessMm;
-      }
-      const sizeA = (a.masterSheetSizeWidth || 0) * (a.masterSheetSizeHeight || 0);
-      const sizeB = (b.masterSheetSizeWidth || 0) * (b.masterSheetSizeHeight || 0);
-      if (sizeA !== sizeB) return sizeA - sizeB;
-      return (a.id || "").localeCompare(b.id || "");
-    });
-  }, [allInventoryItems, watchedPaperQuality, watchedPaperGsm, watchedPaperThicknessMm, watchedCustomerName]);
-
-
->>>>>>> 84af9ef156060b1747b6bb9a860e314d138cf4c4
   const fetchJobsForThisCustomer = async (customerName: string) => {
     if (!customerName) {
       setJobsForCustomer([]);
@@ -433,6 +332,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
       remarks: job.remarks,
       dispatchDate: undefined, 
       workflowSteps: job.workflowSteps || [],
+ // Keep existing linked jobs when repeating, or default to empty array if initialJobData was empty
       linkedJobCardIds: job.linkedJobCardIds || [],
       pdfDataUri: job.pdfDataUri,
     });
@@ -486,7 +386,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
         grossQuantity: undefined,
         paperGsm: undefined,
         targetPaperThicknessMm: undefined,
-        paperQuality: "",
+        paperQuality: undefined,
         kindOfJob: "",
         printingFront: "",
         printingBack: "",
@@ -521,9 +421,13 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
   }
 
 
+type ProcessField = 
+  | { name: keyof JobCardFormValues; label: string; options: { value: string; label: string; }[]; }
+  | { name: keyof JobCardFormValues; label: string; type: "input"; };
+
   const processFields = [
     { name: "kindOfJob", label: "Kind of Job", options: KINDS_OF_JOB_OPTIONS },
-    { name: "printingFront", label: "Printing Front", options: PRINTING_MACHINE_OPTIONS },
+    { name: "printingFront", label: "Printing Front", options: PRINTING_MACHINE_OPTIONS }, // Keep original line
     { name: "printingBack", label: "Printing Back", options: PRINTING_MACHINE_OPTIONS },
     { name: "coating", label: "Coating", options: COATING_OPTIONS },
     { name: "specialInks", label: "Special Inks (Pantone Code)", type: "input" },
@@ -533,13 +437,13 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
     { name: "emboss", label: "Emboss", options: YES_NO_OPTIONS },
     { name: "pasting", label: "Pasting", options: YES_NO_OPTIONS },
     { name: "boxMaking", label: "Box Making", options: BOX_MAKING_OPTIONS },
-  ] as const;
+  ];
 
   const linkedJobCardIds = form.watch('linkedJobCardIds') || [];
 
   const filteredInventoryForDisplay = useMemo(() => {
     if (!watchedPaperQuality) return [];
-
+  
     let filtered = allInventoryItems.filter(
       (item) => item.type === 'Master Sheet' && item.paperQuality === watchedPaperQuality && (item.availableStock ?? 0) > 0
     );
@@ -638,11 +542,9 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
                           <FormControl>
                             <div className="relative">
                               <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                              {isLoadingCustomers && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
                               <Input
                                 ref={customerInputRef}
                                 placeholder={isLoadingCustomers ? "Loading customers..." : "Type or select customer"}
-                                {...field}
                                 value={customerInputValue}
                                 onChange={(e) => handleCustomerInputChange(e, field.onChange)}
                                 onFocus={() => {
@@ -807,8 +709,8 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
                     value={field.value || ""}
                   >
                     <FormControl><SelectTrigger className="font-body"><SelectValue placeholder="Select paper quality" /></SelectTrigger></FormControl>
-                    <SelectContent>
-                      {PAPER_QUALITY_OPTIONS.filter(opt => opt.value !== "").map(option => (
+                    <SelectContent className="font-body max-h-[200px]">
+                      {PAPER_QUALITY_OPTIONS.map(option => (
                         <SelectItem key={option.value} value={option.value} className="font-body">
                           {option.label}
                         </SelectItem>
@@ -1026,8 +928,8 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
              <CardDescription className="font-body">These can be pre-filled by selecting a past job.</CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {processFields.map(item => {
-              if (item.type === 'input') {
+            {processFields.map((item) => {
+              if (item.type === 'input') { // Keep original line
                 return (
                   <FormField
                     key={item.name}
@@ -1043,7 +945,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
                   />
                 );
               }
-              return (
+                return (
                 <FormField
                   key={item.name}
                   control={form.control}
@@ -1054,8 +956,8 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
                       <Select onValueChange={field.onChange} value={String(field.value || "")}>
                         <FormControl><SelectTrigger className="font-body"><SelectValue placeholder={`Select ${item.label.toLowerCase()}`} /></SelectTrigger></FormControl>
                         <SelectContent>
-                          {item.options.filter(opt => opt.value !== "").map(option => (
-                            <SelectItem key={option.value} value={option.value} className="font-body">{option.label}</SelectItem>
+ {(item as { name: keyof JobCardFormValues; label: string; options: { value: string; label: string; }[]; }).options.map((option: { value: string; label: string }) => (
+ <SelectItem key={option.value} value={option.value} className="font-body">{option.label}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>

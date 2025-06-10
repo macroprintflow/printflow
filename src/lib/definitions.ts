@@ -51,7 +51,10 @@ export const PAPER_QUALITY_OPTIONS = [
 ] as const;
 
 type PaperQualityValue = typeof PAPER_QUALITY_OPTIONS[number]['value'];
-export type PaperQualityType = PaperQualityValue | '';
+export type PaperQualityType = PaperQualityValue;
+
+// Ensure paperQualityEnumValues is defined before JobCardSchema
+const paperQualityEnumValues = PAPER_QUALITY_OPTIONS.map(opt => opt.value) as [string, ...string[]];
 
 export function getPaperQualityLabel(value: PaperQualityType): string {
   const option = PAPER_QUALITY_OPTIONS.find(opt => opt.value === value);
@@ -157,8 +160,6 @@ export type JobTemplateData = {
 };
 
 
-const paperQualityEnumValues = ['', ...PAPER_QUALITY_OPTIONS.map(opt => opt.value)] as const;
-
 export const JobCardSchema = z.object({
   jobName: z.string().min(1, "Job name is required"),
   customerName: z.string().min(1, "Customer name is required"), // Will be derived from selected customer
@@ -172,7 +173,7 @@ export const JobCardSchema = z.object({
 
   paperGsm: z.coerce.number().optional(),
   targetPaperThicknessMm: z.coerce.number().optional(),
-  paperQuality: z.enum(paperQualityEnumValues).refine(val => val !== '', { message: "Paper quality is required" }),
+  paperQuality: z.enum(paperQualityEnumValues).refine(val => val !== '', { message: "Paper Quality is required" }),
 
   masterSheetSizeWidth: z.coerce.number().optional(),
   masterSheetSizeHeight: z.coerce.number().optional(),
@@ -181,7 +182,7 @@ export const JobCardSchema = z.object({
   selectedMasterSheetGsm: z.coerce.number().optional(),
   selectedMasterSheetThicknessMm: z.coerce.number().optional(),
   selectedMasterSheetQuality: z.enum(paperQualityEnumValues).optional(),
-  sourceInventoryItemId: z.string().optional(),
+  sourceInventoryItemId: z.string().optional(), // This might need review based on your inventory flow
   sheetsPerMasterSheet: z.coerce.number().optional(),
   totalMasterSheetsNeeded: z.coerce.number().optional(),
 
@@ -200,8 +201,9 @@ export const JobCardSchema = z.object({
   dispatchDate: z.string().optional(),
   workflowSteps: z.array(WorkflowStepSchema).optional(),
   pdfDataUri: z.string().optional(),
+  linkedJobCardIds: z.array(z.string()).optional(),
 }).superRefine((data, ctx) => {
-  const unit = getPaperQualityUnit(data.paperQuality as PaperQualityType);
+  const unit = getPaperQualityUnit(data.paperQuality as PaperQualityType); // Cast as PaperQualityType
   if (data.paperQuality && unit === 'gsm' && (data.paperGsm === undefined || data.paperGsm <= 0)) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Paper GSM must be positive for this quality.", path: ["paperGsm"] });
   }
@@ -215,7 +217,7 @@ export type JobCardFormValues = z.infer<typeof JobCardSchema>;
 
 export const JobTemplateSchema = z.object({
   name: z.string().min(1, "Template name is required"),
-  paperQuality: z.enum(paperQualityEnumValues).default('').optional(),
+  paperQuality: z.enum(paperQualityEnumValues).optional(), // Use defined enum values
   kindOfJob: z.enum(['METPET', 'NORMAL', 'NO_PRINTING', '']).default('').optional(),
   printingFront: z.enum(['SM74', 'SORSZ', 'DOMINANT', 'NO_PRINTING', '']).default('').optional(),
   printingBack: z.enum(['SM74', 'SORSZ', 'DOMINANT', 'NO_PRINTING', '']).default('').optional(),
@@ -703,5 +705,4 @@ export const CustomerListItemSchema = z.object({
 export type CustomerListItem = z.infer<typeof CustomerListItemSchema>;
 
 export { UserRoundPlus }; // Exporting new icon
-
     

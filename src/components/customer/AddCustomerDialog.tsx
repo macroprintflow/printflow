@@ -30,7 +30,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, UserPlus, Home, Mail, Phone } from "lucide-react";
+import { Loader2, UserPlus, Home, Mail, Phone, Upload } from "lucide-react"; // Added Upload icon
 import { useToast } from "@/hooks/use-toast";
 
 interface AddCustomerDialogProps {
@@ -276,20 +276,26 @@ export function AddCustomerDialog({ isOpen, setIsOpen, onCustomerAdded }: AddCus
               </div>
             </ScrollArea>
 
-            <DialogFooter className="pt-6 border-t">
-              <DialogClose asChild>
-                <Button type="button" variant="outline" disabled={isSubmitting}>
-                  Cancel
-                </Button>
-              </DialogClose>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <UserPlus className="mr-2 h-4 w-4" />
-                )}
-                {isSubmitting ? "Adding Customer..." : "Add Customer"}
+            <DialogFooter className="pt-6 border-t sm:justify-between">
+              <Button type="button" variant="secondary" disabled={isSubmitting} onClick={() => toast({ title: "Coming Soon!", description: "CSV import functionality will be available in a future update."})}>
+                <Upload className="mr-2 h-4 w-4" />
+                Import .csv
               </Button>
+              <div className="flex gap-2">
+                <DialogClose asChild>
+                  <Button type="button" variant="outline" disabled={isSubmitting}>
+                    Cancel
+                  </Button>
+                </DialogClose>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <UserPlus className="mr-2 h-4 w-4" />
+                  )}
+                  {isSubmitting ? "Adding Customer..." : "Add Customer"}
+                </Button>
+              </div>
             </DialogFooter>
           </form>
         </Form>
@@ -297,5 +303,3 @@ export function AddCustomerDialog({ isOpen, setIsOpen, onCustomerAdded }: AddCus
     </Dialog>
   );
 }
-
-    
