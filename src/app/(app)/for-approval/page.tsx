@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge"; // Added Badge
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { UploadCloud, FileText, CheckCircle, Send, Loader2, AlertTriangle, Eye, Download, Mail, Upload } from "lucide-react";
 import { useState, type FormEvent, type ChangeEvent, useEffect, useCallback, useMemo, useRef } from "react";
@@ -277,55 +277,55 @@ export default function ForApprovalPage() {
 
   return (
     <div className="space-y-6">
-      <Card>
+      <Card className="rounded-2xl bg-card/60 backdrop-blur-xl border border-white/10">
         <CardHeader>
-          <CardTitle className="font-headline flex items-center">
+          <CardTitle className="font-headline flex items-center text-xl">
             <UploadCloud className="mr-2 h-6 w-6 text-primary" />
             Submit Design for Approval
           </CardTitle>
-          <CardDescription className="font-body">
+          <CardDescription className="font-body text-base text-muted-foreground/80">
             Designers: Fill in the details, upload your PDF artwork, and submit for manager approval.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <Label htmlFor="plateType" className="font-body">Plate Type</Label>
+              <Label htmlFor="plateType" className="font-body text-base">Plate Type</Label>
               <RadioGroup value={plateType} onValueChange={(value) => setPlateType(value as PlateTypeValue)} className="flex space-x-4 mt-1">
                 {PLATE_TYPES.map(pt => (
                   <div key={pt.value} className="flex items-center space-x-2">
-                    <RadioGroupItem value={pt.value} id={`plateType-${pt.value}`} />
-                    <Label htmlFor={`plateType-${pt.value}`} className="font-body">{pt.label}</Label>
+                    <RadioGroupItem value={pt.value} id={`plateType-${pt.value}`} className="data-[state=checked]:bg-primary/70 data-[state=checked]:border-primary/50 border-white/20"/>
+                    <Label htmlFor={`plateType-${pt.value}`} className="font-body text-base">{pt.label}</Label>
                   </div>
                 ))}
               </RadioGroup>
             </div>
 
             {plateType === "new" && (
-              <div className="space-y-4 p-4 border rounded-md bg-muted/30">
-                 <Label className="font-body font-semibold">New Plate Options</Label>
+              <div className="space-y-4 p-4 border border-white/10 rounded-xl bg-muted/30 backdrop-blur-sm">
+                 <Label className="font-body font-semibold text-base">New Plate Options</Label>
                 <div>
-                  <Label htmlFor="colorProfile" className="font-body">Color Profile</Label>
+                  <Label htmlFor="colorProfile" className="font-body text-base">Color Profile</Label>
                   <Select value={colorProfile} onValueChange={(value) => setColorProfile(value as ColorProfileValue)}>
-                    <SelectTrigger id="colorProfile" className="font-body">
+                    <SelectTrigger id="colorProfile" className="font-body text-base bg-input/30 backdrop-blur-md border-white/20 rounded-xl">
                       <SelectValue placeholder="Select color profile" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-popover/80 backdrop-blur-md border-white/20">
                       {COLOR_PROFILES.map(cp => (
-                        <SelectItem key={cp.value} value={cp.value} className="font-body">{cp.label}</SelectItem>
+                        <SelectItem key={cp.value} value={cp.value} className="font-body text-base">{cp.label}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 {colorProfile === "other" && (
                   <div>
-                    <Label htmlFor="otherColorProfileDetail" className="font-body">Specify Other Color Details</Label>
+                    <Label htmlFor="otherColorProfileDetail" className="font-body text-base">Specify Other Color Details</Label>
                     <Input 
                       id="otherColorProfileDetail" 
                       value={otherColorProfileDetail} 
                       onChange={(e) => setOtherColorProfileDetail(e.target.value)} 
                       placeholder="e.g., Pantone 123C, Special Varnish" 
-                      className="font-body"
+                      className="font-body text-base bg-input/30 backdrop-blur-md border-white/20 rounded-xl"
                     />
                   </div>
                 )}
@@ -333,7 +333,7 @@ export default function ForApprovalPage() {
             )}
 
             <div>
-              <Label className="font-body">Upload PDF Artwork</Label>
+              <Label className="font-body text-base">Upload PDF Artwork</Label>
               <Input 
                 id="pdfFile" 
                 type="file"
@@ -346,34 +346,34 @@ export default function ForApprovalPage() {
                 type="button" 
                 variant="outline" 
                 onClick={handleCustomUploadButtonClick} 
-                className="w-full font-body justify-start text-muted-foreground hover:text-foreground"
+                className="w-full font-body text-base justify-start text-muted-foreground/80 hover:text-foreground bg-secondary/30 backdrop-blur-md border border-white/20 rounded-xl hover:bg-secondary/50 h-12"
               >
                 <Upload className="mr-2 h-4 w-4" />
                 {selectedFile ? selectedFile.name : "Upload File"}
               </Button>
-               {selectedFile && <p className="text-xs text-muted-foreground mt-1">Selected: {selectedFile.name} (Click button above to change)</p>}
+               {selectedFile && <p className="text-sm text-muted-foreground/80 mt-1 font-body">Selected: {selectedFile.name} (Click button above to change)</p>}
             </div>
             <div>
-              <Label htmlFor="jobName" className="font-body">Job Name (e.g., Spring Catalog 2025)</Label>
+              <Label htmlFor="jobName" className="font-body text-base">Job Name (e.g., Spring Catalog 2025)</Label>
               <Input 
                 id="jobName" 
                 value={jobName} 
                 onChange={(e) => setJobName(e.target.value)} 
                 placeholder="Enter the job name for this design" 
-                className="font-body"
+                className="font-body text-base bg-input/30 backdrop-blur-md border-white/20 rounded-xl"
               />
             </div>
             <div>
-              <Label htmlFor="customerName" className="font-body">Customer Name (e.g., Acme Corp)</Label>
+              <Label htmlFor="customerName" className="font-body text-base">Customer Name (e.g., Acme Corp)</Label>
               <Input 
                 id="customerName" 
                 value={customerName} 
                 onChange={(e) => setCustomerName(e.target.value)} 
                 placeholder="Enter the customer's name" 
-                className="font-body"
+                className="font-body text-base bg-input/30 backdrop-blur-md border-white/20 rounded-xl"
               />
             </div>
-            <Button type="submit" className="font-body" disabled={isSubmitting}>
+            <Button type="submit" className="font-body text-base bg-primary/70 backdrop-blur-md border border-primary/50 rounded-xl hover:bg-primary/80 h-12 px-6" disabled={isSubmitting}>
               {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
               {isSubmitting ? "Submitting..." : "Submit for Approval"}
             </Button>
@@ -381,44 +381,44 @@ export default function ForApprovalPage() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="rounded-2xl bg-card/60 backdrop-blur-xl border border-white/10">
         <CardHeader>
-          <CardTitle className="font-headline">All Designs Awaiting Action</CardTitle>
+          <CardTitle className="font-headline text-xl">All Designs Awaiting Action</CardTitle>
         </CardHeader>
         <CardContent>
           {isLoadingDesigns ? (
             <div className="flex justify-center items-center py-10">
               <Loader2 className="mr-2 h-8 w-8 animate-spin text-primary" />
-              <p className="font-body text-muted-foreground">Loading designs...</p>
+              <p className="font-body text-base text-muted-foreground/80">Loading designs...</p>
             </div>
           ) : allDesignSubmissions.length > 0 ? (
             <ul className="space-y-3">
               {allDesignSubmissions.map(design => (
-                <li key={design.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border rounded-md bg-card hover:shadow-sm gap-3">
+                <li key={design.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border border-white/10 rounded-xl bg-card/50 backdrop-blur-md hover:shadow-sm gap-3">
                   <div className="flex items-center">
-                    <FileText className="mr-3 h-6 w-6 text-muted-foreground flex-shrink-0" />
+                    <FileText className="mr-3 h-6 w-6 text-muted-foreground/80 flex-shrink-0" />
                     <div>
                       <p className="font-medium font-body text-base">{design.pdfName}</p>
-                      <p className="text-sm text-muted-foreground font-body">
+                      <p className="text-sm text-muted-foreground/80 font-body">
                         Job: {design.jobName} | Customer: {design.customerName}
                         {design.plateType === 'new' && design.colorProfile && (
                           <> | Color: {design.colorProfile}{design.colorProfile === 'other' && design.otherColorProfileDetail ? ` (${design.otherColorProfileDetail})` : ''}</>
                         )}
                       </p>
-                      <p className="text-xs text-muted-foreground font-body">
+                      <p className="text-xs text-muted-foreground/70 font-body">
                         Uploaded by {design.uploader} on {new Date(design.date).toLocaleDateString()} - Status: 
                         <span className={`ml-1 font-semibold ${
-                          design.status === 'approved' ? 'text-green-600' :
-                          design.status === 'rejected' ? 'text-red-600' :
-                          'text-orange-500'
+                          design.status === 'approved' ? 'text-green-400' :
+                          design.status === 'rejected' ? 'text-red-400' :
+                          'text-orange-400'
                         }`}>
                           {design.status.toUpperCase()}
                         </span>
                         {design.plateType === 'new' && (
-                          <Badge variant="outline" className="ml-2 text-xs py-0.5 px-1.5 border-blue-500 text-blue-500">NEW</Badge>
+                          <Badge variant="outline" className="ml-2 text-xs py-0.5 px-1.5 border-blue-500/70 text-blue-400 bg-transparent backdrop-blur-sm">NEW</Badge>
                         )}
                         {design.plateType === 'old' && (
-                          <Badge variant="outline" className="ml-2 text-xs py-0.5 px-1.5 border-orange-500 text-orange-500">OLD</Badge>
+                          <Badge variant="outline" className="ml-2 text-xs py-0.5 px-1.5 border-orange-500/70 text-orange-400 bg-transparent backdrop-blur-sm">OLD</Badge>
                         )}
                       </p>
                     </div>
@@ -426,10 +426,10 @@ export default function ForApprovalPage() {
                   <div className="flex gap-2 mt-2 sm:mt-0 flex-shrink-0 items-center flex-wrap justify-end">
                     {design.pdfDataUri && (
                       <>
-                        <Button variant="outline" size="sm" onClick={() => handleViewPdf(design.pdfDataUri)} className="font-body" title="View PDF">
+                        <Button variant="outline" size="sm" onClick={() => handleViewPdf(design.pdfDataUri)} className="font-body text-sm bg-secondary/30 backdrop-blur-md border-white/20 rounded-xl hover:bg-secondary/50" title="View PDF">
                           <Eye className="mr-1 h-4 w-4" /> View PDF
                         </Button>
-                        <Button variant="outline" size="sm" onClick={() => handleDownloadPdf(design.pdfDataUri, design.jobName, design.customerName, design.date)} className="font-body" title="Download PDF">
+                        <Button variant="outline" size="sm" onClick={() => handleDownloadPdf(design.pdfDataUri, design.jobName, design.customerName, design.date)} className="font-body text-sm bg-secondary/30 backdrop-blur-md border-white/20 rounded-xl hover:bg-secondary/50" title="Download PDF">
                           <Download className="mr-1 h-4 w-4" /> Download
                         </Button>
                       </>
@@ -437,7 +437,7 @@ export default function ForApprovalPage() {
                     {design.status === 'approved' && design.plateType === 'new' && (
                        <Button variant="outline" size="sm" 
                           // onClick={() => handleSendEmailToPlateManufacturer(design)} 
-                          className="font-body text-blue-600 border-blue-600 hover:bg-blue-50" 
+                          className="font-body text-sm text-blue-400 border-blue-500/50 bg-blue-500/20 backdrop-blur-md rounded-xl hover:bg-blue-500/40" 
                           disabled // Keep disabled for "Coming Soon"
                           title="Email Plate Maker (Coming Soon)"
                         >
@@ -446,10 +446,10 @@ export default function ForApprovalPage() {
                     )}
                     {design.status === 'pending' && (
                       <>
-                        <Button variant="outline" size="sm" onClick={() => handleApproval(design.id, true)} className="font-body">
-                          <CheckCircle className="mr-1 h-4 w-4 text-green-500" /> Approve
+                        <Button variant="outline" size="sm" onClick={() => handleApproval(design.id, true)} className="font-body text-sm bg-secondary/30 backdrop-blur-md border-white/20 rounded-xl hover:bg-secondary/50">
+                          <CheckCircle className="mr-1 h-4 w-4 text-green-400" /> Approve
                         </Button>
-                        <Button variant="outline" size="sm" onClick={() => handleApproval(design.id, false)} className="font-body text-red-600 border-red-600 hover:bg-red-50">
+                        <Button variant="outline" size="sm" onClick={() => handleApproval(design.id, false)} className="font-body text-sm text-red-400 border-red-500/50 bg-red-500/20 backdrop-blur-md rounded-xl hover:bg-red-500/40">
                            <AlertTriangle className="mr-1 h-4 w-4" /> Reject
                         </Button>
                       </>
@@ -459,7 +459,7 @@ export default function ForApprovalPage() {
               ))}
             </ul>
           ) : (
-            <p className="text-muted-foreground font-body text-center py-4">
+            <p className="text-muted-foreground/80 font-body text-base text-center py-4">
               No designs are currently submitted or awaiting approval.
             </p>
           )}
