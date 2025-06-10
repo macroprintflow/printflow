@@ -19,7 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { CalendarIcon, Wand2, Link2, PlusCircle, Loader2, RotateCcw, ListOrdered, Users, Briefcase as BriefcaseIcon, Search } from "lucide-react";
+import { CalendarIcon, Wand2, Link2, PlusCircle, Loader2, RotateCcw, ListOrdered, Users, Briefcase as BriefcaseIcon, Search, Archive } from "lucide-react"; // Added Archive
 import { format } from "date-fns";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 // import { InventoryOptimizationModal } from "./InventoryOptimizationModal"; // Optimizer commented out
@@ -797,6 +797,19 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
                     <Wand2 className="mr-2 h-4 w-4" /> Optimize Master Sheet (Coming Soon)
                  </Button>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-headline flex items-center"><Archive className="mr-2 h-5 w-5 text-primary"/>Relevant Inventory</CardTitle>
+            <CardDescription className="font-body">
+              Shows available master sheets from inventory matching your target paper specifications.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {/* Placeholder for inventory table and selection logic */}
+            <p className="text-muted-foreground font-body">Inventory display and selection will appear here.</p>
           </CardContent>
         </Card>
         
