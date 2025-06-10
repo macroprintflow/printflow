@@ -146,8 +146,8 @@
     inset: 0;
     border-radius: 1.5rem; /* Matches Tailwind's rounded-3xl (24px if 1rem=16px) */
     pointer-events: none; /* Allows interaction with the card content */
-    border: 1.5px solid rgba(255, 255, 255, 0.18); /* Semi-transparent white border */
-    box-shadow: 0 0 12px 2px rgba(255, 255, 255, 0.12); /* Soft white outer glow */
+    border: 1px solid rgba(255, 255, 255, 0.2); /* Thinner, slightly more opaque border */
+    box-shadow: 0 0 5px rgba(255, 255, 255, 0.1); /* Tighter, no spread, softer glow */
     z-index: 1; /* Sits on top of the card's background, below its content */
   }
 }
