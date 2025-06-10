@@ -173,11 +173,9 @@ export async function getInventoryOptimizationSuggestions(
     quantityToProduce: number;
   }
 ): Promise<OptimizeInventoryOutput | { error: string }> {
-  // This function relies on getInventoryItems, which will currently return []
-  // So, this will also effectively return no suggestions for now.
   console.log('[JobActions TS Calc] getInventoryOptimizationSuggestions called (in-memory). Job Input:', JSON.stringify(jobInput, null, 2));
-  const allInventoryMasterItems = await getInventoryItems(); // Will be []
-  // ... rest of the logic would run but with an empty item list
+  const allInventoryMasterItems = await getInventoryItems(); 
+  
   if (allInventoryMasterItems.length === 0) {
     console.log('[JobActions TS Calc] No inventory items to process for optimization suggestions (getInventoryItems returned empty).');
     return { suggestions: [], optimalSuggestion: undefined };
@@ -304,7 +302,6 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
       inventoryItemId = `inv${currentInventoryCounter}`;
       let itemType: InventoryItemType = 'Other';
       let itemGroup: ItemGroupType = 'Other Stock';
-      // ... (rest of new item creation logic as before) ...
       let specificName = data.itemName;
       let specificSpecification = data.itemSpecification || '';
       let masterSheetSizeWidth_val: number | undefined = undefined;
@@ -360,7 +357,6 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
         };
         global.__inventoryAdjustmentsStore__.push(adjustment);
     } else if (adjustmentReason === 'INITIAL_STOCK' && data.quantity === 0) {
-        // Log zero stock for new items if quantity is zero
         const adjustment: InventoryAdjustment = {
             id: `adj${global.__adjustmentCounter__++}`, inventoryItemId: inventoryItemId, date: data.dateOfEntry,
             quantityChange: 0, reason: 'INITIAL_STOCK', reference: 'Item type defined',
@@ -382,12 +378,29 @@ export async function addInventoryItem(data: InventoryItemFormValues): Promise<{
 }
 
 export async function getInventoryItems(categoryFilter?: InventoryCategory): Promise<InventoryItem[]> {
-  console.log('[JobActions DEBUG] getInventoryItems called. Forcing return of EMPTY ARRAY. - vRevert');
   // Ensure stores are initialized
   if (!global.__inventoryItemsStore__) global.__inventoryItemsStore__ = [];
   if (!global.__inventoryAdjustmentsStore__) global.__inventoryAdjustmentsStore__ = [];
-  // For this step, strictly return empty to isolate JobCardForm.tsx issues
-  return [];
+
+  const itemsWithStock = global.__inventoryItemsStore__.map(item => {
+    const adjustments = global.__inventoryAdjustmentsStore__!.filter(adj => adj.inventoryItemId === item.id);
+    const availableStock = adjustments.reduce((sum, adj) => sum + adj.quantityChange, 0);
+    return { ...item, availableStock };
+  });
+  
+  if (!categoryFilter || categoryFilter === "ALL") {
+    return itemsWithStock;
+  }
+  
+  return itemsWithStock.filter(item => {
+    if (categoryFilter === 'PAPER') return item.type === 'Master Sheet';
+    if (categoryFilter === 'INKS') return item.itemGroup === 'Inks'; // or item.type === 'Ink'
+    if (categoryFilter === 'PLASTIC_TRAY') return item.itemGroup === 'Plastic Trays';
+    if (categoryFilter === 'GLASS_JAR') return item.itemGroup === 'Glass Jars';
+    if (categoryFilter === 'MAGNET') return item.itemGroup === 'Magnets';
+    if (categoryFilter === 'OTHER') return item.itemGroup === 'Other Stock';
+    return false;
+  });
 }
 
 export async function getInventoryAdjustmentsForItem(inventoryItemId: string): Promise<InventoryAdjustment[]> {
