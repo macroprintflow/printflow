@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, type Dispatch, type SetStateAction } from "react";
@@ -15,13 +14,13 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label"; // Keep Label if used directly, FormLabel is preferred within FormField
+// Label is imported from ui/label but FormLabel is used from ui/form
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { cn } from "@/lib/utils";
 import { CalendarIcon, Loader2, ArrowRight, ArrowLeft, CheckCircle } from "lucide-react";
 import { format } from "date-fns";
@@ -68,6 +67,8 @@ interface NewJobMultiStepModalProps {
   onModalClose?: () => void;
 }
 
+const MAX_STEPS = 3;
+
 export function NewJobMultiStepModal({
   isOpen,
   setIsOpen,
@@ -84,7 +85,7 @@ export function NewJobMultiStepModal({
         currentStep === 1 ? Step1Schema :
         currentStep === 2 ? Step2Schema :
         currentStep === 3 ? Step3Schema :
-        MultiStepJobSchema
+        MultiStepJobSchema // Fallback, though currentStep should always be 1, 2, or 3
     ),
     defaultValues: {
       jobName: initialData?.jobName || "",
@@ -127,10 +128,10 @@ export function NewJobMultiStepModal({
     let isValid = false;
     if (currentStep === 1) isValid = await form.trigger(["jobName", "customerName", "dispatchDate"]);
     else if (currentStep === 2) isValid = await form.trigger(["jobSizeWidth", "jobSizeHeight", "netQuantity", "grossQuantity", "paperQuality", "paperGsm", "targetPaperThicknessMm"]);
-    else if (currentStep === 3) isValid = await form.trigger(["remarks"]);
+    // Step 3 doesn't need validation for next, it's the submit step now.
     
     if (isValid) {
-      if (currentStep < 4) {
+      if (currentStep < MAX_STEPS) {
         setCurrentStep((prev) => prev + 1);
       }
     } else {
@@ -146,8 +147,9 @@ export function NewJobMultiStepModal({
 
   const onSubmit = async (data: MultiStepJobFormValues) => {
     setIsSubmitting(true);
-    console.log("Multi-step form submitted:", data);
+    console.log("Multi-step form submitted (Steps 1-3):", data);
 
+    // For now, just log and close. Actual submission to createJobCard would happen here.
     const jobCardPayload: JobCardData = {
       jobName: data.jobName,
       customerName: data.customerName, 
@@ -161,6 +163,7 @@ export function NewJobMultiStepModal({
       paperGsm: data.paperQuality && getPaperQualityUnit(data.paperQuality as PaperQualityType) === 'gsm' ? data.paperGsm : undefined,
       targetPaperThicknessMm: data.paperQuality && getPaperQualityUnit(data.paperQuality as PaperQualityType) === 'mm' ? data.targetPaperThicknessMm : undefined,
       remarks: data.remarks,
+      // Default other fields as empty or standard values as JobCardForm does
       kindOfJob: "", 
       printingFront: "",
       printingBack: "",
@@ -170,14 +173,14 @@ export function NewJobMultiStepModal({
       emboss: "",
       pasting: "",
       boxMaking: "",
-      workflowSteps: [],
+      workflowSteps: [], // Or a default workflow
       linkedJobCardIds: [],
     };
     
     // Simulate API call for now
     // In a real scenario, you'd call `await createJobCard(jobCardPayload);`
     setTimeout(() => { 
-        toast({ title: "Form Submitted (Placeholder)", description: "Data logged to console. Actual creation pending." });
+        toast({ title: "Form Submitted (Placeholder)", description: "Data from steps 1-3 logged to console. Actual creation pending." });
         setIsSubmitting(false);
         setIsOpen(false);
         form.reset();
@@ -197,7 +200,9 @@ export function NewJobMultiStepModal({
                 <FormItem>
                   <FormLabel htmlFor="msJobName">Job Name</FormLabel>
                   <FormControl>
-                    <Input id="msJobName" {...field} placeholder="e.g., Premium Product Box" />
+                    <Input id="msJobName" {...field} placeholder="e.g., Premium Product Box" 
+                           value={field.value || ''}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -206,7 +211,9 @@ export function NewJobMultiStepModal({
                 <FormItem>
                   <FormLabel htmlFor="msCustomerName">Client / Customer Name</FormLabel>
                   <FormControl>
-                    <Input id="msCustomerName" {...field} placeholder="e.g., Acme Corp" />
+                    <Input id="msCustomerName" {...field} placeholder="e.g., Acme Corp" 
+                           value={field.value || ''}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -329,29 +336,12 @@ export function NewJobMultiStepModal({
               <FormField control={form.control} name="remarks" render={({ field }) => (
                 <FormItem>
                   <FormLabel htmlFor="msRemarks">Remarks (Optional)</FormLabel>
-                  <FormControl><Textarea id="msRemarks" {...field} placeholder="Any additional notes or instructions..." rows={4} /></FormControl>
+                  <FormControl><Textarea id="msRemarks" {...field} value={field.value || ''} placeholder="Any additional notes or instructions..." rows={4} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
             </form>
           </Form>
-        );
-      case 4:
-        const formData = form.getValues();
-        return (
-          <div className="space-y-3">
-            <h4 className="font-semibold text-lg">Review Your Job Details</h4>
-            <p><strong>Job Name:</strong> {formData.jobName}</p>
-            <p><strong>Customer:</strong> {formData.customerName}</p>
-            <p><strong>Dispatch Date:</strong> {formData.dispatchDate ? format(formData.dispatchDate, "PPP") : "N/A"}</p>
-            <p><strong>Size:</strong> {formData.jobSizeWidth}in x {formData.jobSizeHeight}in</p>
-            <p><strong>Quantity:</strong> Net {formData.netQuantity}, Gross {formData.grossQuantity}</p>
-            <p><strong>Material:</strong> {PAPER_QUALITY_OPTIONS.find(o => o.value === formData.paperQuality)?.label}
-                {targetPaperUnit === 'gsm' && formData.paperGsm ? ` ${formData.paperGsm}GSM` : ''}
-                {targetPaperUnit === 'mm' && formData.targetPaperThicknessMm ? ` ${formData.targetPaperThicknessMm}mm` : ''}
-            </p>
-            <p><strong>Remarks:</strong> {formData.remarks || "N/A"}</p>
-          </div>
         );
       default:
         return null;
@@ -362,8 +352,7 @@ export function NewJobMultiStepModal({
     switch (currentStep) {
       case 1: return "Step 1: Basic Information";
       case 2: return "Step 2: Job Specifications";
-      case 3: return "Step 3: Additional Details";
-      case 4: return "Step 4: Review & Submit";
+      case 3: return "Step 3: Additional Details &amp; Submit";
       default: return "Create New Job";
     }
   };
@@ -399,14 +388,14 @@ export function NewJobMultiStepModal({
               <ArrowLeft className="mr-2 h-4 w-4" /> Back
             </Button>
           )}
-          {currentStep < 4 ? (
+          {currentStep < MAX_STEPS ? (
             <Button onClick={handleNext} disabled={isSubmitting}>
               Next <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           ) : (
             <Button onClick={form.handleSubmit(onSubmit)} disabled={isSubmitting}>
               {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <CheckCircle className="mr-2 h-4 w-4" />}
-              {isSubmitting ? "Submitting..." : "Submit Job Card"}
+              {isSubmitting ? "Submitting..." : "Submit (Placeholder)"}
             </Button>
           )}
         </DialogFooter>
