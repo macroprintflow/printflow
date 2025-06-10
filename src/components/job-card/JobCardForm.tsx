@@ -38,6 +38,22 @@ interface JobCardFormProps {
   initialJobData?: JobCardData; 
 }
 
+const formatInventoryItemForDisplay = (item: InventoryItem): string => {
+  if (item.type === 'Master Sheet') {
+    const qualityLabel = item.paperQuality ? getPaperQualityLabel(item.paperQuality) : 'Paper';
+    const unit = item.paperQuality ? getPaperQualityUnit(item.paperQuality) : null;
+    let spec = '';
+    if (unit === 'mm' && item.paperThicknessMm) spec = `${item.paperThicknessMm}mm`;
+    else if (unit === 'gsm' && item.paperGsm) spec = `${item.paperGsm}GSM`;
+    
+    const size = (item.masterSheetSizeWidth && item.masterSheetSizeHeight) 
+      ? `${item.masterSheetSizeWidth}x${item.masterSheetSizeHeight}in` 
+      : '';
+    return `${qualityLabel} ${spec} ${size}`.trim().replace(/\s\s+/g, ' ');
+  }
+  return item.name || "Unnamed Item";
+};
+
 export function JobCardForm({ initialJobName, initialCustomerName, initialJobData }: JobCardFormProps) {
   // const [isModalOpen, setIsModalOpen] = useState(false); // Optimizer commented out
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -808,8 +824,44 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {/* Placeholder for inventory table and selection logic */}
-            <p className="text-muted-foreground font-body">Inventory display and selection will appear here.</p>
+             {isLoadingInventory ? (
+                <div className="flex items-center justify-center py-6">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
+                    <p className="text-muted-foreground font-body">Loading inventory...</p>
+                </div>
+            ) : !watchedPaperQuality ? (
+                <p className="text-muted-foreground font-body text-center py-4">Please select a 'Target Paper Quality' above to see relevant inventory.</p>
+            ) : filteredInventoryForDisplay.length === 0 ? (
+                 <p className="text-muted-foreground font-body text-center py-4">
+                    No master sheets found in inventory matching: <span className="font-semibold">{getPaperQualityLabel(watchedPaperQuality as PaperQualityType)}</span>
+                    {targetPaperUnit === 'gsm' && watchedPaperGsm ? ` ${watchedPaperGsm}GSM` : ""}
+                    {targetPaperUnit === 'mm' && watchedPaperThicknessMm ? ` ${watchedPaperThicknessMm}mm` : ""}.
+                    Ensure items have positive stock and match criteria.
+                </p>
+            ) : (
+              <ScrollArea className="h-[250px] border rounded-md">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="font-headline">Item Name / Size</TableHead>
+                      <TableHead className="font-headline text-right">Stock</TableHead>
+                      <TableHead className="font-headline">Unit</TableHead>
+                      <TableHead className="font-headline">Location</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredInventoryForDisplay.map(item => (
+                      <TableRow key={item.id}>
+                        <TableCell className="font-body">{formatInventoryItemForDisplay(item)}</TableCell>
+                        <TableCell className="font-body text-right">{item.availableStock?.toLocaleString() ?? 0}</TableCell>
+                        <TableCell className="font-body">{item.unit}</TableCell>
+                        <TableCell className="font-body">{item.locationCode || '-'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            )}
           </CardContent>
         </Card>
         
