@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, type Dispatch, type SetStateAction } from "react";
+import React, { useState, useEffect, type Dispatch, type SetStateAction, useMemo } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -15,20 +15,39 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-// Label is imported from ui/label but FormLabel is used from ui/form
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { CalendarIcon, Loader2, ArrowRight, ArrowLeft, CheckCircle, Archive } from "lucide-react";
 import { format } from "date-fns";
-import type { JobCardData, PaperQualityType } from "@/lib/definitions";
-import { PAPER_QUALITY_OPTIONS, getPaperQualityUnit, KAPPA_MDF_QUALITIES, createJobCard } from "@/lib/definitions";
+import type { JobCardData, PaperQualityType, InventoryItem } from "@/lib/definitions"; // Added InventoryItem
+import { PAPER_QUALITY_OPTIONS, getPaperQualityUnit, getPaperQualityLabel, KAPPA_MDF_QUALITIES, createJobCard } from "@/lib/definitions"; // Added getPaperQualityLabel
+import { getInventoryItems } from "@/lib/actions/jobActions"; // Added getInventoryItems
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
+
+// Helper function (copied from JobCardForm for now, consider moving to a shared utility)
+const formatInventoryItemForDisplay = (item: InventoryItem): string => {
+  if (item.type === 'Master Sheet') {
+    const qualityLabel = item.paperQuality ? getPaperQualityLabel(item.paperQuality as PaperQualityType) : 'Paper';
+    const unit = item.paperQuality ? getPaperQualityUnit(item.paperQuality as PaperQualityType) : null;
+    let spec = '';
+    if (unit === 'mm' && item.paperThicknessMm) spec = `${item.paperThicknessMm}mm`;
+    else if (unit === 'gsm' && item.paperGsm) spec = `${item.paperGsm}GSM`;
+    
+    const size = (item.masterSheetSizeWidth && item.masterSheetSizeHeight) 
+      ? `${item.masterSheetSizeWidth}x${item.masterSheetSizeHeight}in` 
+      : '';
+    return `${qualityLabel} ${spec} ${size}`.trim().replace(/\s\s+/g, ' ');
+  }
+  return item.name || "Unnamed Item";
+};
+
 
 const Step1Schema = z.object({
   jobName: z.string().min(1, "Job name is required"),
@@ -55,10 +74,11 @@ const Step2Schema = z.object({
 });
 
 const Step3InventorySchema = z.object({
-  inventorySelectionPlaceholder: z.string().optional(), // Placeholder, no actual validation needed yet
+  inventorySelectionPlaceholder: z.string().optional(), 
+  selectedInventoryItemId: z.string().optional(), // To store ID of selected item later
 });
 
-const Step4Schema = z.object({ // Formerly Step3Schema
+const Step4Schema = z.object({
   remarks: z.string().optional(),
 });
 
@@ -72,7 +92,7 @@ interface NewJobMultiStepModalProps {
   onModalClose?: () => void;
 }
 
-const MAX_STEPS = 4; // Increased from 3 to 4
+const MAX_STEPS = 4;
 
 export function NewJobMultiStepModal({
   isOpen,
@@ -85,12 +105,15 @@ export function NewJobMultiStepModal({
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const [allPaperInventory, setAllPaperInventory] = useState<InventoryItem[]>([]);
+  const [isLoadingInventory, setIsLoadingInventory] = useState(false);
+
   const form = useForm<MultiStepJobFormValues>({
     resolver: zodResolver(
         currentStep === 1 ? Step1Schema :
         currentStep === 2 ? Step2Schema :
-        currentStep === 3 ? Step3InventorySchema : // New step 3
-        currentStep === 4 ? Step4Schema : // Old step 3 is now step 4
+        currentStep === 3 ? Step3InventorySchema : 
+        currentStep === 4 ? Step4Schema : 
         MultiStepJobSchema
     ),
     defaultValues: {
@@ -104,7 +127,8 @@ export function NewJobMultiStepModal({
       paperQuality: (initialData?.paperQuality as typeof PAPER_QUALITY_OPTIONS[number]['value']) || "",
       paperGsm: initialData?.paperGsm || undefined,
       targetPaperThicknessMm: initialData?.targetPaperThicknessMm || undefined,
-      inventorySelectionPlaceholder: "", // Initialize placeholder
+      inventorySelectionPlaceholder: "",
+      selectedInventoryItemId: undefined,
       remarks: initialData?.remarks || "",
     },
     mode: "onChange",
@@ -127,17 +151,36 @@ export function NewJobMultiStepModal({
         paperGsm: initialData.paperGsm || undefined,
         targetPaperThicknessMm: initialData.targetPaperThicknessMm || undefined,
         inventorySelectionPlaceholder: "",
+        selectedInventoryItemId: undefined,
         remarks: initialData.remarks || "",
       });
     }
   }, [initialData, form]);
 
+  useEffect(() => {
+    async function fetchInventory() {
+      if (isOpen) { // Fetch only when modal is open
+        setIsLoadingInventory(true);
+        try {
+          const items = await getInventoryItems();
+          const paperItems = items.filter(item => item.type === 'Master Sheet');
+          setAllPaperInventory(paperItems);
+        } catch (error) {
+          toast({ title: "Error", description: "Could not load paper inventory.", variant: "destructive" });
+        } finally {
+          setIsLoadingInventory(false);
+        }
+      }
+    }
+    fetchInventory();
+  }, [isOpen, toast]);
+
+
   const handleNext = async () => {
     let isValid = false;
     if (currentStep === 1) isValid = await form.trigger(["jobName", "customerName", "dispatchDate"]);
     else if (currentStep === 2) isValid = await form.trigger(["jobSizeWidth", "jobSizeHeight", "netQuantity", "grossQuantity", "paperQuality", "paperGsm", "targetPaperThicknessMm"]);
-    else if (currentStep === 3) isValid = true; // Placeholder step for inventory, always valid for now
-    // Step 4 doesn't need validation for next, it's the submit step now.
+    else if (currentStep === 3) isValid = await form.trigger(["selectedInventoryItemId"]); // Add validation if selection becomes mandatory
     
     if (isValid) {
       if (currentStep < MAX_STEPS) {
@@ -171,8 +214,7 @@ export function NewJobMultiStepModal({
       paperGsm: data.paperQuality && getPaperQualityUnit(data.paperQuality as PaperQualityType) === 'gsm' ? data.paperGsm : undefined,
       targetPaperThicknessMm: data.paperQuality && getPaperQualityUnit(data.paperQuality as PaperQualityType) === 'mm' ? data.targetPaperThicknessMm : undefined,
       remarks: data.remarks,
-      // Placeholder for inventory selection - not used in payload yet
-      // data.inventorySelectionPlaceholder would be available here
+      // TODO: Link selectedInventoryItemId to actual master sheet details for the job card
       kindOfJob: "", 
       printingFront: "",
       printingBack: "",
@@ -335,24 +377,55 @@ export function NewJobMultiStepModal({
             </form>
           </Form>
         );
-      case 3: // New Inventory Placeholder Step
+      case 3: 
         return (
-          <Form {...form}>
-            <form className="space-y-4">
-              <FormField control={form.control} name="inventorySelectionPlaceholder" render={({ field }) => (
-                <FormItem>
-                  <FormLabel htmlFor="msInventoryPlaceholder" className="flex items-center"><Archive className="mr-2 h-4 w-4 text-muted-foreground" />Inventory Selection</FormLabel>
-                  <FormControl>
-                    <Input id="msInventoryPlaceholder" {...field} placeholder="Inventory selection UI will be here" value="Placeholder for Inventory Selection UI" readOnly className="bg-muted/30 border-dashed text-center cursor-not-allowed" />
-                  </FormControl>
-                  <FormDescription>This area will allow you to select from available inventory based on the paper specifications from Step 2. Filters and actual selection functionality will be added later.</FormDescription>
+          <div className="space-y-4">
+            <FormLabel className="flex items-center"><Archive className="mr-2 h-4 w-4 text-muted-foreground" />Available Paper Inventory</FormLabel>
+            {isLoadingInventory ? (
+              <div className="flex items-center justify-center h-40">
+                <Loader2 className="mr-2 h-6 w-6 animate-spin text-primary" />
+                <span>Loading inventory...</span>
+              </div>
+            ) : allPaperInventory.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">No paper inventory items found.</p>
+            ) : (
+              <ScrollArea className="h-[300px] border rounded-md">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Item Name</TableHead>
+                      <TableHead className="text-right">Stock</TableHead>
+                      <TableHead>Unit</TableHead>
+                      <TableHead>Location</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {allPaperInventory.map(item => (
+                      <TableRow 
+                        key={item.id}
+                        // onClick={() => form.setValue('selectedInventoryItemId', item.id)} // Placeholder for selection
+                        // className={form.watch('selectedInventoryItemId') === item.id ? "bg-accent" : "cursor-pointer hover:bg-muted/50"}
+                      >
+                        <TableCell>{formatInventoryItemForDisplay(item)}</TableCell>
+                        <TableCell className="text-right">{item.availableStock?.toLocaleString() ?? 0}</TableCell>
+                        <TableCell>{item.unit}</TableCell>
+                        <TableCell>{item.locationCode || '-'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            )}
+            <FormDescription>Filters and selection for inventory will be added later. For now, this list is for display.</FormDescription>
+             <FormField control={form.control} name="selectedInventoryItemId" render={({ field }) => (
+                <FormItem className="hidden"> {/* Hidden field to store selection later */}
+                  <FormControl><Input {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
-            </form>
-          </Form>
+          </div>
         );
-      case 4: // Old Step 3 (Remarks) is now Step 4
+      case 4: 
         return (
           <Form {...form}>
             <form className="space-y-4">
@@ -375,8 +448,8 @@ export function NewJobMultiStepModal({
     switch (currentStep) {
       case 1: return "Step 1: Basic Information";
       case 2: return "Step 2: Job Specifications";
-      case 3: return "Step 3: Select Inventory (Placeholder)"; // New title
-      case 4: return "Step 4: Additional Details & Submit"; // Old step 3 title
+      case 3: return "Step 3: View Available Inventory"; 
+      case 4: return "Step 4: Additional Details & Submit"; 
       default: return "Create New Job";
     }
   };
@@ -427,3 +500,4 @@ export function NewJobMultiStepModal({
     </Dialog>
   );
 }
+
