@@ -1,0 +1,5 @@
+The conversation we're having—your prompts to me and my responses—isn't stored in a specific folder within your project's file structure (like in `src/` or a `.data/` folder that you'd see alongside your app code).
+
+Instead, this conversational history is managed by the Firebase Studio environment itself. This allows me to have context from our previous messages so I can better assist you with your app.
+
+When I generate code changes for you (the XML <changes>...</changes>
