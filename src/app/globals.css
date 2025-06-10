@@ -10,7 +10,6 @@
   font-style: normal;
   font-display: swap;
 }
-
 @font-face {
   font-family: 'Glacial Indifference';
   src: url('/fonts/GlacialIndifference-Bold.woff') format('woff');
@@ -18,45 +17,33 @@
   font-style: normal;
   font-display: swap;
 }
-
 :root {
   --background: 240 4% 9%;
   --foreground: 0 0% 95%;
-  
   --card: 240 4% 12%;
   --card-foreground: 0 0% 95%;
-
   --popover: 240 4% 12%;
   --popover-foreground: 0 0% 95%;
-
   --primary: 212 100% 58%;
   --primary-foreground: 0 0% 95%;
-
   --secondary: 240 4% 15%;
   --secondary-foreground: 0 0% 85%;
-
   --muted: 240 4% 15%;
   --muted-foreground: 240 3% 75%;
-
   --accent: 212 100% 58%;
   --accent-foreground: 0 0% 95%;
-
   --destructive: 0 70% 55%;
   --destructive-foreground: 0 0% 95%;
-
   --border: 240 2% 23%;
   --input: 240 4% 18%;
   --ring: 212 100% 58%;
-  
   --chart-1: 220 70% 50%;
   --chart-2: 160 60% 45%;
   --chart-3: 30 80% 55%;
   --chart-4: 280 65% 60%;
   --chart-5: 340 75% 55%;
-  
   --radius: 20px;
 }
-
 @layer base {
   body {
     font-family: 'Glacial Indifference', -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
@@ -67,7 +54,6 @@
     -moz-osx-font-smoothing: grayscale;
     transition: all 0.3s ease;
     @apply bg-background text-foreground;
-    
     background-image: url('/images/189271609765514.jpg');
     background-size: cover;
     background-position: center center;
@@ -75,7 +61,6 @@
     background-attachment: fixed;
     position: relative;
   }
-
   body::before {
     content: "";
     position: fixed;
@@ -87,11 +72,9 @@
     z-index: -1;
   }
 }
-
 .fade-in {
   animation: fadeIn 0.4s ease-in;
 }
-
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -102,7 +85,6 @@
     transform: translateY(0);
   }
 }
-
 @keyframes accordion-down {
   from {
     height: 0px;
@@ -111,7 +93,6 @@
     height: var(--radix-accordion-content-height);
   }
 }
-
 @keyframes accordion-up {
   from {
     height: var(--radix-accordion-content-height);
@@ -120,22 +101,19 @@
     height: 0px;
   }
 }
-
 @layer components {
   .card-glass-halo {
     position: relative;
   }
-
   .card-glass-halo::before {
     content: '';
     position: absolute;
-    inset: 0;
-    border-radius: 28px;
+    inset: -1px;
+    border-radius: 29px;
     pointer-events: none;
     box-shadow: 0 0 4px 1px rgba(255,255,255,0.15);
     z-index: 1;
   }
-
   .card-glass-halo::after {
     content: "";
     position: absolute;
@@ -145,8 +123,8 @@
     height: 100%;
     background: radial-gradient(
       ellipse at 70% 20%, 
-      rgba(255,255,255,0.10) 0%,
-      rgba(255,255,255,0.05) 40%,
+      rgba(255,255,255,0.07) 0%,
+      rgba(255,255,255,0.03) 40%,
       rgba(255,255,255,0.00) 70%
     );
     border-radius: inherit;
