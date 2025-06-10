@@ -7,10 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge"; // Added Badge
 import { useToast } from "@/hooks/use-toast";
-import { UploadCloud, FileText, CheckCircle, Send, Loader2, AlertTriangle, Eye, Download, Mail, Upload } from "lucide-react"; // Added Upload icon
-import { useState, type FormEvent, type ChangeEvent, useEffect, useCallback, useMemo, useRef } from "react"; // Added useRef
+import { UploadCloud, FileText, CheckCircle, Send, Loader2, AlertTriangle, Eye, Download, Mail, Upload } from "lucide-react";
+import { useState, type FormEvent, type ChangeEvent, useEffect, useCallback, useMemo, useRef } from "react";
 import type { DesignSubmission, SubmitDesignInput, SubmitDesignOutput, PlateTypeValue, ColorProfileValue } from "@/lib/definitions";
 import { PLATE_TYPES, COLOR_PROFILES } from "@/lib/definitions";
 import { submitDesignForApproval } from "@/ai/flows/design-submission-flow";
@@ -43,8 +43,7 @@ export default function ForApprovalPage() {
   const [plateType, setPlateType] = useState<PlateTypeValue>("old");
   const [colorProfile, setColorProfile] = useState<ColorProfileValue | "">("");
   const [otherColorProfileDetail, setOtherColorProfileDetail] = useState("");
-  const [activeTab, setActiveTab] = useState<PlateTypeValue>("old");
-
+  
   const hiddenFileInputRef = useRef<HTMLInputElement>(null);
 
 
@@ -64,11 +63,6 @@ export default function ForApprovalPage() {
   useEffect(() => {
     fetchAndSetDesigns();
   }, [fetchAndSetDesigns]);
-
-  const displayedDesigns = useMemo(() => {
-    return allDesignSubmissions.filter(design => design.plateType === activeTab);
-  }, [allDesignSubmissions, activeTab]);
-
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -346,7 +340,7 @@ export default function ForApprovalPage() {
                 accept=".pdf"
                 onChange={handleFileChange}
                 ref={hiddenFileInputRef}
-                className="hidden" // Hide the actual file input
+                className="hidden" 
               />
               <Button 
                 type="button" 
@@ -387,95 +381,90 @@ export default function ForApprovalPage() {
         </CardContent>
       </Card>
 
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as PlateTypeValue)} className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="old" className="font-body">Old Plates Queue</TabsTrigger>
-          <TabsTrigger value="new" className="font-body">New Plates Queue</TabsTrigger>
-        </TabsList>
-        
-        {PLATE_TYPES.map(pt => (
-          <TabsContent key={pt.value} value={pt.value}>
-            <Card>
-              <CardHeader>
-                <CardTitle className="font-headline">{pt.label} - Designs Awaiting Action</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {isLoadingDesigns ? (
-                  <div className="flex justify-center items-center py-10">
-                    <Loader2 className="mr-2 h-8 w-8 animate-spin text-primary" />
-                    <p className="font-body text-muted-foreground">Loading designs...</p>
+      <Card>
+        <CardHeader>
+          <CardTitle className="font-headline">All Designs Awaiting Action</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoadingDesigns ? (
+            <div className="flex justify-center items-center py-10">
+              <Loader2 className="mr-2 h-8 w-8 animate-spin text-primary" />
+              <p className="font-body text-muted-foreground">Loading designs...</p>
+            </div>
+          ) : allDesignSubmissions.length > 0 ? (
+            <ul className="space-y-3">
+              {allDesignSubmissions.map(design => (
+                <li key={design.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border rounded-md bg-card hover:shadow-sm gap-3">
+                  <div className="flex items-center">
+                    <FileText className="mr-3 h-6 w-6 text-muted-foreground flex-shrink-0" />
+                    <div>
+                      <p className="font-medium font-body text-base">{design.pdfName}</p>
+                      <p className="text-sm text-muted-foreground font-body">
+                        Job: {design.jobName} | Customer: {design.customerName}
+                        {design.plateType === 'new' && design.colorProfile && (
+                          <> | Color: {design.colorProfile}{design.colorProfile === 'other' && design.otherColorProfileDetail ? ` (${design.otherColorProfileDetail})` : ''}</>
+                        )}
+                      </p>
+                      <p className="text-xs text-muted-foreground font-body">
+                        Uploaded by {design.uploader} on {new Date(design.date).toLocaleDateString()} - Status: 
+                        <span className={`ml-1 font-semibold ${
+                          design.status === 'approved' ? 'text-green-600' :
+                          design.status === 'rejected' ? 'text-red-600' :
+                          'text-orange-500'
+                        }`}>
+                          {design.status.toUpperCase()}
+                        </span>
+                        {design.plateType === 'new' && (
+                          <Badge variant="outline" className="ml-2 text-xs py-0.5 px-1.5 border-blue-500 text-blue-500">NEW</Badge>
+                        )}
+                        {design.plateType === 'old' && (
+                          <Badge variant="outline" className="ml-2 text-xs py-0.5 px-1.5 border-orange-500 text-orange-500">OLD</Badge>
+                        )}
+                      </p>
+                    </div>
                   </div>
-                ) : displayedDesigns.length > 0 ? (
-                  <ul className="space-y-3">
-                    {displayedDesigns.map(design => (
-                      <li key={design.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border rounded-md bg-card hover:shadow-sm gap-3">
-                        <div className="flex items-center">
-                          <FileText className="mr-3 h-6 w-6 text-muted-foreground flex-shrink-0" />
-                          <div>
-                            <p className="font-medium font-body text-base">{design.pdfName}</p>
-                            <p className="text-sm text-muted-foreground font-body">
-                              Job: {design.jobName} | Customer: {design.customerName}
-                              {design.plateType === 'new' && design.colorProfile && (
-                                <> | Color: {design.colorProfile}{design.colorProfile === 'other' && design.otherColorProfileDetail ? ` (${design.otherColorProfileDetail})` : ''}</>
-                              )}
-                            </p>
-                            <p className="text-xs text-muted-foreground font-body">
-                              Uploaded by {design.uploader} on {new Date(design.date).toLocaleDateString()} - Status: 
-                              <span className={`ml-1 font-semibold ${
-                                design.status === 'approved' ? 'text-green-600' :
-                                design.status === 'rejected' ? 'text-red-600' :
-                                'text-orange-500'
-                              }`}>
-                                {design.status.toUpperCase()}
-                              </span>
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex gap-2 mt-2 sm:mt-0 flex-shrink-0 items-center flex-wrap justify-end">
-                          {design.pdfDataUri && (
-                            <>
-                              <Button variant="outline" size="sm" onClick={() => handleViewPdf(design.pdfDataUri)} className="font-body" title="View PDF">
-                                <Eye className="mr-1 h-4 w-4" /> View PDF
-                              </Button>
-                              <Button variant="outline" size="sm" onClick={() => handleDownloadPdf(design.pdfDataUri, design.jobName, design.customerName, design.date)} className="font-body" title="Download PDF">
-                                <Download className="mr-1 h-4 w-4" /> Download
-                              </Button>
-                            </>
-                          )}
-                          {design.status === 'approved' && design.plateType === 'new' && (
-                             <Button variant="outline" size="sm" 
-                                // onClick={() => handleSendEmailToPlateManufacturer(design)} 
-                                className="font-body text-blue-600 border-blue-600 hover:bg-blue-50" 
-                                disabled // Keep disabled for "Coming Soon"
-                                title="Email Plate Maker (Coming Soon)"
-                              >
-                               <Mail className="mr-1 h-4 w-4" /> Email Plate Maker (Soon)
-                             </Button>
-                          )}
-                          {design.status === 'pending' && (
-                            <>
-                              <Button variant="outline" size="sm" onClick={() => handleApproval(design.id, true)} className="font-body">
-                                <CheckCircle className="mr-1 h-4 w-4 text-green-500" /> Approve
-                              </Button>
-                              <Button variant="outline" size="sm" onClick={() => handleApproval(design.id, false)} className="font-body text-red-600 border-red-600 hover:bg-red-50">
-                                 <AlertTriangle className="mr-1 h-4 w-4" /> Reject
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-muted-foreground font-body text-center py-4">
-                    No designs are currently submitted or awaiting approval for {pt.label.toLowerCase()}.
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        ))}
-      </Tabs>
+                  <div className="flex gap-2 mt-2 sm:mt-0 flex-shrink-0 items-center flex-wrap justify-end">
+                    {design.pdfDataUri && (
+                      <>
+                        <Button variant="outline" size="sm" onClick={() => handleViewPdf(design.pdfDataUri)} className="font-body" title="View PDF">
+                          <Eye className="mr-1 h-4 w-4" /> View PDF
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => handleDownloadPdf(design.pdfDataUri, design.jobName, design.customerName, design.date)} className="font-body" title="Download PDF">
+                          <Download className="mr-1 h-4 w-4" /> Download
+                        </Button>
+                      </>
+                    )}
+                    {design.status === 'approved' && design.plateType === 'new' && (
+                       <Button variant="outline" size="sm" 
+                          // onClick={() => handleSendEmailToPlateManufacturer(design)} 
+                          className="font-body text-blue-600 border-blue-600 hover:bg-blue-50" 
+                          disabled // Keep disabled for "Coming Soon"
+                          title="Email Plate Maker (Coming Soon)"
+                        >
+                         <Mail className="mr-1 h-4 w-4" /> Email Plate Maker (Soon)
+                       </Button>
+                    )}
+                    {design.status === 'pending' && (
+                      <>
+                        <Button variant="outline" size="sm" onClick={() => handleApproval(design.id, true)} className="font-body">
+                          <CheckCircle className="mr-1 h-4 w-4 text-green-500" /> Approve
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => handleApproval(design.id, false)} className="font-body text-red-600 border-red-600 hover:bg-red-50">
+                           <AlertTriangle className="mr-1 h-4 w-4" /> Reject
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-muted-foreground font-body text-center py-4">
+              No designs are currently submitted or awaiting approval.
+            </p>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
