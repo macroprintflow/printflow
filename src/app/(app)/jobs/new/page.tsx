@@ -5,7 +5,7 @@ import { JobCardForm } from "@/components/job-card/JobCardForm";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LayoutList, FilePlus2, FileCheck2, Sparkles, Eye, Loader2, FileText, PlusCircle } from "lucide-react";
+import { LayoutList, FilePlus2, FileCheck2, Sparkles, Eye, Loader2, PlusCircle } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { getApprovedDesigns, getJobCardById } from "@/lib/actions/jobActions";
@@ -141,9 +141,6 @@ function NewJobPageContent() {
     setPrefillJobName(undefined);
     setPrefillCustomerName(undefined);
     setSelectedDesignPdfUri(undefined);
-    // The JobCardForm itself will reset its fields when initialJobData becomes undefined or changes key.
-    // We also need to clear any selected customer/job in JobCardForm's internal state if it maintains one.
-    // For now, this parent-level state clear should trigger re-render and reset in JobCardForm.
     toast({ title: "Form Cleared", description: "Starting a new job card from scratch." });
   };
 
@@ -187,14 +184,12 @@ function NewJobPageContent() {
 
       <Tabs value={activeTab} onValueChange={(newTab) => {
           setActiveTab(newTab);
-          // If switching to "Create New Job" and not pre-filling, ensure form data is reset
           if (newTab === 'create-new' && !fromCustomerJobId && !initialJobDataForForm) {
               setInitialJobDataForForm(undefined);
               setPrefillJobName(undefined);
               setPrefillCustomerName(undefined);
               setSelectedDesignPdfUri(undefined);
           } else if (newTab === 'from-design') {
-            // Clear any form data if switching to "From Design"
             setInitialJobDataForForm(undefined);
           }
       }} className="w-full">
@@ -277,39 +272,14 @@ function NewJobPageContent() {
         </TabsContent>
 
         <TabsContent value="create-new">
-            <div ref={jobFormCardRef}>
-                <Card className="shadow-lg">
-                    <CardHeader>
-                      <div className="flex justify-between items-start w-full gap-4">
-                        <div>
-                          <CardTitle className="font-headline flex items-center text-xl">
-                              <FilePlus2 className="mr-3 h-6 w-6 text-primary" />
-                              {initialJobDataForForm?.jobName?.startsWith("Re-order:") ? "Re-order Job" : 
-                              initialJobDataForForm ? "Create Job from Design" : "Create New Job Card"}
-                          </CardTitle>
-                          <CardDescription className="font-body">
-                              {initialJobDataForForm?.jobName?.startsWith("Re-order:")
-                              ? "Review and adjust details for this re-order. A new job card will be created."
-                              : initialJobDataForForm 
-                                  ? "Review the pre-filled details from the approved design and complete the job card."
-                                  : "Fill out the details below to create a new job card. You can use the 'Pre-fill from Past Job' section within the form if you haven't already."
-                              }
-                          </CardDescription>
-                        </div>
-                        <Button variant="outline" size="sm" className="font-body" onClick={handleStartNewFromFullForm}>
-                            <PlusCircle className="mr-2 h-4 w-4" /> Start New
-                        </Button>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="pt-6">
-                    <JobCardForm 
-                        key={initialJobDataForForm?.id || fromCustomerJobId || 'new-job-full-form'}
-                        initialJobName={initialJobDataForForm?.jobName || prefillJobName} 
-                        initialCustomerName={initialJobDataForForm?.customerName || prefillCustomerName}
-                        initialJobData={initialJobDataForForm}
-                    />
-                    </CardContent>
-                </Card>
+            <div ref={jobFormCardRef} className="bg-card shadow-lg rounded-2xl p-6"> {/* Moved styling to this div */}
+                {/* The Card, CardHeader, CardTitle, CardDescription, and Start New Button are removed from here */}
+                <JobCardForm 
+                    key={initialJobDataForForm?.id || fromCustomerJobId || 'new-job-full-form'}
+                    initialJobName={initialJobDataForForm?.jobName || prefillJobName} 
+                    initialCustomerName={initialJobDataForForm?.customerName || prefillCustomerName}
+                    initialJobData={initialJobDataForForm}
+                />
             </div>
         </TabsContent>
       </Tabs>
@@ -324,3 +294,4 @@ export default function NewJobPage() {
     </Suspense>
   );
 }
+
