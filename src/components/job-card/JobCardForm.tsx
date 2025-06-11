@@ -671,25 +671,6 @@ type ProcessField =
 
         <Card>
           <CardHeader>
-            <CardTitle className="font-headline">Basic Job Information</CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <FormField control={form.control} name="jobName" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Job Name</FormLabel>
-                <FormControl><Input placeholder="e.g., Luxury Perfume Box" {...field} className="font-body"/></FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
-             <FormItem>
-                <FormLabel>Selected Customer</FormLabel>
-                <Input value={form.watch('customerName') || "N/A (Select above)"} readOnly className="font-body bg-muted"/>
-             </FormItem>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
             <CardTitle className="font-headline">Paper & Quantity Specifications</CardTitle>
             <CardDescription className="font-body">Specify the target paper and job dimensions.</CardDescription>
           </CardHeader>

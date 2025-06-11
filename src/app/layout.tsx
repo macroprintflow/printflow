@@ -7,6 +7,11 @@ import { AuthProvider } from '@/contexts/AuthContext'; // Import AuthProvider
 export const metadata: Metadata = {
   title: 'PrintFlow',
   description: 'Offset Printing and Packaging Job Management',
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1, // Optional: Consider if you want to disable user zooming
+  },
 };
 
 export default function RootLayout({
@@ -32,4 +37,3 @@ export default function RootLayout({
     </html>
   );
 }
-
