@@ -39,4 +39,4 @@ next-env.d.ts
 .idx
 
 # data files for mock storage
-/.data/
+/.data/.env
