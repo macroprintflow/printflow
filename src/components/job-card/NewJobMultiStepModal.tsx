@@ -1,7 +1,6 @@
-
 "use client";
 
-import React, { useState, useEffect, type Dispatch, type SetStateAction, useMemo, useRef } from "react";
+import React, { useState, useEffect, type Dispatch, type SetStateAction } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -15,60 +14,20 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+// Label is imported from ui/label but FormLabel is used from ui/form
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { cn } from "@/lib/utils";
-import { CalendarIcon, Loader2, ArrowRight, ArrowLeft, CheckCircle, Archive, XCircle, Filter } from "lucide-react";
-import { format, isValid } from "date-fns";
-import type { JobCardData, PaperQualityType, InventoryItem, JobCardFormValues } from "@/lib/definitions";
-import { PAPER_QUALITY_OPTIONS, getPaperQualityUnit, getPaperQualityLabel } from "@/lib/definitions";
-import { getInventoryItems, createJobCard } from "@/lib/actions/jobActions";
+import { CalendarIcon, Loader2, ArrowRight, ArrowLeft, CheckCircle } from "lucide-react";
+import { format } from "date-fns";
+import type { JobCardData, PaperQualityType } from "@/lib/definitions";
+import { PAPER_QUALITY_OPTIONS, getPaperQualityUnit, KAPPA_MDF_QUALITIES, createJobCard } from "@/lib/definitions";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import { handlePrintJobCard } from "@/lib/printUtils";
-
-// Helper function
-const formatInventoryItemForDisplay = (item: InventoryItem): string => {
-  if (item.type === 'Master Sheet') {
-    const qualityLabel = item.paperQuality ? getPaperQualityLabel(item.paperQuality as PaperQualityType) : 'Paper';
-    const unit = item.paperQuality ? getPaperQualityUnit(item.paperQuality as PaperQualityType) : null;
-    let spec = '';
-    if (unit === 'mm' && item.paperThicknessMm) spec = `${item.paperThicknessMm}mm`;
-    else if (unit === 'gsm' && item.paperGsm) spec = `${item.paperGsm}GSM`;
-    
-    const size = (item.masterSheetSizeWidth && item.masterSheetSizeHeight) 
-      ? `${item.masterSheetSizeWidth}x${item.masterSheetSizeHeight}in` 
-      : '';
-    return `${qualityLabel} ${spec} ${size}`.trim().replace(/\s\s+/g, ' ');
-  }
-  return item.name || "Unnamed Item";
-};
-
-const getSbsGsmRange = (targetGsm: number): { min: number; max: number } | null => {
-  if (targetGsm >= 200 && targetGsm <= 230) return { min: 200, max: 230 }; 
-  if (targetGsm > 230 && targetGsm < 270) return { min: 230, max: 260 }; // For target 250,260
-  if (targetGsm >= 270 && targetGsm <= 280) return { min: 270, max: 280 };
-  if (targetGsm >= 290 && targetGsm < 310) return { min: 290, max: 310 }; // For target 290,300
-  if (targetGsm >= 310 && targetGsm < 340) return { min: 310, max: 330 }; // For target 320
-  if (targetGsm >= 340 && targetGsm < 370) return { min: 340, max: 360 }; // For target 350
-  if (targetGsm >= 370 && targetGsm <= 410) return { min: 370, max: 410 }; // For target 400
-  return null;
-};
-
-const getArtPaperGsmRanges = (targetGsm: number): number[] | null => {
-  if (targetGsm === 100) return [90, 100, 110];
-  if (targetGsm === 115 || targetGsm === 120) return [120, 130];
-  if (targetGsm === 130) return [130, 140, 150];
-  if (targetGsm === 150) return [150, 160, 170];
-  if (targetGsm === 170) return [170, 180];
-  return null; // No specific range rule applies for other target GSMs
-};
-
 
 const Step1Schema = z.object({
   jobName: z.string().min(1, "Job name is required"),
@@ -94,26 +53,11 @@ const Step2Schema = z.object({
     }
 });
 
-const Step3InventorySchema = z.object({
-  selectedInventoryItemId: z.string().optional(),
-});
-
-const Step4ProcessSchema = z.object({
-  kindOfJob: z.enum(["METPET", "NORMAL", "NO_PRINTING", ""]).optional(),
-  printingFront: z.enum(["SM74", "SORSZ", "DOMINANT", "NO_PRINTING", ""]).optional(),
-  printingBack: z.enum(["SM74", "SORSZ", "DOMINANT", "NO_PRINTING", ""]).optional(),
-  coating: z.enum(["TEXTURE_UV", "VARNISH_GLOSS", "VARNISH_MATT", "UV_ONLY", "NO_COATING", ""]).optional(),
-  die: z.enum(["NEW", "OLD", ""]).optional(),
-  hotFoilStamping: z.enum(["GOLDEN", "SILVER", "COPPER", "NO_LEAF", ""]).optional(),
-  emboss: z.enum(["YES", "NO", ""]).optional(),
-  pasting: z.enum(["YES", "NO", ""]).optional(),
-  boxMaking: z.enum(["MACHINE", "MANUAL", "COMBINED", ""]).optional(),
-});
-
-const Step5Schema = z.object({
+const Step3Schema = z.object({
   remarks: z.string().optional(),
 });
-const MultiStepJobSchema = Step1Schema.merge(Step2Schema).merge(Step3InventorySchema).merge(Step4ProcessSchema).merge(Step5Schema);
+
+const MultiStepJobSchema = Step1Schema.merge(Step2Schema).merge(Step3Schema);
 type MultiStepJobFormValues = z.infer<typeof MultiStepJobSchema>;
 
 interface NewJobMultiStepModalProps {
@@ -123,7 +67,7 @@ interface NewJobMultiStepModalProps {
   onModalClose?: () => void;
 }
 
-const MAX_STEPS = 5;
+const MAX_STEPS = 3;
 
 export function NewJobMultiStepModal({
   isOpen,
@@ -136,20 +80,12 @@ export function NewJobMultiStepModal({
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [allInventory, setAllInventory] = useState<InventoryItem[]>([]);
-  const [isLoadingInventory, setIsLoadingInventory] = useState(false);
-  const firstInputRef = useRef<HTMLInputElement>(null);
-  const [selectedPaperQualityFilter, setSelectedPaperQualityFilter] = useState<PaperQualityType | "ALL_QUALITIES">("ALL_QUALITIES");
-
-
   const form = useForm<MultiStepJobFormValues>({
     resolver: zodResolver(
         currentStep === 1 ? Step1Schema :
         currentStep === 2 ? Step2Schema :
-        currentStep === 3 ? Step3InventorySchema : 
-        currentStep === 4 ? Step4ProcessSchema : 
-        currentStep === 5 ? Step5Schema : 
-        MultiStepJobSchema
+        currentStep === 3 ? Step3Schema :
+        MultiStepJobSchema // Fallback, though currentStep should always be 1, 2, or 3
     ),
     defaultValues: {
       jobName: initialData?.jobName || "",
@@ -162,22 +98,13 @@ export function NewJobMultiStepModal({
       paperQuality: (initialData?.paperQuality as typeof PAPER_QUALITY_OPTIONS[number]['value']) || "",
       paperGsm: initialData?.paperGsm || undefined,
       targetPaperThicknessMm: initialData?.targetPaperThicknessMm || undefined,
-      selectedInventoryItemId: undefined,
-      kindOfJob: initialData?.kindOfJob || "",
-      printingFront: initialData?.printingFront || "",
-      printingBack: initialData?.printingBack || "",
-      coating: initialData?.coating || "",
-      die: initialData?.die || "",
-      hotFoilStamping: initialData?.hotFoilStamping || "",
-      emboss: initialData?.emboss || "",
-      pasting: initialData?.pasting || "",
-      boxMaking: initialData?.boxMaking || "",
-      remarks: initialData?.remarks || "", // This is now for Step 5
+      remarks: initialData?.remarks || "",
     },
     mode: "onChange",
   });
 
-  const watchedSelectedInventoryItemId = form.watch("selectedInventoryItemId");
+  const watchedPaperQuality = form.watch("paperQuality");
+  const targetPaperUnit = getPaperQualityUnit(watchedPaperQuality as PaperQualityType);
 
   useEffect(() => {
     if (initialData) {
@@ -192,117 +119,16 @@ export function NewJobMultiStepModal({
         paperQuality: (initialData.paperQuality as typeof PAPER_QUALITY_OPTIONS[number]['value']) || "",
         paperGsm: initialData.paperGsm || undefined,
         targetPaperThicknessMm: initialData.targetPaperThicknessMm || undefined,
-        selectedInventoryItemId: undefined,
-        kindOfJob: initialData.kindOfJob || "",
-        printingFront: initialData.printingFront || "",
-        printingBack: initialData.printingBack || "",
-        coating: initialData.coating || "",
-        die: initialData.die || "",
-        hotFoilStamping: initialData.hotFoilStamping || "",
-        emboss: initialData.emboss || "",
-        pasting: initialData.pasting || "",
-        boxMaking: initialData.boxMaking || "",
+        remarks: initialData.remarks || "",
       });
     }
   }, [initialData, form]);
-
-  useEffect(() => {
-    async function fetchInventory() {
-      if (isOpen) { 
-        setIsLoadingInventory(true);
-        try {
-          const items = await getInventoryItems();
-          setAllInventory(items);
-        } catch (error) {
-          toast({ title: "Error", description: "Could not load inventory.", variant: "destructive" });
-        } finally {
-          setIsLoadingInventory(false);
-        }
-      }
-    }
-    fetchInventory();
-  }, [isOpen, toast]);
-
-  useEffect(() => {
-    if (isOpen && firstInputRef.current) {
-      firstInputRef.current.focus();
-    }
-  }, [isOpen, currentStep]);
-
-  const filteredPaperInventory = useMemo(() => {
-    let items = allInventory.filter(item => item.type === 'Master Sheet' && (item.availableStock ?? 0) > 0);
-
-    if (selectedPaperQualityFilter !== "ALL_QUALITIES" && selectedPaperQualityFilter !== "") {
-      items = items.filter(item => item.paperQuality === selectedPaperQualityFilter);
-    }
-
-    const targetQualityFromStep2 = form.getValues("paperQuality") as PaperQualityType | "";
-    const targetGsmFromStep2 = form.getValues("paperGsm");
-    const targetThicknessMmFromStep2 = form.getValues("targetPaperThicknessMm");
-    const customerNameStep1 = form.getValues("customerName")?.toLowerCase() || "";
-
-    const isStep2QualityRelevant = (selectedPaperQualityFilter === "ALL_QUALITIES" || selectedPaperQualityFilter === targetQualityFromStep2);
-
-    if (targetQualityFromStep2 && targetQualityFromStep2 !== "" && isStep2QualityRelevant) {
-        if (selectedPaperQualityFilter === "ALL_QUALITIES") {
-            items = items.filter(item => item.paperQuality === targetQualityFromStep2);
-        }
-
-        if (targetQualityFromStep2 === "SBS") {
-            if (targetGsmFromStep2 && targetGsmFromStep2 > 0) {
-                const sbsRange = getSbsGsmRange(targetGsmFromStep2);
-                if (sbsRange) {
-                    items = items.filter(item => item.paperGsm && item.paperGsm >= sbsRange.min && item.paperGsm <= sbsRange.max);
-                } else { 
-                    items = items.filter(item => item.paperGsm === targetGsmFromStep2);
-                }
-            }
-        } else if (targetQualityFromStep2 === "WHITEBACK" || targetQualityFromStep2 === "GREYBACK") {
-            if (targetGsmFromStep2 && targetGsmFromStep2 > 0) {
-                items = items.filter(item => item.paperGsm && item.paperGsm >= targetGsmFromStep2 - 5 && item.paperGsm <= targetGsmFromStep2 + 5);
-            }
-        } else if (targetQualityFromStep2 === "ART_PAPER_GLOSS" || targetQualityFromStep2 === "ART_PAPER_MATT") {
-            if (targetGsmFromStep2 && targetGsmFromStep2 > 0) {
-                if (customerNameStep1.includes("ganga acrowools")) {
-                    items = items.filter(item => item.paperGsm === targetGsmFromStep2);
-                } else {
-                    const artRanges = getArtPaperGsmRanges(targetGsmFromStep2);
-                    if (artRanges) {
-                        items = items.filter(item => item.paperGsm && artRanges.includes(item.paperGsm));
-                    } else { 
-                        items = items.filter(item => item.paperGsm === targetGsmFromStep2);
-                    }
-                }
-            }
-        } else { 
-            const unit = getPaperQualityUnit(targetQualityFromStep2 as PaperQualityType);
-            if (unit === 'gsm' && targetGsmFromStep2 && targetGsmFromStep2 > 0) {
-                items = items.filter(item => item.paperGsm === targetGsmFromStep2);
-            } else if (unit === 'mm' && targetThicknessMmFromStep2 && targetThicknessMmFromStep2 > 0) {
-                items = items.filter(item => item.paperThicknessMm === targetThicknessMmFromStep2);
-            }
-        }
-    }
-    return items.sort((a,b) => formatInventoryItemForDisplay(a).localeCompare(formatInventoryItemForDisplay(b)));
-  }, [allInventory, selectedPaperQualityFilter, form.watch("paperQuality"), form.watch("paperGsm"), form.watch("targetPaperThicknessMm"), form.watch("customerName")]);
-
-
-  useEffect(() => {
-    if (watchedSelectedInventoryItemId) {
-      const isSelectedItemVisible = filteredPaperInventory.some(item => item.id === watchedSelectedInventoryItemId);
-      if (!isSelectedItemVisible) {
-        form.setValue("selectedInventoryItemId", undefined);
-      }
-    }
-  }, [filteredPaperInventory, watchedSelectedInventoryItemId, form]);
-
 
   const handleNext = async () => {
     let isValid = false;
     if (currentStep === 1) isValid = await form.trigger(["jobName", "customerName", "dispatchDate"]);
     else if (currentStep === 2) isValid = await form.trigger(["jobSizeWidth", "jobSizeHeight", "netQuantity", "grossQuantity", "paperQuality", "paperGsm", "targetPaperThicknessMm"]);
-    else if (currentStep === 3) isValid = await form.trigger(["selectedInventoryItemId"]);
-    else if (currentStep === 4) isValid = await form.trigger(["kindOfJob", "printingFront", "printingBack", "coating", "die", "hotFoilStamping", "emboss", "pasting", "boxMaking"]);
+    // Step 3 doesn't need validation for next, it's the submit step now.
     
     if (isValid) {
       if (currentStep < MAX_STEPS) {
@@ -321,81 +147,50 @@ export function NewJobMultiStepModal({
 
   const onSubmit = async (data: MultiStepJobFormValues) => {
     setIsSubmitting(true);
-    
-    const jobCardPayload: JobCardFormValues = {
+    console.log("Multi-step form submitted (Steps 1-3):", data);
+
+    // For now, just log and close. Actual submission to createJobCard would happen here.
+    const jobCardPayload: JobCardData = {
       jobName: data.jobName,
-      customerName: data.customerName,
+      customerName: data.customerName, 
+      date: new Date().toISOString().split('T')[0],
       dispatchDate: data.dispatchDate ? format(data.dispatchDate, "yyyy-MM-dd") : undefined,
-      jobSizeWidth: data.jobSizeWidth!,
-      jobSizeHeight: data.jobSizeHeight!,
-      netQuantity: data.netQuantity!,
-      grossQuantity: data.grossQuantity!,
+      jobSizeWidth: data.jobSizeWidth,
+      jobSizeHeight: data.jobSizeHeight,
+      netQuantity: data.netQuantity,
+      grossQuantity: data.grossQuantity,
       paperQuality: data.paperQuality as PaperQualityType,
       paperGsm: data.paperQuality && getPaperQualityUnit(data.paperQuality as PaperQualityType) === 'gsm' ? data.paperGsm : undefined,
       targetPaperThicknessMm: data.paperQuality && getPaperQualityUnit(data.paperQuality as PaperQualityType) === 'mm' ? data.targetPaperThicknessMm : undefined,
-      kindOfJob: data.kindOfJob || "",
-      printingFront: data.printingFront || "",
-      printingBack: data.printingBack || "",
-      coating: data.coating || "",
-      die: data.die || "",
-      hotFoilStamping: data.hotFoilStamping || "",
-      emboss: data.emboss || "",
-      pasting: data.pasting || "",
-      boxMaking: data.boxMaking || "",
-      remarks: data.remarks || "",
-      workflowSteps: [], 
-      linkedJobCardIds: [], 
+      remarks: data.remarks,
+      // Default other fields as empty or standard values as JobCardForm does
+      kindOfJob: "", 
+      printingFront: "",
+      printingBack: "",
+      coating: "",
+      die: "",
+      hotFoilStamping: "",
+      emboss: "",
+      pasting: "",
+      boxMaking: "",
+      workflowSteps: [], // Or a default workflow
+      linkedJobCardIds: [],
     };
-
-    if (data.selectedInventoryItemId) {
-      const selectedItem = allInventory.find(item => item.id === data.selectedInventoryItemId);
-      if (selectedItem) {
-        jobCardPayload.sourceInventoryItemId = selectedItem.id;
-        jobCardPayload.masterSheetSizeWidth = selectedItem.masterSheetSizeWidth;
-        jobCardPayload.masterSheetSizeHeight = selectedItem.masterSheetSizeHeight;
-        jobCardPayload.selectedMasterSheetQuality = selectedItem.paperQuality as PaperQualityType;
-        const selectedUnit = getPaperQualityUnit(selectedItem.paperQuality as PaperQualityType);
-        jobCardPayload.selectedMasterSheetGsm = selectedUnit === 'gsm' ? selectedItem.paperGsm : undefined;
-        jobCardPayload.selectedMasterSheetThicknessMm = selectedUnit === 'mm' ? selectedItem.paperThicknessMm : undefined;
-      }
-    }
     
-    const result = await createJobCard(jobCardPayload);
-    setIsSubmitting(false);
-
-    if (result.success && result.jobCard) {
-        toast({ title: "Job Card Created!", description: `Job ${result.jobCard.jobCardNumber} created successfully via guided steps.`});
-        handlePrintJobCard(result.jobCard, toast);
+    // Simulate API call for now
+    // In a real scenario, you'd call `await createJobCard(jobCardPayload);`
+    setTimeout(() => { 
+        toast({ title: "Form Submitted (Placeholder)", description: "Data from steps 1-3 logged to console. Actual creation pending." });
+        setIsSubmitting(false);
         setIsOpen(false);
         form.reset();
         setCurrentStep(1);
-        setSelectedPaperQualityFilter("ALL_QUALITIES");
         if (onModalClose) onModalClose();
-        router.push('/jobs');
-    } else {
-        toast({ title: "Error", description: result.message || "Failed to create job card.", variant: "destructive"});
-    }
+        // router.push('/jobs'); // Potentially navigate after successful submission
+    }, 1000);
   };
-
-  const handleSelectInventoryItem = (itemId: string) => {
-    form.setValue("selectedInventoryItemId", itemId, { shouldValidate: true });
-  };
-  
-  const handleClearInventorySelection = () => {
-    form.setValue("selectedInventoryItemId", undefined, { shouldValidate: true });
-  };
-
-  const kindOfJobOptions = [{ value: 'METPET', label: 'MetPet' }, { value: 'NORMAL', label: 'Normal' }, { value: 'NO_PRINTING', label: 'No Printing' }];
-  const printingOptions = [{ value: 'SM74', label: 'SM74' }, { value: 'SORSZ', label: 'SORSZ' }, { value: 'DOMINANT', label: 'Dominant' }, { value: 'NO_PRINTING', label: 'No Printing' }];
-  const coatingOptions = [{ value: 'TEXTURE_UV', label: 'Texture UV' }, { value: 'VARNISH_GLOSS', label: 'Varnish Gloss' }, { value: 'VARNISH_MATT', label: 'Varnish Matt' }, { value: 'UV_ONLY', label: 'UV Only' }, { value: 'NO_COATING', label: 'No Coating' }];
-  const dieOptions = [{ value: 'NEW', label: 'New' }, { value: 'OLD', label: 'Old' }];
-  const hotFoilOptions = [{ value: 'GOLDEN', label: 'Golden' }, { value: 'SILVER', label: 'Silver' }, { value: 'COPPER', label: 'Copper' }, { value: 'NO_LEAF', label: 'No Leaf' }];
-  const yesNoOptions = [{ value: 'YES', label: 'Yes' }, { value: 'NO', label: 'No' }];
-  const boxMakingOptions = [{ value: 'MACHINE', label: 'Machine' }, { value: 'MANUAL', label: 'Manual' }, { value: 'COMBINED', label: 'Combined' }];
-
 
   const renderStepContent = () => {
-    const targetPaperUnit = getPaperQualityUnit(form.watch("paperQuality") as PaperQualityType);
     switch (currentStep) {
       case 1:
         return (
@@ -407,7 +202,6 @@ export function NewJobMultiStepModal({
                   <FormControl>
                     <Input id="msJobName" {...field} placeholder="e.g., Premium Product Box" 
                            value={field.value || ''}
-                           ref={firstInputRef} 
                     />
                   </FormControl>
                   <FormMessage />
@@ -455,11 +249,9 @@ export function NewJobMultiStepModal({
                     <FormItem><FormLabel htmlFor="msJobSizeWidth">Job Width (in)</FormLabel><FormControl>
                     <Input 
                         id="msJobSizeWidth" type="number" {...field} 
-                        tabIndex={0}
                         value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
                         onChange={e => { const numValue = parseFloat(e.target.value); field.onChange(isNaN(numValue) ? undefined : numValue); }}
                         placeholder="e.g., 8.5" 
-                        ref={currentStep === 2 ? firstInputRef : null} 
                     />
                     </FormControl><FormMessage /></FormItem>
                   )} />
@@ -467,7 +259,6 @@ export function NewJobMultiStepModal({
                     <FormItem><FormLabel htmlFor="msJobSizeHeight">Job Height (in)</FormLabel><FormControl>
                     <Input 
                         id="msJobSizeHeight" type="number" {...field} 
-                        tabIndex={0}
                         value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
                         onChange={e => { const numValue = parseFloat(e.target.value); field.onChange(isNaN(numValue) ? undefined : numValue); }}
                         placeholder="e.g., 11" 
@@ -480,7 +271,6 @@ export function NewJobMultiStepModal({
                     <FormItem><FormLabel htmlFor="msNetQuantity">Net Quantity</FormLabel><FormControl>
                     <Input 
                         id="msNetQuantity" type="number" {...field} 
-                        tabIndex={0}
                         value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
                         onChange={e => { const numValue = parseFloat(e.target.value); field.onChange(isNaN(numValue) ? undefined : numValue); }}
                         placeholder="e.g., 1000" 
@@ -491,7 +281,6 @@ export function NewJobMultiStepModal({
                     <FormItem><FormLabel htmlFor="msGrossQuantity">Gross Quantity</FormLabel><FormControl>
                     <Input 
                         id="msGrossQuantity" type="number" {...field} 
-                        tabIndex={0}
                         value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
                         onChange={e => { const numValue = parseFloat(e.target.value); field.onChange(isNaN(numValue) ? undefined : numValue); }}
                         placeholder="e.g., 1100" 
@@ -540,250 +329,19 @@ export function NewJobMultiStepModal({
             </form>
           </Form>
         );
-      case 3: 
+      case 3:
         return (
           <Form {...form}>
-            <div className="space-y-4">
-              <FormItem>
-                <FormLabel htmlFor="paperQualityFilter" className="flex items-center"><Filter className="mr-2 h-4 w-4 text-muted-foreground" />Filter by Paper Quality (in Inventory)</FormLabel>
-                <Select 
-                    value={selectedPaperQualityFilter} 
-                    onValueChange={(value) => setSelectedPaperQualityFilter(value as PaperQualityType | "ALL_QUALITIES")}
-                >
-                    <FormControl>
-                        <SelectTrigger id="paperQualityFilter" ref={currentStep === 3 ? firstInputRef : null}>
-                            <SelectValue placeholder="Select paper quality to filter" />
-                        </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                        <SelectItem value="ALL_QUALITIES">All Qualities</SelectItem>
-                        {PAPER_QUALITY_OPTIONS.filter(opt => opt.value !== "").map(option => (
-                            <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-                <FormDescription className="text-xs">
-                    List may also be refined by target specifications from Step 2 if "All Qualities" or a matching quality is selected.
-                    Special GSM ranges apply for SBS (+/- range), Whiteback/Greyback (+/- 5GSM), and Art Paper (Ganga Acrowools: exact; Others: range).
-                </FormDescription>
-              </FormItem>
-
-              {isLoadingInventory ? (
-                <div className="flex items-center justify-center h-40">
-                  <Loader2 className="mr-2 h-6 w-6 animate-spin text-primary" />
-                  <span>Loading inventory...</span>
-                </div>
-              ) : filteredPaperInventory.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No paper inventory items match {selectedPaperQualityFilter === "ALL_QUALITIES" ? "your criteria from Step 2" : `"${getPaperQualityLabel(selectedPaperQualityFilter as PaperQualityType)}"`} or have available stock.
-                </p>
-              ) : (
-                <>
-                  {watchedSelectedInventoryItemId && (
-                    <div className="p-2 mb-2 border rounded-md bg-secondary/50 flex justify-between items-center">
-                      <p className="text-sm font-medium">
-                        Selected: {formatInventoryItemForDisplay(allInventory.find(item => item.id === watchedSelectedInventoryItemId)!)}
-                      </p>
-                      <Button variant="ghost" size="sm" onClick={handleClearInventorySelection} className="text-destructive hover:text-destructive">
-                        <XCircle className="mr-1 h-4 w-4"/> Clear
-                      </Button>
-                    </div>
-                  )}
-                  <ScrollArea className="h-[250px] border rounded-md">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Item Name</TableHead>
-                          <TableHead className="text-right">Stock</TableHead>
-                          <TableHead>Unit</TableHead>
-                          <TableHead>Location</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredPaperInventory.map(item => (
-                          <TableRow 
-                            key={item.id} 
-                            onClick={() => handleSelectInventoryItem(item.id)}
-                            className={cn(
-                              "cursor-pointer hover:bg-muted/50",
-                              watchedSelectedInventoryItemId === item.id && "bg-primary/10 hover:bg-primary/20"
-                            )}
-                          >
-                            <TableCell>{formatInventoryItemForDisplay(item)}</TableCell>
-                            <TableCell className="text-right">{item.availableStock?.toLocaleString() ?? 0}</TableCell>
-                            <TableCell>{item.unit}</TableCell>
-                            <TableCell>{item.locationCode || '-'}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </ScrollArea>
-                </>
-              )}
-               <FormField control={form.control} name="selectedInventoryItemId" render={({ field }) => (
-                  <FormItem className="hidden"> 
-                    <FormControl><Input {...field} value={field.value || ''} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-            </div>
-          </Form>
-        );
-      case 4: 
-        return (
-           <Form {...form}>
             <form className="space-y-4">
-              <FormField control={form.control} name="kindOfJob" render={({ field }) => (
+              <FormField control={form.control} name="remarks" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Kind of Job</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || ""}>
-                    <FormControl><SelectTrigger ref={currentStep === 4 ? firstInputRef : null}><SelectValue placeholder="Select kind of job" /></SelectTrigger></FormControl>
-                    <SelectContent>
-                      {kindOfJobOptions.map(option => (
-                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <FormLabel htmlFor="msRemarks">Remarks (Optional)</FormLabel>
+                  <FormControl><Textarea id="msRemarks" {...field} value={field.value || ''} placeholder="Any additional notes or instructions..." rows={4} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
-              <FormField control={form.control} name="printingFront" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Printing (Front)</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || ""}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Select printing machine" /></SelectTrigger></FormControl>
-                    <SelectContent>
-                      {printingOptions.map(option => (
-                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )} />
-              <FormField control={form.control} name="printingBack" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Printing (Back)</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || ""}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Select printing machine" /></SelectTrigger></FormControl>
-                    <SelectContent>
-                      {printingOptions.map(option => (
-                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )} />
-              <FormField control={form.control} name="coating" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Coating</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || ""}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Select coating type" /></SelectTrigger></FormControl>
-                    <SelectContent>
-                      {coatingOptions.map(option => (
-                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )} />
-              <FormField control={form.control} name="die" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Die</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || ""}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Select die type" /></SelectTrigger></FormControl>
-                    <SelectContent>
-                      {dieOptions.map(option => (
-                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )} />
-              <FormField control={form.control} name="hotFoilStamping" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Hot Foil Stamping</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || ""}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Select foil type" /></SelectTrigger></FormControl>
-                    <SelectContent>
-                      {hotFoilOptions.map(option => (
-                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )} />
-              <FormField control={form.control} name="emboss" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Emboss</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || ""}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Select option" /></SelectTrigger></FormControl>
-                    <SelectContent>
-                      {yesNoOptions.map(option => (
-                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )} />
-               <FormField control={form.control} name="pasting" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Pasting</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || ""}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Select option" /></SelectTrigger></FormControl>
-                    <SelectContent>
-                      {yesNoOptions.map(option => (
-                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )} />
-              <FormField control={form.control} name="boxMaking" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Box Making</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || ""}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Select option" /></SelectTrigger></FormControl>
-                    <SelectContent>
-                      {boxMakingOptions.map(option => (
-                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )} />
-              </form>
-            </Form>
-        );
-      case 5:
-        return (
-            <Form {...form}>
-                <form className="space-y-4">
-                    <FormField control={form.control} name="remarks" render={({ field }) => (
-                        <FormItem>
-                            <FormLabel htmlFor="msRemarks">Remarks (Optional)</FormLabel>
-                            <FormControl>
-                                <Textarea 
-                                    id="msRemarks" 
-                                    {...field} 
-                                    value={field.value || ''} 
-                                    placeholder="Any additional notes or special instructions for this job..." 
-                                    rows={4}
-                                    ref={currentStep === 5 ? firstInputRef : null}
-                                />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )} />
-                </form>
-            </Form>
+            </form>
+          </Form>
         );
       default:
         return null;
@@ -794,9 +352,7 @@ export function NewJobMultiStepModal({
     switch (currentStep) {
       case 1: return "Step 1: Basic Information";
       case 2: return "Step 2: Job Specifications";
-      case 3: return "Step 3: Select Master Sheet from Inventory"; 
-      case 4: return "Step 4: Define Processes";
-      case 5: return "Step 5: Remarks & Submit";
+      case 3: return "Step 3: Additional Details &amp; Submit";
       default: return "Create New Job";
     }
   };
@@ -805,7 +361,6 @@ export function NewJobMultiStepModal({
     if (!openState) {
         form.reset();
         setCurrentStep(1);
-        setSelectedPaperQualityFilter("ALL_QUALITIES");
         if (onModalClose) {
             onModalClose();
         }
@@ -815,7 +370,7 @@ export function NewJobMultiStepModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleDialogClose}>
-      <DialogContent className="sm:max-w-xl font-body">
+      <DialogContent className="sm:max-w-lg font-body">
         <DialogHeader>
           <DialogTitle className="font-headline">{getDialogTitle()}</DialogTitle>
           <DialogDescription>
@@ -823,8 +378,8 @@ export function NewJobMultiStepModal({
           </DialogDescription>
         </DialogHeader>
         
-        <ScrollArea className="max-h-[60vh]">
-            <div className="p-4">{renderStepContent()}</div>
+        <ScrollArea className="max-h-[60vh] p-1 pr-4 -mr-2">
+            <div className="py-4">{renderStepContent()}</div>
         </ScrollArea>
 
         <DialogFooter className="pt-4 border-t">
@@ -840,7 +395,7 @@ export function NewJobMultiStepModal({
           ) : (
             <Button onClick={form.handleSubmit(onSubmit)} disabled={isSubmitting}>
               {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <CheckCircle className="mr-2 h-4 w-4" />}
-              {isSubmitting ? "Creating Job..." : "Create Job Card"}
+              {isSubmitting ? "Submitting..." : "Submit (Placeholder)"}
             </Button>
           )}
         </DialogFooter>
