@@ -1,0 +1,26 @@
+[
+  {
+    "id": "template1",
+    "name": "Golden Tray (Predefined)",
+    "kindOfJob": "METPET",
+    "coating": "VARNISH_GLOSS",
+    "hotFoilStamping": "GOLDEN",
+    "paperQuality": "GOLDEN_SHEET",
+    "predefinedWorkflow": []
+  },
+  {
+    "id": "template2",
+    "name": "Rigid Top and Bottom Box (Predefined)",
+    "boxMaking": "COMBINED",
+    "pasting": "YES",
+    "paperQuality": "WG_KAPPA",
+    "predefinedWorkflow": []
+  },
+  {
+    "id": "template3",
+    "name": "Monocarton Box (Predefined)",
+    "kindOfJob": "NORMAL",
+    "paperQuality": "SBS",
+    "predefinedWorkflow": []
+  }
+]

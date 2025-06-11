@@ -1,0 +1,20 @@
+[
+  {
+    "id": "mock-1",
+    "fullName": "kuvam",
+    "email": "test@gmail.com",
+    "phoneNumber": {
+      "countryCode": "+91",
+      "number": "9815000749"
+    },
+    "address": {
+      "street": "123",
+      "city": "Ludhiana",
+      "state": "Punjab",
+      "zipCode": "141012",
+      "country": "India"
+    },
+    "createdAt": "2025-06-08T17:24:17.654Z",
+    "updatedAt": "2025-06-08T17:24:17.654Z"
+  }
+]

@@ -1,0 +1,16 @@
+[
+  {
+    "id": "admin-user-mock-id",
+    "email": "kuvam@macroprinters.com",
+    "displayName": "Kuvam Sharma (Admin)",
+    "role": "Admin",
+    "linkedCustomerId": "mock-1"
+  },
+  {
+    "id": "7D2yhdRVz5TcAskwWmb1gZaVyVi2",
+    "email": "niharikasehgal@icloud.com",
+    "displayName": "Niharika Sehgal",
+    "role": "Customer",
+    "linkedCustomerId": "mock-1"
+  }
+]
