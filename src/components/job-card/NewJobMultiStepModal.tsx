@@ -385,13 +385,13 @@ export function NewJobMultiStepModal({
     form.setValue("selectedInventoryItemId", undefined, { shouldValidate: true });
   };
 
-  const kindOfJobOptions = [{ value: 'METPET', label: 'MetPet' }, { value: 'NORMAL', label: 'Normal' }, { value: 'NO_PRINTING', label: 'No Printing' }, { value: '', label: 'Select...' }];
-  const printingOptions = [{ value: 'SM74', label: 'SM74' }, { value: 'SORSZ', label: 'SORSZ' }, { value: 'DOMINANT', label: 'Dominant' }, { value: 'NO_PRINTING', label: 'No Printing' }, { value: '', label: 'Select...' }];
-  const coatingOptions = [{ value: 'TEXTURE_UV', label: 'Texture UV' }, { value: 'VARNISH_GLOSS', label: 'Varnish Gloss' }, { value: 'VARNISH_MATT', label: 'Varnish Matt' }, { value: 'UV_ONLY', label: 'UV Only' }, { value: 'NO_COATING', label: 'No Coating' }, { value: '', label: 'Select...' }];
-  const dieOptions = [{ value: 'NEW', label: 'New' }, { value: 'OLD', label: 'Old' }, { value: '', label: 'Select...' }];
-  const hotFoilOptions = [{ value: 'GOLDEN', label: 'Golden' }, { value: 'SILVER', label: 'Silver' }, { value: 'COPPER', label: 'Copper' }, { value: 'NO_LEAF', label: 'No Leaf' }, { value: '', label: 'Select...' }];
-  const yesNoOptions = [{ value: 'YES', label: 'Yes' }, { value: 'NO', label: 'No' }, { value: '', label: 'Select...' }];
-  const boxMakingOptions = [{ value: 'MACHINE', label: 'Machine' }, { value: 'MANUAL', label: 'Manual' }, { value: 'COMBINED', label: 'Combined' }, { value: '', label: 'Select...' }];
+  const kindOfJobOptions = [{ value: 'METPET', label: 'MetPet' }, { value: 'NORMAL', label: 'Normal' }, { value: 'NO_PRINTING', label: 'No Printing' }];
+  const printingOptions = [{ value: 'SM74', label: 'SM74' }, { value: 'SORSZ', label: 'SORSZ' }, { value: 'DOMINANT', label: 'Dominant' }, { value: 'NO_PRINTING', label: 'No Printing' }];
+  const coatingOptions = [{ value: 'TEXTURE_UV', label: 'Texture UV' }, { value: 'VARNISH_GLOSS', label: 'Varnish Gloss' }, { value: 'VARNISH_MATT', label: 'Varnish Matt' }, { value: 'UV_ONLY', label: 'UV Only' }, { value: 'NO_COATING', label: 'No Coating' }];
+  const dieOptions = [{ value: 'NEW', label: 'New' }, { value: 'OLD', label: 'Old' }];
+  const hotFoilOptions = [{ value: 'GOLDEN', label: 'Golden' }, { value: 'SILVER', label: 'Silver' }, { value: 'COPPER', label: 'Copper' }, { value: 'NO_LEAF', label: 'No Leaf' }];
+  const yesNoOptions = [{ value: 'YES', label: 'Yes' }, { value: 'NO', label: 'No' }];
+  const boxMakingOptions = [{ value: 'MACHINE', label: 'Machine' }, { value: 'MANUAL', label: 'Manual' }, { value: 'COMBINED', label: 'Combined' }];
 
 
   const renderStepContent = () => {
