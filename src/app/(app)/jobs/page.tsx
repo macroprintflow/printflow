@@ -11,6 +11,7 @@ import { getJobCards } from "@/lib/actions/jobActions";
 import type { JobCardData } from "@/lib/definitions";
 import { format } from "date-fns";
 import { handlePrintJobCard } from "@/lib/printUtils"; 
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export default async function AllJobsPage() {
   const allJobs: JobCardData[] = await getJobCards();

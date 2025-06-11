@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAppConsole, type LogEntry } from "@/contexts/ConsoleContext";
+import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 import { Terminal, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -52,8 +53,10 @@ export function ConsoleLogViewer({ isOpen, setIsOpen }: ConsoleLogViewerProps) {
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogContent className="sm:max-w-3xl md:max-w-4xl lg:max-w-5xl h-[80vh] flex flex-col p-0">
         <DialogHeader className="p-6 pb-2 border-b">
-          <DialogTitle className="font-headline flex items-center">
-            <Terminal className="mr-2 h-5 w-5 text-primary" /> Live Application Console
+          <DialogTitle className="font-headline flex items-center text-lg">
+            {/* Text announced to screen-readers only */}
+            <VisuallyHidden.Root>Live Application Console</VisuallyHidden.Root>
+            <Terminal className="mr-2 h-5 w-5 text-primary" aria-hidden="true" />
           </DialogTitle>
           <DialogDescription>
             View console logs captured from the application. Newest logs appear at the top.

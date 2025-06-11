@@ -340,7 +340,15 @@ export default function NewPurchasePage() {
       setItemsInPurchaseList(prev => [...prev, newItemForList]);
       setNextDisplayId(prev => prev + 1);
       
-      const newCategory = currentItemForm.getValues().category; 
+      type Category =
+  | "PAPER"
+  | "INKS"
+  | "PLASTIC_TRAY"
+  | "GLASS_JAR"
+  | "MAGNET"
+  | "OTHER";
+
+const newCategory: Category | null = currentItemForm.getValues().category as Category; 
       
       let defaultUnit: UnitValue;
       let autoItemName = "";
@@ -553,7 +561,7 @@ export default function NewPurchasePage() {
                   <Label htmlFor="purchaseBillNoInput">Purchase Bill No.</Label>
                   <Input id="purchaseBillNoInput" placeholder="e.g., INV-2024-123" value={purchaseBillNo} onChange={(e) => setPurchaseBillNo(e.target.value)} className="font-body h-11 px-3"/>
                 </div>
-                <div className="flex flex-col space-y-2">
+                <div className="space-y-2">
                   <Label htmlFor="purchaseDateButton">Purchase Date</Label>
                   <Popover>
                     <PopoverTrigger asChild>
@@ -603,9 +611,11 @@ export default function NewPurchasePage() {
                     <FormItem>
                       <FormLabel>Item Category</FormLabel>
                       <Select onValueChange={(value) => { 
-                          field.onChange(value); 
-                          setCurrentItemCategory(value as InventoryCategory); 
+                          field.onChange(value);
                           
+                          const isValidCategory = value && INVENTORY_CATEGORIES.some(cat => cat.value === value);
+                          setCurrentItemCategory(isValidCategory ? value as InventoryCategory : null);
+
                           let defaultUnit: UnitValue;
                           let autoItemName = "";
                           const newCategoryValue = value as InventoryCategory;

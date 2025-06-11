@@ -229,9 +229,9 @@ export function AddCustomerDialog({ isOpen, setIsOpen, onCustomerAdded }: AddCus
       if (!open) form.reset(); // Reset form when dialog is closed
       setIsOpen(open);
     }}>
-      <DialogContent className="sm:max-w-2xl font-body">
-        <DialogHeader>
-          <DialogTitle className="font-headline flex items-center">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col font-body">
+ <DialogHeader>
+ <DialogTitle className="font-headline flex items-center">
             <UserPlus className="mr-2 h-6 w-6 text-primary" /> Add New Customer
           </DialogTitle>
           <DialogDescription>
@@ -250,10 +250,12 @@ export function AddCustomerDialog({ isOpen, setIsOpen, onCustomerAdded }: AddCus
         />
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <ScrollArea className="max-h-[60vh] p-1 pr-4 -mr-2">
-              <div className="space-y-4">
-                <FormField
+ <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 overflow-hidden">
+ <ScrollArea className="flex-1 overflow-y-auto">
+              <div className="space-y-4 px-4 pb-4 pt-1">
+                 <FormField
+                  
+
                   control={form.control}
                   name="fullName"
                   render={({ field }) => (
@@ -449,4 +451,3 @@ export function AddCustomerDialog({ isOpen, setIsOpen, onCustomerAdded }: AddCus
     </Dialog>
   );
 }
-
