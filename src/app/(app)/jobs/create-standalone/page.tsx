@@ -5,7 +5,7 @@ import { JobCardForm } from "@/components/job-card/JobCardForm";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LayoutList, FilePlus2, FileCheck2, Sparkles, Eye, Loader2, FileText } from "lucide-react";
+import { LayoutList, FilePlus2, FileCheck2, Sparkles, Eye, Loader2, FileText, PlusCircle } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { getApprovedDesigns, getJobCardById } from "@/lib/actions/jobActions";
@@ -259,20 +259,25 @@ function CreateStandaloneJobPageContent() {
         <TabsContent value="create-new">
             <div ref={jobFormCardRef}>
                 <Card className={cardBaseStyle}>
-                    <CardHeader>
-                        <CardTitle className="font-headline flex items-center text-xl">
-                            <FilePlus2 className="mr-3 h-6 w-6 text-primary" />
-                            {initialJobDataForForm?.jobName?.startsWith("Re-order:") ? "Re-order Job" : 
-                            initialJobDataForForm ? "Create Job from Design" : "Create New Job Card"}
-                        </CardTitle>
-                        <CardDescription className="font-body text-base">
-                            {initialJobDataForForm?.jobName?.startsWith("Re-order:")
-                            ? "Review and adjust details for this re-order. A new job card will be created."
-                            : initialJobDataForForm 
-                                ? "Review the pre-filled details from the approved design and complete the job card."
-                                : "Fill out the details below to create a new job card. You can use the 'Pre-fill from Past Job' section within the form."
-                            }
-                        </CardDescription>
+                    <CardHeader className="flex flex-row justify-between items-start">
+                        <div>
+                            <CardTitle className="font-headline flex items-center text-xl">
+                                <FilePlus2 className="mr-3 h-6 w-6 text-primary" />
+                                {initialJobDataForForm?.jobName?.startsWith("Re-order:") ? "Re-order Job" : 
+                                initialJobDataForForm ? "Create Job from Design" : "Create New Job Card"}
+                            </CardTitle>
+                            <CardDescription className="font-body text-base">
+                                {initialJobDataForForm?.jobName?.startsWith("Re-order:")
+                                ? "Review and adjust details for this re-order. A new job card will be created."
+                                : initialJobDataForForm 
+                                    ? "Review the pre-filled details from the approved design and complete the job card."
+                                    : "Fill out the details below to create a new job card. You can use the 'Pre-fill from Past Job' section within the form."
+                                }
+                            </CardDescription>
+                        </div>
+                        <Button variant="outline" size="sm" className="font-body ml-auto">
+                            <PlusCircle className="mr-2 h-4 w-4" /> Start New
+                        </Button>
                     </CardHeader>
                     <CardContent className="pt-6">
                     <JobCardForm 
@@ -297,3 +302,4 @@ export default function CreateStandaloneJobPage() {
     </Suspense>
   );
 }
+
