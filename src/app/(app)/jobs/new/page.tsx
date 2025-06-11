@@ -13,7 +13,7 @@ import type { DesignSubmission, JobCardData } from "@/lib/definitions";
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { ViewAllJobsModal } from "@/components/job-card/ViewAllJobsModal";
-import { NewJobMultiStepModal } from "@/components/job-card/NewJobMultiStepModal";
+// Removed NewJobMultiStepModal import
 import { useSearchParams } from "next/navigation";
 
 function NewJobPageContent() {
@@ -31,11 +31,9 @@ function NewJobPageContent() {
   const { toast } = useToast();
   const jobFormCardRef = useRef<HTMLDivElement>(null);
   const [isViewAllJobsModalOpen, setIsViewAllJobsModalOpen] = useState(false);
-  const [isMultiStepModalOpen, setIsMultiStepModalOpen] = useState(false);
-  const [multiStepInitialData, setMultiStepInitialData] = useState<Partial<JobCardData> | undefined>(undefined);
+  // Removed isMultiStepModalOpen and multiStepInitialData states
 
-
-  type CreationMode = 'creation_options' | 'show_form' | 'show_multistep_modal';
+  type CreationMode = 'creation_options' | 'show_form'; // Removed 'show_multistep_modal'
   const [creationMode, setCreationMode] = useState<CreationMode>('creation_options');
   
   const [activeTab, setActiveTab] = useState(fromCustomerJobId ? "create-new" : "from-design");
@@ -147,30 +145,26 @@ function NewJobPageContent() {
     setTimeout(() => jobFormCardRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
   };
   
-  const handleSetCreationPath = (path: 'prefill_full_form' | 'guided_steps') => {
-    if (path === 'prefill_full_form') {
-      setInitialJobDataForForm(undefined); 
-      setPrefillJobName(undefined);
-      setPrefillCustomerName(undefined);
-      setSelectedDesignPdfUri(undefined);
-      setCreationMode('show_form');
-      toast({ title: "Pre-Fill from Past Job", description: "Please use the selectors within the form below to choose a customer and their past job."});
-      setTimeout(() => jobFormCardRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
-    } else if (path === 'guided_steps') {
-      setMultiStepInitialData(undefined); 
-      setIsMultiStepModalOpen(true);
-      setCreationMode('show_multistep_modal');
-    }
-  };
-
   const handleStartNewFromFullForm = () => {
     setInitialJobDataForForm(undefined);
     setPrefillJobName(undefined);
     setPrefillCustomerName(undefined);
     setSelectedDesignPdfUri(undefined);
-    // The JobCardForm component will re-render with default values due to its key and internal useEffect.
+    setCreationMode('show_form');
     toast({ title: "Form Cleared", description: "Starting a new job card from scratch." });
+    setTimeout(() => jobFormCardRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
   };
+
+  const handlePrefillFromPastJob = () => {
+    setInitialJobDataForForm(undefined); // Clear any design prefill
+    setPrefillJobName(undefined);
+    setPrefillCustomerName(undefined);
+    setSelectedDesignPdfUri(undefined);
+    setCreationMode('show_form');
+    toast({ title: "Pre-Fill from Past Job", description: "Please use the selectors within the form below to choose a customer and their past job."});
+    setTimeout(() => jobFormCardRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+  };
+
 
   if (isLoadingJobForPrefill) {
      return (
@@ -209,16 +203,7 @@ function NewJobPageContent() {
         setIsOpen={setIsViewAllJobsModalOpen} 
       />
 
-      <NewJobMultiStepModal
-        isOpen={isMultiStepModalOpen}
-        setIsOpen={setIsMultiStepModalOpen}
-        initialData={multiStepInitialData}
-        onModalClose={() => {
-            if (creationMode === 'show_multistep_modal') {
-                 setCreationMode('creation_options');
-            }
-        }}
-      />
+      {/* Removed NewJobMultiStepModal instance */}
 
       <Tabs value={activeTab} onValueChange={(newTab) => {
           setActiveTab(newTab);
@@ -315,14 +300,14 @@ function NewJobPageContent() {
                         How would you like to start this new job?
                         </CardTitle>
                         <CardDescription className="font-body">
-                            You can pre-fill details from a customer's past job or start with a blank form using a guided process.
+                            You can pre-fill details from a customer's past job or start with a blank form.
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6">
                         <Button
                             variant="outline"
                             className="h-auto py-6 text-lg flex flex-col items-center justify-center gap-2 hover:shadow-md transition-shadow"
-                            onClick={() => handleSetCreationPath('prefill_full_form')}
+                            onClick={handlePrefillFromPastJob}
                         >
                             <FileText className="h-8 w-8 mb-2 text-primary" />
                             Pre-Fill from Past Job (Full Form)
@@ -330,10 +315,10 @@ function NewJobPageContent() {
                         <Button
                             variant="outline"
                             className="h-auto py-6 text-lg flex flex-col items-center justify-center gap-2 hover:shadow-md transition-shadow"
-                            onClick={() => handleSetCreationPath('guided_steps')}
+                            onClick={handleStartNewFromFullForm}
                         >
                             <FilePlus2 className="h-8 w-8 mb-2 text-primary" />
-                            Start with Guided Steps
+                            Start Blank Job Card (Full Form)
                         </Button>
                     </CardContent>
                 </Card>
@@ -355,7 +340,7 @@ function NewJobPageContent() {
                               ? "Review and adjust details for this re-order. A new job card will be created."
                               : initialJobDataForForm 
                                   ? "Review the pre-filled details from the approved design and complete the job card."
-                                  : "Fill out the details below to create a new job card. You can use the 'Pre-fill from Past Job' section within the form."
+                                  : "Fill out the details below to create a new job card. You can use the 'Pre-fill from Past Job' section within the form if you haven't already."
                               }
                           </CardDescription>
                         </div>
@@ -375,7 +360,6 @@ function NewJobPageContent() {
                 </Card>
             </div>
            )}
-           {/* If creationMode is show_multistep_modal, the NewJobMultiStepModal component (rendered above) handles itself */}
         </TabsContent>
       </Tabs>
     </div>
@@ -389,3 +373,4 @@ export default function NewJobPage() {
     </Suspense>
   );
 }
+
