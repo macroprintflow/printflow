@@ -5,7 +5,7 @@ import { JobCardForm } from "@/components/job-card/JobCardForm";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LayoutList, FilePlus2, FileCheck2, Sparkles, Eye, Loader2, FileText } from "lucide-react";
+import { LayoutList, FilePlus2, FileCheck2, Sparkles, Eye, Loader2, FileText, PlusCircle } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { getApprovedDesigns, getJobCardById } from "@/lib/actions/jobActions";
@@ -13,7 +13,7 @@ import type { DesignSubmission, JobCardData } from "@/lib/definitions";
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { ViewAllJobsModal } from "@/components/job-card/ViewAllJobsModal";
-// Removed NewJobMultiStepModal import
+import { NewJobMultiStepModal } from "@/components/job-card/NewJobMultiStepModal";
 import { useSearchParams } from "next/navigation";
 
 function NewJobPageContent() {
@@ -31,14 +31,14 @@ function NewJobPageContent() {
   const { toast } = useToast();
   const jobFormCardRef = useRef<HTMLDivElement>(null);
   const [isViewAllJobsModalOpen, setIsViewAllJobsModalOpen] = useState(false);
-  // Removed MultiStepModal state
+  const [isMultiStepModalOpen, setIsMultiStepModalOpen] = useState(false);
+  const [multiStepInitialData, setMultiStepInitialData] = useState<Partial<JobCardData> | undefined>(undefined);
 
+
+  type CreationMode = 'creation_options' | 'show_form' | 'show_multistep_modal';
+  const [creationMode, setCreationMode] = useState<CreationMode>('creation_options');
   
   const [activeTab, setActiveTab] = useState(fromCustomerJobId ? "create-new" : "from-design");
-
-  // Glass Tile styling for cards
-  const cardBaseStyle = "rounded-[16px] border border-white/15 bg-background/50 backdrop-blur-xl shadow-md shadow-black/10 [box-shadow:inset_0_0_0_2px_rgba(255,255,255,0.14)]";
-
 
   useEffect(() => {
     async function fetchDesigns() {
@@ -86,7 +86,8 @@ function NewJobPageContent() {
             setPrefillJobName(reorderJobData.jobName);
             setPrefillCustomerName(reorderJobData.customerName);
             setSelectedDesignPdfUri(jobData.pdfDataUri);
-            setActiveTab("create-new"); 
+            setActiveTab("create-new");
+            setCreationMode('show_form'); 
             toast({
               title: "Prefilling Form for Re-order",
               description: `Using details from job: ${jobData.jobCardNumber || jobData.jobName}`,
@@ -95,26 +96,33 @@ function NewJobPageContent() {
             setTimeout(() => jobFormCardRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
           } else {
             toast({ title: "Error", description: "Could not find job to pre-fill.", variant: "destructive" });
+            setCreationMode('creation_options');
           }
         } catch (error) {
           console.error("Failed to fetch job for prefill:", error);
           toast({ title: "Error", description: "Could not load job data for re-order.", variant: "destructive" });
+          setCreationMode('creation_options');
         } finally {
           setIsLoadingJobForPrefill(false);
+        }
+      } else {
+        if (activeTab === 'create-new') {
+           setCreationMode('creation_options');
         }
       }
     }
     fetchJobForPrefill();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fromCustomerJobId, toast]); 
 
   useEffect(() => {
     if (activeTab === 'from-design') {
-      setInitialJobDataForForm(undefined); 
-      setPrefillJobName(undefined);
-      setPrefillCustomerName(undefined);
-      setSelectedDesignPdfUri(undefined);
+      setCreationMode('creation_options'); 
+      setInitialJobDataForForm(undefined);
+    } else if (activeTab === 'create-new' && !fromCustomerJobId && !initialJobDataForForm) {
+      setCreationMode('creation_options');
     }
-  }, [activeTab]);
+  }, [activeTab, fromCustomerJobId, initialJobDataForForm]);
 
 
   const handleCreateFromDesign = (design: DesignSubmission) => {
@@ -129,6 +137,7 @@ function NewJobPageContent() {
     setSelectedDesignPdfUri(design.pdfDataUri);
     
     setActiveTab("create-new");
+    setCreationMode('show_form'); 
 
     toast({
       title: "Prefilling Form",
@@ -138,12 +147,36 @@ function NewJobPageContent() {
     setTimeout(() => jobFormCardRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
   };
   
+  const handleSetCreationPath = (path: 'prefill_full_form' | 'guided_steps') => {
+    if (path === 'prefill_full_form') {
+      setInitialJobDataForForm(undefined); 
+      setPrefillJobName(undefined);
+      setPrefillCustomerName(undefined);
+      setSelectedDesignPdfUri(undefined);
+      setCreationMode('show_form');
+      toast({ title: "Pre-Fill from Past Job", description: "Please use the selectors within the form below to choose a customer and their past job."});
+      setTimeout(() => jobFormCardRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+    } else if (path === 'guided_steps') {
+      setMultiStepInitialData(undefined); 
+      setIsMultiStepModalOpen(true);
+      setCreationMode('show_multistep_modal');
+    }
+  };
+
+  const handleStartNewFromFullForm = () => {
+    setInitialJobDataForForm(undefined);
+    setPrefillJobName(undefined);
+    setPrefillCustomerName(undefined);
+    setSelectedDesignPdfUri(undefined);
+    // The JobCardForm component will re-render with default values due to its key and internal useEffect.
+    toast({ title: "Form Cleared", description: "Starting a new job card from scratch." });
+  };
 
   if (isLoadingJobForPrefill) {
      return (
       <div className="flex justify-center items-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="ml-2 font-body text-base">Loading job details for re-order...</p>
+        <p className="ml-2 font-body">Loading job details for re-order...</p>
       </div>
     );
   }
@@ -153,18 +186,18 @@ function NewJobPageContent() {
       <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
          <div>
             <h2 className="text-2xl font-headline font-semibold text-foreground">New Job Card Options</h2>
-            <p className="font-body text-base text-muted-foreground">
-                Create a job from an approved design or start fresh.
+            <p className="text-sm text-muted-foreground font-body">
+                Create a job from an approved design, pre-fill from a past job, or start fresh.
             </p>
         </div>
         <div className="flex gap-2">
-          <Button asChild variant="outline" size="sm" className="font-body">
+          <Button asChild variant="outline" size="sm">
             <Link href="/templates">
               <LayoutList className="mr-2 h-4 w-4" />
               Manage Job Templates
             </Link>
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setIsViewAllJobsModalOpen(true)} className="font-body">
+          <Button variant="outline" size="sm" onClick={() => setIsViewAllJobsModalOpen(true)}>
             <Eye className="mr-2 h-4 w-4" />
             View All Created Jobs
           </Button>
@@ -176,11 +209,22 @@ function NewJobPageContent() {
         setIsOpen={setIsViewAllJobsModalOpen} 
       />
 
-      {/* Removed NewJobMultiStepModal component */}
+      <NewJobMultiStepModal
+        isOpen={isMultiStepModalOpen}
+        setIsOpen={setIsMultiStepModalOpen}
+        initialData={multiStepInitialData}
+        onModalClose={() => {
+            if (creationMode === 'show_multistep_modal') {
+                 setCreationMode('creation_options');
+            }
+        }}
+      />
 
       <Tabs value={activeTab} onValueChange={(newTab) => {
           setActiveTab(newTab);
-          if (newTab === 'from-design') {
+          if (newTab === 'create-new' && !fromCustomerJobId && !initialJobDataForForm) {
+              setCreationMode('creation_options');
+          } else if (newTab === 'from-design') {
             setInitialJobDataForForm(undefined); 
           }
       }} className="w-full">
@@ -200,13 +244,13 @@ function NewJobPageContent() {
         </TabsList>
 
         <TabsContent value="from-design">
-          <Card className={cardBaseStyle}>
+          <Card className="shadow-lg">
             <CardHeader>
                 <CardTitle className="font-headline flex items-center text-xl">
                     <FileCheck2 className="mr-3 h-6 w-6 text-green-600" />
                     Select an Approved Design
                 </CardTitle>
-                <CardDescription className="font-body text-base">
+                <CardDescription className="font-body">
                     Choosing a design will pre-fill Job Name, Customer Name, and link the PDF to the new job card. The form will appear under the "Create New Job" tab.
                 </CardDescription>
             </CardHeader>
@@ -214,12 +258,12 @@ function NewJobPageContent() {
               {isLoadingDesigns ? (
                 <div className="flex justify-center items-center py-10">
                   <Loader2 className="mr-2 h-8 w-8 animate-spin text-primary" />
-                  <p className="text-muted-foreground font-body text-base">Loading approved designs...</p>
+                  <p className="text-muted-foreground font-body">Loading approved designs...</p>
                 </div>
               ) : approvedDesigns.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
                   {approvedDesigns.map(design => (
-                    <Card key={design.id} className={`${cardBaseStyle} overflow-hidden group`}>
+                    <Card key={design.id} className="overflow-hidden hover:shadow-xl transition-shadow duration-300 group">
                       <div className="relative h-40 w-full">
                         <Image 
                             src={`https://placehold.co/600x400.png?text=${encodeURIComponent(design.pdfName)}`}
@@ -233,7 +277,7 @@ function NewJobPageContent() {
                         <CardTitle className="font-body text-md font-semibold truncate group-hover:text-primary transition-colors">
                             {design.pdfName}
                         </CardTitle>
-                        <CardDescription className="text-xs font-body text-base">
+                        <CardDescription className="text-xs font-body">
                             Job: {design.jobName} | Cust: {design.customerName}
                         </CardDescription>
                       </CardHeader>
@@ -253,7 +297,7 @@ function NewJobPageContent() {
                  <div className="text-center py-12">
                     <Image src="https://placehold.co/300x200.png?text=No+Approved+Designs" alt="No Approved Designs" width={300} height={200} className="mb-6 rounded-lg mx-auto" data-ai-hint="empty state document"/>
                     <h3 className="text-xl font-semibold mb-2 font-headline">No Approved Designs Available</h3>
-                    <p className="text-muted-foreground font-body text-base">
+                    <p className="text-muted-foreground font-body">
                     Upload and approve designs in the 'For Approval' section to start a job from them.
                     </p>
                 </div>
@@ -263,22 +307,62 @@ function NewJobPageContent() {
         </TabsContent>
 
         <TabsContent value="create-new">
-            <div ref={jobFormCardRef}>
-                <Card className={cardBaseStyle}>
+           {creationMode === 'creation_options' && (
+                <Card className="shadow-lg">
                     <CardHeader>
                         <CardTitle className="font-headline flex items-center text-xl">
-                            <FilePlus2 className="mr-3 h-6 w-6 text-primary" />
-                            {initialJobDataForForm?.jobName?.startsWith("Re-order:") ? "Re-order Job" : 
-                            initialJobDataForForm ? "Create Job from Design" : "Create New Job Card"}
+                        <FilePlus2 className="mr-3 h-6 w-6 text-primary" />
+                        How would you like to start this new job?
                         </CardTitle>
-                        <CardDescription className="font-body text-base">
-                            {initialJobDataForForm?.jobName?.startsWith("Re-order:")
-                            ? "Review and adjust details for this re-order. A new job card will be created."
-                            : initialJobDataForForm 
-                                ? "Review the pre-filled details from the approved design and complete the job card."
-                                : "Fill out the details below to create a new job card. You can use the 'Pre-fill from Past Job' section within the form."
-                            }
+                        <CardDescription className="font-body">
+                            You can pre-fill details from a customer's past job or start with a blank form using a guided process.
                         </CardDescription>
+                    </CardHeader>
+                    <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6">
+                        <Button
+                            variant="outline"
+                            className="h-auto py-6 text-lg flex flex-col items-center justify-center gap-2 hover:shadow-md transition-shadow"
+                            onClick={() => handleSetCreationPath('prefill_full_form')}
+                        >
+                            <FileText className="h-8 w-8 mb-2 text-primary" />
+                            Pre-Fill from Past Job (Full Form)
+                        </Button>
+                        <Button
+                            variant="outline"
+                            className="h-auto py-6 text-lg flex flex-col items-center justify-center gap-2 hover:shadow-md transition-shadow"
+                            onClick={() => handleSetCreationPath('guided_steps')}
+                        >
+                            <FilePlus2 className="h-8 w-8 mb-2 text-primary" />
+                            Start with Guided Steps
+                        </Button>
+                    </CardContent>
+                </Card>
+           )}
+           
+           {creationMode === 'show_form' && (
+            <div ref={jobFormCardRef}>
+                <Card className="shadow-lg">
+                    <CardHeader>
+                      <div className="flex justify-between items-start w-full gap-4">
+                        <div>
+                          <CardTitle className="font-headline flex items-center text-xl">
+                              <FilePlus2 className="mr-3 h-6 w-6 text-primary" />
+                              {initialJobDataForForm?.jobName?.startsWith("Re-order:") ? "Re-order Job" : 
+                              initialJobDataForForm ? "Create Job from Design" : "Create New Job Card"}
+                          </CardTitle>
+                          <CardDescription className="font-body">
+                              {initialJobDataForForm?.jobName?.startsWith("Re-order:")
+                              ? "Review and adjust details for this re-order. A new job card will be created."
+                              : initialJobDataForForm 
+                                  ? "Review the pre-filled details from the approved design and complete the job card."
+                                  : "Fill out the details below to create a new job card. You can use the 'Pre-fill from Past Job' section within the form."
+                              }
+                          </CardDescription>
+                        </div>
+                        <Button variant="outline" size="sm" className="font-body" onClick={handleStartNewFromFullForm}>
+                            <PlusCircle className="mr-2 h-4 w-4" /> Start New
+                        </Button>
+                      </div>
                     </CardHeader>
                     <CardContent className="pt-6">
                     <JobCardForm 
@@ -290,6 +374,8 @@ function NewJobPageContent() {
                     </CardContent>
                 </Card>
             </div>
+           )}
+           {/* If creationMode is show_multistep_modal, the NewJobMultiStepModal component (rendered above) handles itself */}
         </TabsContent>
       </Tabs>
     </div>
@@ -298,10 +384,8 @@ function NewJobPageContent() {
 
 export default function NewJobPage() {
   return (
-    <Suspense fallback={<div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /><p className="ml-2 font-body text-base">Loading page...</p></div>}>
+    <Suspense fallback={<div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /><p className="ml-2 font-body">Loading page...</p></div>}>
       <NewJobPageContent />
     </Suspense>
   );
 }
-
-    
