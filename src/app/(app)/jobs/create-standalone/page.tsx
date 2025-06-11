@@ -278,7 +278,7 @@ function CreateStandaloneJobPageContent() {
                       </div>
                       
                       <Button variant="outline" size="sm" className="font-body">
-                        <PlusCircle className="mr-2 h-4 w-4" /> Start New
+                        <PlusCircle className="mr-2 h-4 w-4" /> Start New (test)
                       </Button>
                     </div>
                   </CardHeader>
