@@ -51,13 +51,13 @@ export function InventoryOptimizationModal({
     const qualityUnit = jobDetails.paperQuality ? getPaperQualityUnit(jobDetails.paperQuality) : null;
     let missingInfo = false;
 
-    if (!jobDetails.paperQuality || jobDetails.paperQuality === '') missingInfo = true;
+    if (!jobDetails.paperQuality) missingInfo = true;
     if (qualityUnit === 'gsm' && !jobDetails.paperGsm) missingInfo = true;
     if (qualityUnit === 'mm' && !jobDetails.paperThicknessMm) missingInfo = true;
     if (!jobDetails.jobSizeWidth || !jobDetails.jobSizeHeight || !jobDetails.quantityForOptimization) missingInfo = true;
 
     if (missingInfo) {
-       toast({
+      toast({
         title: "Missing Information",
         description: `Please fill in Target Paper Quality, ${qualityUnit === 'mm' ? 'Thickness (mm)' : 'GSM'}, Job Size (in inches), and Gross (or Net) Quantity to get suggestions.`,
         variant: "destructive",
@@ -143,8 +143,9 @@ export function InventoryOptimizationModal({
               ({renderSheetSpec(optimalSuggestion)}, Quality: {getPaperQualityLabel(optimalSuggestion.paperQuality as PaperQualityType)}) <br />
               Wastage: {optimalSuggestion.wastagePercentage.toFixed(2)}% |
               Sheets/Master: {optimalSuggestion.sheetsPerMasterSheet} |
-              Total Masters: {optimalSuggestion.totalMasterSheetsNeeded} <br />
-              Layout: {optimalSuggestion.cuttingLayoutDescription || 'N/A'}
+              Total Masters Required: {optimalSuggestion.totalMasterSheetsNeeded} <br />
+              Layout: {optimalSuggestion.cuttingLayoutDescription || 'N/A'} |
+              Shortfall: {Math.max(0, (optimalSuggestion.totalMasterSheetsNeeded || 0) - (optimalSuggestion.availableQuantity || 0))}
             </p>
             <Button variant="default" size="sm" className="mt-2" onClick={() => handleSelect(optimalSuggestion)}>
               Use Optimal Suggestion
@@ -163,8 +164,8 @@ export function InventoryOptimizationModal({
                   <TableHead className="font-headline text-gray-700 dark:text-gray-300">Layout</TableHead>
                   <TableHead className="font-headline text-gray-700 dark:text-gray-300 text-right">Wastage %</TableHead>
                   <TableHead className="font-headline text-gray-700 dark:text-gray-300 text-right">Sheets/Master</TableHead>
-                  <TableHead className="font-headline text-gray-700 dark:text-gray-300 text-right">Total Masters</TableHead>
-                  <TableHead className="font-headline text-gray-700 dark:text-gray-300 text-right">Action</TableHead>
+                  <TableHead className="font-headline text-gray-700 dark:text-gray-300 text-right">Total Masters Required</TableHead>
+                  <TableHead className="font-headline text-gray-700 dark:text-gray-300 text-right">Shortfall</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -180,15 +181,15 @@ export function InventoryOptimizationModal({
                     <TableCell className="text-sm">{s.masterSheetSizeWidth.toFixed(2)} x {s.masterSheetSizeHeight.toFixed(2)}</TableCell>
                     <TableCell className="text-sm">{renderSheetSpec(s)}</TableCell>
                     <TableCell className="text-sm">
-                        <Badge variant="outline">{getPaperQualityLabel(s.paperQuality as PaperQualityType)}</Badge>
+                      <Badge variant="outline">{getPaperQualityLabel(s.paperQuality as PaperQualityType)}</Badge>
                     </TableCell>
                     <TableCell className="text-xs">
                       {s.cuttingLayoutDescription || '-'}
                     </TableCell>
                     <TableCell className="text-right text-sm">{s.wastagePercentage.toFixed(2)}%</TableCell>
                     <TableCell className="text-right text-sm">{s.sheetsPerMasterSheet}</TableCell>
-                    <TableCell className="text-right text-sm">{s.totalMasterSheetsNeeded}</TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right text-sm">{s.totalMasterSheetsNeeded || 0}</TableCell>
+                    <TableCell className={cn("text-right text-sm", (s.totalMasterSheetsNeeded || 0) > (s.availableQuantity || 0) && "text-red-500 dark:text-red-400")}>
                       <Button variant="default" size="sm" onClick={() => handleSelect(s)}>
                         Select
                       </Button>

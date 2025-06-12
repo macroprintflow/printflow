@@ -1,8 +1,8 @@
-
-import type {Metadata} from 'next';
+import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
-import { AuthProvider } from '@/contexts/AuthContext'; // Import AuthProvider
+import { AuthProvider } from '@/contexts/AuthContext';
+import { DisableNumberScroll } from '@/components/DisableNumberScroll';
 
 export const metadata: Metadata = {
   title: 'PrintFlow',
@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   viewport: {
     width: 'device-width',
     initialScale: 1,
-    maximumScale: 1, // Optional: Consider if you want to disable user zooming
+    maximumScale: 1,
   },
 };
 
@@ -24,12 +24,12 @@ export default function RootLayout({
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        {/* Using Inter as a close approximation to SF Pro, system-ui stack will be preferred via Tailwind config */}
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
         <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300..700&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased text-foreground" suppressHydrationWarning={true}>
-        <AuthProvider> {/* Wrap children with AuthProvider */}
+        <AuthProvider>
+          <DisableNumberScroll />
           {children}
         </AuthProvider>
         <Toaster />

@@ -32,6 +32,7 @@ export type InventorySuggestion = {
   sheetsPerMasterSheet: number;
   totalMasterSheetsNeeded: number;
   cuttingLayoutDescription?: string;
+  availableQuantity?: number;
 };
 
 export const PAPER_QUALITY_OPTIONS = [
@@ -141,6 +142,7 @@ export type JobCardData = {
   updatedAt?: string;
   workflowSteps?: WorkflowStep[];
   pdfDataUri?: string;
+  hasPendingInventory?: boolean;
 };
 
 export type JobTemplateData = {
@@ -202,6 +204,7 @@ export const JobCardSchema = z.object({
   workflowSteps: z.array(WorkflowStepSchema).optional(),
   pdfDataUri: z.string().optional(),
   linkedJobCardIds: z.array(z.string()).optional(),
+  hasPendingInventory: z.boolean().optional(),
 }).superRefine((data, ctx) => {
   const unit = getPaperQualityUnit(data.paperQuality as PaperQualityType); // Cast as PaperQualityType
   if (data.paperQuality && unit === 'gsm' && (data.paperGsm === undefined || data.paperGsm <= 0)) {
@@ -213,6 +216,7 @@ export const JobCardSchema = z.object({
 });
 
 export type JobCardFormValues = z.infer<typeof JobCardSchema>;
+
 
 
 export const JobTemplateSchema = z.object({
@@ -383,6 +387,7 @@ export const InventoryItemFormSchema = z.object({
   dateOfEntry: z.string().refine(val => !isNaN(Date.parse(val)), { message: "Invalid date"}),
   reorderPoint: z.coerce.number().optional(),
   locationCode: z.string().optional(),
+  hasPendingInventory: z.boolean().optional(),
 }).superRefine((data, ctx) => {
   if (data.category === 'PAPER') {
     if (!data.paperQuality || data.paperQuality === '') {

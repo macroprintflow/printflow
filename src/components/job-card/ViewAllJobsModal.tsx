@@ -80,15 +80,32 @@ export function ViewAllJobsModal({ isOpen, setIsOpen, onJobSelect }: ViewAllJobs
     jobs.sort((a, b) => {
       let valA: string | number | undefined;
       let valB: string | number | undefined;
-
-      if (sortKey === "date") {
+      
+      if (sortKey === "date" && (a.createdAt || a.date) && (b.createdAt || b.date)) {
         valA = new Date(a.createdAt || a.date).getTime();
         valB = new Date(b.createdAt || b.date).getTime();
       } else {
-        valA = a[sortKey as keyof JobCardData] || "";
-        valB = b[sortKey as keyof JobCardData] || "";
+        const aValue = a[sortKey as keyof JobCardData];
+        const bValue = b[sortKey as keyof JobCardData];
+
+        // Handle boolean values by converting to string
+        if (typeof aValue === 'boolean') {
+          valA = String(aValue);
+        } else if (Array.isArray(aValue)) {
+           valA = aValue.length > 0 ? String(aValue) : ""; // Convert array to string or use empty string
+        } else {
+          valA = typeof aValue === 'string' || typeof aValue === 'number' ? aValue : ""; // Default to empty string for other types
+        }
+
+        // Apply similar logic for valB
+        valB = typeof bValue === 'boolean' ? String(bValue) : (Array.isArray(bValue) ? (bValue.length > 0 ? String(bValue) : "") : (typeof bValue === 'string' || typeof bValue === 'number' ? bValue : ""));
       }
       
+      // Handle cases where values might be non-string/number (e.g., boolean, array)
+      // Convert to string for consistent comparison or provide specific handling
+      const stringValA = typeof valA === 'string' || typeof valA === 'number' ? String(valA) : '';
+      const stringValB = typeof valB === 'string' || typeof valB === 'number' ? String(valB) : '';
+
       if (typeof valA === 'string' && typeof valB === 'string') {
         return sortDirection === "asc" ? valA.localeCompare(valB) : valB.localeCompare(valA);
       }
@@ -255,7 +272,7 @@ export function ViewAllJobsModal({ isOpen, setIsOpen, onJobSelect }: ViewAllJobs
             </Table>
           )}
         </ScrollArea>
-
+ 
         <DialogFooter className="mt-4 pt-4 border-t">
           <Button variant="outline" onClick={() => setIsOpen(false)}>
             Close
