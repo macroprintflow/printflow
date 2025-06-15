@@ -1,22 +1,35 @@
-
 "use client";
+
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Archive, PlusCircle, Search, History, ArrowLeft, Printer, Layers, FileText, Newspaper, Box, ShoppingCart, Warehouse, Wand2 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { useState, useEffect, useMemo, useCallback } from "react";
+
+import { Archive, ArrowLeft, FileText, History, Layers, PlusCircle, Printer, Search, ShoppingCart, Wand2, Warehouse } from "lucide-react";
+
 import { InventoryAdjustmentsDialog } from "@/components/inventory/InventoryAdjustmentsDialog";
-import { getInventoryItems } from "@/lib/actions/jobActions";
-import type { InventoryItem, PaperQualityType, PaperSubCategoryFilterValue, PaperSubCategory, ArtPaperFinishFilterValue, KappaFinishFilterValue, SubCategoryFinishFilterValue } from "@/lib/definitions";
-import { PAPER_SUB_CATEGORIES, KAPPA_MDF_QUALITIES, getPaperQualityUnit, getPaperQualityLabel } from "@/lib/definitions";
-import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { getInventoryItems } from "@/lib/actions/inventoryActions";
+import {
+  PAPER_SUB_CATEGORIES,
+  getPaperQualityLabel,
+  getPaperQualityUnit,
+  KAPPA_MDF_QUALITIES
+} from "@/lib/definitions";
+
+import type {
+  InventoryItem,
+  PaperQualityType,
+  PaperSubCategoryFilterValue,
+  SubCategoryFinishFilterValue
+} from "@/lib/definitions";
 
 const getCategoryDisplayName = (slug: string | string[] | undefined): string => {
-  if (typeof slug !== 'string') return "Inventory";
+  if (typeof slug !== "string") return "Inventory";
   switch (slug) {
     case "paper": return "Paper";
     case "inks": return "Inks";
@@ -28,13 +41,9 @@ const getCategoryDisplayName = (slug: string | string[] | undefined): string => 
   }
 };
 
-// Helper function to format dimension numbers
 const formatDimension = (num?: number): string => {
-  if (num === undefined || num === null) return '';
-  if (Number.isInteger(num)) {
-    return num.toString();
-  }
-  return num.toFixed(1); // Keep one decimal if not an integer
+  if (num === undefined || num === null) return "";
+  return Number.isInteger(num) ? num.toString() : num.toFixed(1);
 };
 
 export default function CategorizedInventoryPage() {
@@ -46,10 +55,8 @@ export default function CategorizedInventoryPage() {
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-
   const [isAdjustmentsDialogOpen, setIsAdjustmentsDialogOpen] = useState(false);
   const [selectedItemForAdjustments, setSelectedItemForAdjustments] = useState<InventoryItem | null>(null);
-
   const [selectedPaperQualityFilter, setSelectedPaperQualityFilter] = useState<PaperSubCategoryFilterValue | null>(null);
   const [selectedSubCategoryFinishFilter, setSelectedSubCategoryFinishFilter] = useState<SubCategoryFinishFilterValue | null>(null);
   const [selectedSpec, setSelectedSpec] = useState<{ value: number; unit: 'GSM' | 'mm' } | null>(null);
@@ -65,10 +72,6 @@ export default function CategorizedInventoryPage() {
     fetchInventory();
   }, [fetchInventory]);
 
-  const handleInventoryUpdate = () => {
-    fetchInventory();
-  };
-
   const currentPaperSubCategoryDefinition = useMemo(() => {
     if (!selectedPaperQualityFilter) return null;
     return PAPER_SUB_CATEGORIES.find(sc => sc.filterValue === selectedPaperQualityFilter) || null;
@@ -76,74 +79,79 @@ export default function CategorizedInventoryPage() {
 
   const getDynamicSpecsFromInventory = useCallback(() => {
     if (!currentPaperSubCategoryDefinition) return [];
-
+  
     let qualitiesToMatch: PaperQualityType[] = [];
-    if(currentPaperSubCategoryDefinition.filterValue === "OTHER_PAPER_GROUP"){
-       // For "OTHER_PAPER_GROUP", qualitiesToMatch remains empty; filter logic below handles it.
-    } else if (currentPaperSubCategoryDefinition.subFinishes && selectedSubCategoryFinishFilter) {
-      const finishDef = currentPaperSubCategoryDefinition.subFinishes.find(f => f.finishFilterValue === selectedSubCategoryFinishFilter);
-      if (finishDef) {
-          qualitiesToMatch = [finishDef.actualQualityValue];
-      } else {
-          return []; // Explicitly return empty array if selected finish is not found
-      }
+    if (currentPaperSubCategoryDefinition.filterValue === "OTHER_PAPER_GROUP") {
+      // Skip explicit filtering
+    } else if (
+      currentPaperSubCategoryDefinition.subFinishes &&
+      selectedSubCategoryFinishFilter
+    ) {
+      const finish = currentPaperSubCategoryDefinition.subFinishes.find(
+        (f) => f.finishFilterValue === selectedSubCategoryFinishFilter
+      );
+      if (finish) qualitiesToMatch = [finish.actualQualityValue];
+      else return [];
     } else {
-        qualitiesToMatch = currentPaperSubCategoryDefinition.qualityValues;
+      qualitiesToMatch = currentPaperSubCategoryDefinition.qualityValues;
     }
-
-    const itemsOfSelectedQuality = inventoryItems.filter(item => {
-      if (item.type !== 'Master Sheet') return false;
-      if (!item.paperQuality) return false;
-      if ((item.availableStock ?? 0) <= 0) return false;
-
-
-      if(currentPaperSubCategoryDefinition.filterValue === "OTHER_PAPER_GROUP"){
-         const allExplicitPaperQualities = PAPER_SUB_CATEGORIES
-            .filter(sc => sc.filterValue !== "__ALL_PAPER__" && sc.filterValue !== "OTHER_PAPER_GROUP")
-            .flatMap(sc => sc.qualityValues);
-        return !allExplicitPaperQualities.includes(item.paperQuality as PaperQualityType);
+  
+    const itemsOfSelectedQuality = inventoryItems.filter((item) => {
+      if (item.type !== "Master Sheet" || !item.paperQuality || (item.availableStock ?? 0) <= 0) return false;
+  
+      if (currentPaperSubCategoryDefinition.filterValue === "OTHER_PAPER_GROUP") {
+        const allExplicitQualities = PAPER_SUB_CATEGORIES.filter(
+          (sc) => sc.filterValue !== "__ALL_PAPER__" && sc.filterValue !== "OTHER_PAPER_GROUP"
+        ).flatMap((sc) => sc.qualityValues);
+        return !allExplicitQualities.includes(item.paperQuality as PaperQualityType);
       }
       return qualitiesToMatch.includes(item.paperQuality as PaperQualityType);
     });
-
-
+  
     if (itemsOfSelectedQuality.length === 0) return [];
-    
-    let unit: 'GSM' | 'mm' | null = null;
-    if (currentPaperSubCategoryDefinition.subFinishes && selectedSubCategoryFinishFilter) {
-        const finishDef = currentPaperSubCategoryDefinition.subFinishes.find(f => f.finishFilterValue === selectedSubCategoryFinishFilter);
-        if(finishDef) unit = finishDef.specUnit;
+  
+    let unit: "GSM" | "MM" | null = null;
+  
+    const finishDef = currentPaperSubCategoryDefinition.subFinishes?.find(
+      (f) => f.finishFilterValue === selectedSubCategoryFinishFilter
+    );
+  
+    if (finishDef?.specUnit) {
+      unit = finishDef.specUnit.toUpperCase() as "GSM" | "MM";
     } else if (currentPaperSubCategoryDefinition.specUnit) {
-        unit = currentPaperSubCategoryDefinition.specUnit;
+      unit = currentPaperSubCategoryDefinition.specUnit.toUpperCase() as "GSM" | "MM";
     } else {
-        const firstItemPaperQualityType = itemsOfSelectedQuality[0]?.paperQuality as PaperQualityType | undefined;
-        if (firstItemPaperQualityType) unit = getPaperQualityUnit(firstItemPaperQualityType);
+      const firstQuality = itemsOfSelectedQuality[0]?.paperQuality as PaperQualityType | undefined;
+      if (firstQuality) {
+        const rawUnit = getPaperQualityUnit(firstQuality);
+        if (rawUnit) unit = rawUnit.toUpperCase() as "GSM" | "MM";
+      }
     }
-
+  
     if (!unit) return [];
-
+  
     const specs = new Set<number>();
-    if (unit === 'GSM') {
-      itemsOfSelectedQuality.forEach(item => {
-        if (item.paperGsm !== undefined && typeof item.paperGsm === 'number' && item.paperGsm > 0) {
-          specs.add(item.paperGsm);
-        }
+    if (unit === "GSM") {
+      itemsOfSelectedQuality.forEach((item) => {
+        if (typeof item.paperGsm === "number" && item.paperGsm > 0) specs.add(item.paperGsm);
       });
-    } else if (unit === 'mm') {
-      itemsOfSelectedQuality.forEach(item => {
-        if (item.paperThicknessMm !== undefined && typeof item.paperThicknessMm === 'number' && item.paperThicknessMm > 0) {
+    } else if (unit === "MM") {
+      itemsOfSelectedQuality.forEach((item) => {
+        if (typeof item.paperThicknessMm === "number" && item.paperThicknessMm > 0)
           specs.add(item.paperThicknessMm);
-        }
       });
     }
-    return Array.from(specs).sort((a, b) => a - b).map(value => ({ value, unit: unit!, type: 'spec' as const }));
+  
+    return Array.from(specs)
+      .sort((a, b) => a - b)
+      .map((value) => ({ value, unit: unit!, type: "spec" as const }));
   }, [inventoryItems, currentPaperSubCategoryDefinition, selectedSubCategoryFinishFilter]);
-
 
   const specsToDisplay = useMemo(() => {
     if (!currentPaperSubCategoryDefinition) return [];
 
-    if (currentPaperSubCategoryDefinition.subFinishes && currentPaperSubCategoryDefinition.subFinishes.length > 0) {
+    if (Array.isArray(currentPaperSubCategoryDefinition.subFinishes) && currentPaperSubCategoryDefinition.subFinishes.length > 0) {
+
       if (!selectedSubCategoryFinishFilter) {
         return currentPaperSubCategoryDefinition.subFinishes.map(finish => ({
           name: finish.name,
@@ -152,32 +160,32 @@ export default function CategorizedInventoryPage() {
           icon: finish.icon || Wand2,
         }));
       } else {
-        const selectedFinishDef = currentPaperSubCategoryDefinition.subFinishes.find(f => f.finishFilterValue === selectedSubCategoryFinishFilter);
-        if (selectedFinishDef && selectedFinishDef.predefinedSpecs) {
+        const selectedFinishDef = currentPaperSubCategoryDefinition.subFinishes.find(
+          f => f.finishFilterValue === selectedSubCategoryFinishFilter
+        );
+
+        if (selectedFinishDef?.predefinedSpecs) {
           return selectedFinishDef.predefinedSpecs.map(specValue => ({
             value: specValue,
             unit: selectedFinishDef.specUnit,
             type: 'spec' as const,
           }));
         }
-        const dynamicSpecs = getDynamicSpecsFromInventory();
-        if (dynamicSpecs.length === 0 && selectedFinishDef) { 
-            return [];
-        }
-        return dynamicSpecs;
+
+        return getDynamicSpecsFromInventory();
       }
     }
 
     if (currentPaperSubCategoryDefinition.predefinedSpecs && currentPaperSubCategoryDefinition.specUnit) {
       return currentPaperSubCategoryDefinition.predefinedSpecs.map(specValue => ({
         value: specValue,
-        unit: currentPaperSubCategoryDefinition.specUnit!,
+        unit: currentPaperSubCategoryDefinition.specUnit,
         type: 'spec' as const,
       }));
     }
+
     return getDynamicSpecsFromInventory();
   }, [currentPaperSubCategoryDefinition, selectedSubCategoryFinishFilter, getDynamicSpecsFromInventory]);
-
 
   const filteredItems = useMemo(() => {
     let itemsToFilter = [...inventoryItems];

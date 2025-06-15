@@ -1,11 +1,13 @@
-
 "use client";
 
-import type { ReactNode, Dispatch, SetStateAction} from 'react';
+import type { ReactNode, Dispatch, SetStateAction } from 'react';
 import { createContext, useContext, useEffect, useState } from 'react';
-import { onAuthStateChanged, type User } from 'firebase/auth';
-import { auth } from '@/lib/firebase/clientApp';
+import { getAuth, onAuthStateChanged, type User } from 'firebase/auth';
+import { clientApp } from '@/lib/firebase/clientApp';
 import { Loader2 } from 'lucide-react';
+
+// ✅ Initialize auth from clientApp
+const auth = getAuth(clientApp);
 
 interface AuthContextType {
   user: User | null;

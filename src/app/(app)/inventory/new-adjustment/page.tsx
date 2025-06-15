@@ -2,13 +2,17 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import {
+    addInventoryItem,
+   applyInventoryAdjustments, } from "@/lib/actions/jobActions";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import Link from 'next/link';
 import { useRouter } from "next/navigation";
+import type { InventoryItemFormValues } from "@/lib/definitions";
 import type { InventoryItem, InventoryCategory, InventoryAdjustmentItemFormValues, InventoryAdjustmentReasonValue } from "@/lib/definitions";
 import { INVENTORY_CATEGORIES, INVENTORY_ADJUSTMENT_REASONS, InventoryAdjustmentItemSchema, getPaperQualityLabel, getPaperQualityUnit } from "@/lib/definitions";
-import { getInventoryItems, applyInventoryAdjustments } from "@/lib/actions/jobActions";
+import { getInventoryItems} from "@/lib/actions/jobActions";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -101,70 +105,125 @@ export default function NewAdjustmentPage() {
     setAdjustmentNotes("");
   };
 
-  const handleAddAdjustmentToList = () => {
-    if (!selectedItemForAdjustment) {
-      toast({ title: "No Item Selected", description: "Please select an inventory item first.", variant: "destructive" });
-      return;
-    }
-    const quantityNum = Number(adjustmentQuantity);
-    if (isNaN(quantityNum) || quantityNum === 0) {
-      toast({ title: "Invalid Quantity", description: "Please enter a valid non-zero quantity change.", variant: "destructive" });
-      return;
-    }
-    if (!adjustmentReason) {
-      toast({ title: "Reason Missing", description: "Please select a reason for the adjustment.", variant: "destructive" });
-      return;
-    }
+  /* ──────────────────────────────────────────────────────────────── */
+/* 1.  Add / stage one row                                          */
+/* ──────────────────────────────────────────────────────────────── */
+function typeToCategory(type: InventoryItem["type"]): InventoryCategory {
+  switch (type) {
+    case "Master Sheet": return "PAPER";
+    case "Ink":          return "INKS";
+    case "Plastic Tray": return "PLASTIC_TRAY";
+    case "Glass Jar":    return "GLASS_JAR";
+    case "Magnet":       return "MAGNET";
+    default:             return "OTHER";
+  }
+}
+const handleAddAdjustmentToList = async () => {
+  if (!selectedItemForAdjustment) {
+    toast({ title: "No Item Selected", description: "Please select an inventory item first.", variant: "destructive" });
+    return;
+  }
 
-    const newAdjustment: AdjustmentListItem = {
-      displayId: nextDisplayId,
-      inventoryItemId: selectedItemForAdjustment.id,
-      itemNameFull: formatItemNameForDisplay(selectedItemForAdjustment),
-      quantityChange: quantityNum,
-      reason: adjustmentReason,
-      notes: adjustmentNotes,
-    };
+  const quantityNum = Number(adjustmentQuantity);
+  if (isNaN(quantityNum) || quantityNum === 0) {
+    toast({ title: "Invalid Quantity", description: "Please enter a valid non-zero quantity change.", variant: "destructive" });
+    return;
+  }
 
-    setStagedAdjustments(prev => [...prev, newAdjustment]);
-    setNextDisplayId(prev => prev + 1);
+  if (!adjustmentReason) {
+    toast({ title: "Reason Missing", description: "Please select a reason for the adjustment.", variant: "destructive" });
+    return;
+  }
+
+  /* ---------------------------------------------------------------
+     1️⃣  Ensure the item exists in Firestore
+     --------------------------------------------------------------- */
+     const { success, item } = await addInventoryItem({
+          /* ---- required fields -------------------------------------- */
+         category : typeToCategory(selectedItemForAdjustment.type),
+      itemName : selectedItemForAdjustment.name,
+      unit     : selectedItemForAdjustment.unit,
+      quantity : 0,                           // stock will be added via adjustment
+      
+      /* ---- paper-specific optional fields ----------------------- */
+      paperQuality               : selectedItemForAdjustment.paperQuality,
+      paperMasterSheetSizeWidth  : selectedItemForAdjustment.masterSheetSizeWidth,
+      paperMasterSheetSizeHeight : selectedItemForAdjustment.masterSheetSizeHeight,
     
-    // Reset fields for next entry
-    setSelectedItemForAdjustment(null);
-    setAdjustmentQuantity("");
-    setAdjustmentReason("");
-    setAdjustmentNotes("");
-    setSearchQuery(""); // Clear search to show full list again or encourage new search
-  };
-  
-  const handleRemoveFromList = (displayId: number) => {
-    setStagedAdjustments(prev => prev.filter(adj => adj.displayId !== displayId));
+      /* ---- minimal set; add more if your addInventoryItem schema
+      requires them (locationCode, vendorName, etc.) -------- */
+      } as InventoryItemFormValues);
+
+  if (!success || !item) {
+    toast({ title: "Error", description: "Failed to create or fetch inventory item." , variant: "destructive" });
+    return;
+  }
+
+  /* ---------------------------------------------------------------
+     2️⃣  Stage the adjustment with the deterministic ID
+     --------------------------------------------------------------- */
+  const newAdjustment: AdjustmentListItem = {
+    displayId      : nextDisplayId,
+    inventoryItemId: item.id,                               // ← "inv3"
+    itemNameFull   : formatItemNameForDisplay(item),
+    quantityChange : quantityNum,
+    reason         : adjustmentReason,
+    notes          : adjustmentNotes,
   };
 
-  const handleSaveAllAdjustments = async () => {
-    if (stagedAdjustments.length === 0) {
-      toast({ title: "No Adjustments", description: "Please add items to the adjustment list before saving.", variant: "destructive" });
-      return;
-    }
-    setIsSubmitting(true);
-    const adjustmentsToSave = stagedAdjustments.map(({ displayId, itemNameFull, ...rest }) => rest);
-    const result = await applyInventoryAdjustments(adjustmentsToSave);
-    setIsSubmitting(false);
+  setStagedAdjustments(prev => [...prev, newAdjustment]);
+  setNextDisplayId(prev => prev + 1);
 
-    if (result.success) {
-      toast({ title: "Success!", description: result.message });
-      setStagedAdjustments([]);
-      setNextDisplayId(1);
-      fetchItems(); // Re-fetch to update stock numbers
-      router.push('/inventory');
-    } else {
-      toast({
-        title: "Error Saving Adjustments",
-        description: result.message + (result.errors ? ` Details: ${result.errors.map(e => e.message).join(', ')}` : ''),
-        variant: "destructive",
-        duration: 7000,
-      });
-    }
-  };
+  // Reset UI fields
+  setSelectedItemForAdjustment(null);
+  setAdjustmentQuantity("");
+  setAdjustmentReason("");
+  setAdjustmentNotes("");
+  setSearchQuery("");
+};
+
+/* ──────────────────────────────────────────────────────────────── */
+/* 2.  Remove staged row                                            */
+/* ──────────────────────────────────────────────────────────────── */
+const handleRemoveFromList = (displayId: number) => {
+  setStagedAdjustments(prev => prev.filter(adj => adj.displayId !== displayId));
+};
+
+/* ──────────────────────────────────────────────────────────────── */
+/* 3.  Save all staged adjustments                                  */
+/* ──────────────────────────────────────────────────────────────── */
+const handleSaveAllAdjustments = async () => {
+  if (stagedAdjustments.length === 0) {
+    toast({ title: "No Adjustments", description: "Please add items to the adjustment list before saving.", variant: "destructive" });
+    return;
+  }
+
+  setIsSubmitting(true);
+
+  // Strip UI-only fields (displayId, itemNameFull)
+  const adjustmentsToSave = stagedAdjustments.map(({ displayId, itemNameFull, ...rest }) => rest);
+
+  // 🔍 DEBUG — confirm IDs sent to server
+  console.log("[UI] adjustments payload", adjustmentsToSave);
+
+  const result = await applyInventoryAdjustments(adjustmentsToSave);
+  setIsSubmitting(false);
+
+  if (result.success) {
+    toast({ title: "Success!", description: result.message });
+    setStagedAdjustments([]);
+    setNextDisplayId(1);
+    fetchItems();            // refresh inventory list
+    router.push("/inventory");
+  } else {
+    toast({
+      title      : "Error Saving Adjustments",
+      description: result.message + (result.errors ? ` Details: ${result.errors.map(e => e.message).join(", ")}` : ""),
+      variant    : "destructive",
+      duration   : 7000,
+    });
+  }
+};
 
 
   return (

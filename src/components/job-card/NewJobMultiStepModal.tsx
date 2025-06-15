@@ -88,17 +88,17 @@ export function NewJobMultiStepModal({
         MultiStepJobSchema // Fallback, though currentStep should always be 1, 2, or 3
     ),
     defaultValues: {
-      jobName: initialData?.jobName || "",
-      customerName: initialData?.customerName || "",
+      jobName: initialData?.jobName || undefined,
+      customerName: initialData?.customerName || undefined,
       dispatchDate: initialData?.dispatchDate ? new Date(initialData.dispatchDate) : undefined,
       jobSizeWidth: initialData?.jobSizeWidth || undefined,
       jobSizeHeight: initialData?.jobSizeHeight || undefined,
       netQuantity: initialData?.netQuantity || undefined,
       grossQuantity: initialData?.grossQuantity || undefined,
-      paperQuality: (initialData?.paperQuality as typeof PAPER_QUALITY_OPTIONS[number]['value']) || "",
+      paperQuality: (initialData?.paperQuality as typeof PAPER_QUALITY_OPTIONS[number]['value']) || undefined,
       paperGsm: initialData?.paperGsm || undefined,
       targetPaperThicknessMm: initialData?.targetPaperThicknessMm || undefined,
-      remarks: initialData?.remarks || "",
+      remarks: initialData?.remarks || undefined,
     },
     mode: "onChange",
   });
@@ -109,17 +109,17 @@ export function NewJobMultiStepModal({
   useEffect(() => {
     if (initialData) {
       form.reset({
-        jobName: initialData.jobName || "",
-        customerName: initialData.customerName || "",
+        jobName: initialData.jobName || undefined,
+        customerName: initialData.customerName || undefined,
         dispatchDate: initialData.dispatchDate ? new Date(initialData.dispatchDate) : undefined,
         jobSizeWidth: initialData.jobSizeWidth || undefined,
         jobSizeHeight: initialData.jobSizeHeight || undefined,
         netQuantity: initialData.netQuantity || undefined,
         grossQuantity: initialData.grossQuantity || undefined,
-        paperQuality: (initialData.paperQuality as typeof PAPER_QUALITY_OPTIONS[number]['value']) || "",
+        paperQuality: (initialData.paperQuality as typeof PAPER_QUALITY_OPTIONS[number]['value']) || undefined,
         paperGsm: initialData.paperGsm || undefined,
         targetPaperThicknessMm: initialData.targetPaperThicknessMm || undefined,
-        remarks: initialData.remarks || "",
+        remarks: initialData.remarks || undefined,
       });
     }
   }, [initialData, form]);
@@ -164,15 +164,15 @@ export function NewJobMultiStepModal({
       targetPaperThicknessMm: data.paperQuality && getPaperQualityUnit(data.paperQuality as PaperQualityType) === 'mm' ? data.targetPaperThicknessMm : undefined,
       remarks: data.remarks,
       // Default other fields as empty or standard values as JobCardForm does
-      kindOfJob: "", 
-      printingFront: "",
-      printingBack: "",
-      coating: "",
-      die: "",
-      hotFoilStamping: "",
-      emboss: "",
-      pasting: "",
-      boxMaking: "",
+      kindOfJob: undefined, 
+      printingFront: undefined,
+      printingBack: undefined,
+      coating: undefined,
+      die: undefined,
+      hotFoilStamping: undefined,
+      emboss: undefined,
+      pasting: undefined,
+      boxMaking: undefined,
       workflowSteps: [], // Or a default workflow
       linkedJobCardIds: [],
     };
@@ -291,10 +291,10 @@ export function NewJobMultiStepModal({
               <FormField control={form.control} name="paperQuality" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Target Paper Quality</FormLabel>
-                  <Select onValueChange={(value) => { field.onChange(value); form.setValue("paperGsm", undefined); form.setValue("targetPaperThicknessMm", undefined); }} value={field.value || ""}>
+                  <Select onValueChange={(value) => { field.onChange(value); form.setValue("paperGsm", undefined); form.setValue("targetPaperThicknessMm", undefined); }} value={field.value || undefined}>
                     <FormControl><SelectTrigger><SelectValue placeholder="Select paper quality" /></SelectTrigger></FormControl>
                     <SelectContent>
-                      {PAPER_QUALITY_OPTIONS.filter(opt => opt.value !== "").map(option => (
+                      {PAPER_QUALITY_OPTIONS.filter(opt => opt.value !== undefined).map(option => (
                         <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
                       ))}
                     </SelectContent>

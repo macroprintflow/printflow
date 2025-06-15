@@ -9,8 +9,10 @@ import { getAllCustomerData } from "@/lib/actions/customerActions";
 import type { CustomerData } from "@/lib/definitions";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import Image from "next/image";
-import { useEffect, useState } from "react"; // Added for state management
 import { useToast } from "@/hooks/use-toast"; // Added for potential feedback
+import { db } from "@/lib/firebase/clientApp";
+import { doc, getDoc } from "firebase/firestore";
+import { useEffect, useState } from "react";
 
 const EXPECTED_CSV_HEADERS = ["fullName", "email", "phoneNumberCountryCode", "phoneNumber", "street", "city", "state", "zipCode", "country"];
 
@@ -18,22 +20,41 @@ export default function CustomersPage() {
   const [customers, setCustomers] = useState<CustomerData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  useEffect(() => {
+    const runTest = async () => {
+      const ref = doc(db, "settings", "jobCardCounter");
+  
+      try {
+        const snap = await getDoc(ref);
+        console.log("✅ Firestore test result:", snap.exists() ? snap.data() : "❌ Document not found");
+      } catch (err) {
+        console.error("🔥 Firestore test error:", err);
+      }
+    };
+  
+    runTest();
+  }, []);
 
   useEffect(() => {
-    async function fetchCustomers() {
-      setIsLoading(true);
-      try {
-        const data = await getAllCustomerData();
-        setCustomers(data);
-      } catch (error) {
-        console.error("Failed to fetch customers:", error);
-        toast({ title: "Error", description: "Could not load customer data.", variant: "destructive" });
-      } finally {
-        setIsLoading(false);
-      }
+  const fetchCustomers = async () => {
+    setIsLoading(true);
+    try {
+      const data = await getAllCustomerData();
+      setCustomers(data);
+    } catch (error) {
+      console.error("❌ Failed to fetch customers:", error);
+      toast({
+        title: "Error",
+        description: "Could not load customer data.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
-    fetchCustomers();
-  }, [toast]);
+  };
+
+  fetchCustomers();
+}, [toast]);
 
   const handleExportSampleCsv = () => {
     const headerString = EXPECTED_CSV_HEADERS.join(',') + '\r\n';

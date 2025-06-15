@@ -1,25 +1,32 @@
-
 "use client";
 
-import type { ReactNode, Dispatch, SetStateAction } from 'react';
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 
+/* ───── Types ─────────────────────────────────────────────────────── */
 export interface LogEntry {
   id: string;
   timestamp: string;
-  level: 'log' | 'warn' | 'error' | 'info' | 'debug';
-  message: any[]; // Store all arguments passed to console.log etc.
+  level: "log" | "warn" | "error" | "info" | "debug";
+  message: any[];
 }
-
 interface ConsoleContextType {
   logEntries: LogEntry[];
-  addLogEntry: (level: LogEntry['level'], ...args: any[]) => void;
+  addLogEntry: (level: LogEntry["level"], ...args: any[]) => void;
   clearLogs: () => void;
 }
 
+/* ───── Context ───────────────────────────────────────────────────── */
 const ConsoleContext = createContext<ConsoleContextType | undefined>(undefined);
 
-// Store original console methods
+/* Capture first console methods so we can restore them later */
 const originalConsole = {
   log: console.log,
   warn: console.warn,
@@ -28,67 +35,71 @@ const originalConsole = {
   debug: console.debug,
 };
 
-export const ConsoleProvider = ({ children }: { children: ReactNode }) => {
+/* Guard flag – prevent double patching in dev strict-mode / HMR */
+let consolePatched = false;
+
+/* ───── Provider ──────────────────────────────────────────────────── */
+export function ConsoleProvider({ children }: { children: ReactNode }) {
+  const MAX_LOG_ENTRIES = 200;
   const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
-  const MAX_LOG_ENTRIES = 200; // Limit the number of entries to prevent performance issues
 
-  const addLogEntry = useCallback((level: LogEntry['level'], ...args: any[]) => {
-    const newEntry: LogEntry = {
-      id: Math.random().toString(36).substring(2, 9) + Date.now().toString(36),
-      timestamp: new Date().toLocaleTimeString(),
-      level,
-      message: args,
-    };
-    setLogEntries(prevEntries => [newEntry, ...prevEntries].slice(0, MAX_LOG_ENTRIES));
-  }, []);
+  /* Add a log entry (memoised) */
+  const addLogEntry = useCallback(
+    (level: LogEntry["level"], ...args: any[]) => {
+      const entry: LogEntry = {
+        id: crypto.randomUUID(),
+        timestamp: new Date().toISOString(),
+        level,
+        message: args,
+      };
+      setLogEntries((prev) => [entry, ...prev].slice(0, MAX_LOG_ENTRIES));
+    },
+    []
+  );
 
-  const clearLogs = useCallback(() => {
-    setLogEntries([]);
-  }, []);
+  const clearLogs = useCallback(() => setLogEntries([]), []);
 
+  /* Patch console.* once on mount, unpatch on unmount */
   useEffect(() => {
-    console.log = (...args: any[]) => {
-      originalConsole.log.apply(console, args);
-      addLogEntry('log', ...args);
-    };
-    console.warn = (...args: any[]) => {
-      originalConsole.warn.apply(console, args);
-      addLogEntry('warn', ...args);
-    };
-    console.error = (...args: any[]) => {
-      originalConsole.error.apply(console, args);
-      addLogEntry('error', ...args);
-    };
-    console.info = (...args: any[]) => {
-      originalConsole.info.apply(console, args);
-      addLogEntry('info', ...args);
-    };
-    console.debug = (...args: any[]) => {
-      originalConsole.debug.apply(console, args);
-      addLogEntry('debug', ...args);
-    };
+    if (consolePatched) return;       // already done (dev double-mount etc.)
+    consolePatched = true;
 
-    // Cleanup: Restore original console methods when component unmounts
+    console.log  = (...a) => { originalConsole.log  (...a); addLogEntry("log",  ...a); };
+    console.warn = (...a) => { originalConsole.warn (...a); addLogEntry("warn", ...a); };
+
+    /* -------- KEEP original console.error for real stack traces ------- */
+    console.error = originalConsole.error;
+    /* If you still want to record errors, call addLogEntry here too:     */
+    /* console.error = (...a) => {                                         */
+    /*   originalConsole.error(...a);                                      */
+    /*   addLogEntry("error", ...a);                                       */
+    /* };                                                                  */
+
+    console.info  = (...a) => { originalConsole.info (...a); addLogEntry("info",  ...a); };
+    console.debug = (...a) => { originalConsole.debug(...a); addLogEntry("debug", ...a); };
+
     return () => {
-      console.log = originalConsole.log;
+      console.log  = originalConsole.log;
       console.warn = originalConsole.warn;
-      console.error = originalConsole.error;
+      console.error= originalConsole.error;   //  ← restore on cleanup
       console.info = originalConsole.info;
-      console.debug = originalConsole.debug;
+      console.debug= originalConsole.debug;
+      consolePatched = false;
     };
   }, [addLogEntry]);
 
-  return (
-    <ConsoleContext.Provider value={{ logEntries, addLogEntry, clearLogs }}>
-      {children}
-    </ConsoleContext.Provider>
+  /* Memoised context value */
+  const ctx = useMemo(
+    () => ({ logEntries, addLogEntry, clearLogs }),
+    [logEntries, addLogEntry, clearLogs]
   );
-};
 
-export const useAppConsole = (): ConsoleContextType => {
-  const context = useContext(ConsoleContext);
-  if (context === undefined) {
-    throw new Error('useAppConsole must be used within a ConsoleProvider');
-  }
-  return context;
-};
+  return <ConsoleContext.Provider value={ctx}>{children}</ConsoleContext.Provider>;
+}
+
+/* ───── Hook ──────────────────────────────────────────────────────── */
+export function useAppConsole(): ConsoleContextType {
+  const ctx = useContext(ConsoleContext);
+  if (!ctx) throw new Error("useAppConsole must be used within a ConsoleProvider");
+  return ctx;
+}

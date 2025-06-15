@@ -3,6 +3,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
+import { getNextJobCardNumber } from "@/lib/actions/jobCardUtils";
 import type { JobCardFormValues, InventorySuggestion, JobTemplateData, PaperQualityType, WorkflowProcessStepDefinition, JobCardData, WorkflowStep, DesignSubmission, CustomerListItem, InventoryItem } from '@/lib/definitions';
 import { JobCardSchema, KINDS_OF_JOB_OPTIONS, PRINTING_MACHINE_OPTIONS, COATING_OPTIONS, DIE_OPTIONS, DIE_MACHINE_OPTIONS, HOT_FOIL_OPTIONS, YES_NO_OPTIONS, BOX_MAKING_OPTIONS, PAPER_QUALITY_OPTIONS, getPaperQualityLabel, getPaperQualityUnit, PRODUCTION_PROCESS_STEPS, KAPPA_MDF_QUALITIES } from '@/lib/definitions';
 import { createJobCard, getInventoryItems } from "@/lib/actions/jobActions";
@@ -53,8 +54,15 @@ const formatInventoryItemForDisplay = (item: InventoryItem): string => {
   return item.name || "Unnamed Item";
 };
 
-export function JobCardForm({ initialJobName, initialCustomerName, initialJobData }: JobCardFormProps) {
-  // const [isModalOpen, setIsModalOpen] = useState(false); // Optimizer commented out
+export function JobCardForm({initialJobName, initialCustomerName, initialJobData}: JobCardFormProps) {
+  const [nextJobCardNumber, setNextJobCardNumber] = useState<string | null>(null);
+  useEffect(() => {
+    const fetchNextNumber = async () => {
+      const number = await getNextJobCardNumber();
+      setNextJobCardNumber(number);
+    };
+    fetchNextNumber();
+  }, []);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
@@ -89,69 +97,82 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
   const [isSubmitted, setIsSubmitted] = useState(false); // State to track successful submission
 
 
+
   const form = useForm<JobCardFormValues>({
     resolver: zodResolver(JobCardSchema),
-    defaultValues: initialJobData ?
-      {
-        jobName: initialJobData.jobName,
-        customerName: initialJobData.customerName,
-        customerId: initialJobData.customerId,
-        jobSizeWidth: initialJobData.jobSizeWidth,
-        jobSizeHeight: initialJobData.jobSizeHeight,
-        netQuantity: initialJobData.netQuantity,
-        grossQuantity: initialJobData.grossQuantity,
-        paperQuality: initialJobData.paperQuality,
-        paperGsm: getPaperQualityUnit(initialJobData.paperQuality as PaperQualityType) === 'gsm' ? initialJobData.paperGsm : undefined,
-        targetPaperThicknessMm: getPaperQualityUnit(initialJobData.paperQuality as PaperQualityType) === 'mm' ? initialJobData.targetPaperThicknessMm : undefined,
-        kindOfJob: initialJobData.kindOfJob ?? undefined,
-        printingFront: initialJobData.printingFront ?? undefined,
-        printingBack: initialJobData.printingBack ?? undefined,
-        coating: initialJobData.coating ?? undefined,
-        specialInks: initialJobData.specialInks ?? undefined,
-        die: initialJobData.die ?? undefined,
-        assignedDieMachine: initialJobData.assignedDieMachine ?? undefined,
-        hotFoilStamping: initialJobData.hotFoilStamping ?? undefined,
-        emboss: initialJobData.emboss ?? undefined,
-        pasting: initialJobData.pasting ?? undefined,
-        boxMaking: initialJobData.boxMaking ?? undefined,
-        remarks: initialJobData.remarks ?? undefined,
-        dispatchDate: initialJobData.dispatchDate ? new Date(initialJobData.dispatchDate).toISOString() : undefined,
-        workflowSteps: initialJobData.workflowSteps || [],
-        linkedJobCardIds: initialJobData.linkedJobCardIds || [],
-        hasPendingInventory: initialJobData.hasPendingInventory ?? false, // Initialize pending inventory field
-        pdfDataUri: initialJobData.pdfDataUri,
-      }
-      : {
-        jobName: initialJobName || "",
-        customerName: initialCustomerName || "",
-        customerId: undefined,
-        jobSizeWidth: undefined,
-        jobSizeHeight: undefined,
-        netQuantity: undefined,
-        grossQuantity: undefined,
-        paperGsm: undefined,
-        targetPaperThicknessMm: undefined,
-        paperQuality: "",
-        kindOfJob: "",
-        printingFront: "",
-        printingBack: "",
-        coating: "",
-        specialInks: "",
-        die: "",
-        assignedDieMachine: "",
-        hotFoilStamping: "",
-        emboss: "",
-        pasting: "",
-        boxMaking: "",
-        remarks: "",
-        dispatchDate: undefined,
-        workflowSteps: [],
-        linkedJobCardIds: [],
-        hasPendingInventory: false, // Initialize pending inventory field
-        pdfDataUri: undefined,
+    defaultValues: initialJobData ? {
+      jobName: initialJobData.jobName,
+      customerName: initialJobData.customerName,
+      customerId: initialJobData.customerId,
+      jobSizeWidth: initialJobData.jobSizeWidth,
+      jobSizeHeight: initialJobData.jobSizeHeight,
+      netQuantity: initialJobData.netQuantity,
+      grossQuantity: initialJobData.grossQuantity,
+      paperQuality: initialJobData.paperQuality,
+      paperGsm: getPaperQualityUnit(initialJobData.paperQuality as PaperQualityType) === 'gsm' ? initialJobData.paperGsm : undefined,
+      targetPaperThicknessMm: getPaperQualityUnit(initialJobData.paperQuality as PaperQualityType) === 'mm' ? initialJobData.targetPaperThicknessMm : undefined,
+      kindOfJob: initialJobData.kindOfJob ?? undefined,
+      printingFront: initialJobData.printingFront ?? undefined,
+      printingBack: initialJobData.printingBack ?? undefined,
+      coating: initialJobData.coating ?? undefined,
+      specialInks: initialJobData.specialInks ?? undefined,
+      die: initialJobData.die ?? undefined,
+      assignedDieMachine: initialJobData.assignedDieMachine ?? undefined,
+      hotFoilStamping: initialJobData.hotFoilStamping ?? undefined,
+      emboss: initialJobData.emboss ?? undefined,
+      pasting: initialJobData.pasting ?? undefined,
+      boxMaking: initialJobData.boxMaking ?? undefined,
+      remarks: initialJobData.remarks ?? undefined,
+      dispatchDate: initialJobData.dispatchDate ? new Date(initialJobData.dispatchDate).toISOString() : undefined,
+      workflowSteps: initialJobData.workflowSteps || [],
+      linkedJobCardIds: initialJobData.linkedJobCardIds || [],
+      hasPendingInventory: initialJobData.hasPendingInventory ?? false,
+      pdfDataUri: initialJobData.pdfDataUri,
+    } : {
+      jobName: initialJobName || "",
+      customerName: initialCustomerName || "",
+      customerId: undefined,
+      jobSizeWidth: undefined,
+      jobSizeHeight: undefined,
+      netQuantity: undefined,
+      grossQuantity: undefined,
+      paperGsm: undefined,
+      targetPaperThicknessMm: undefined,
+      paperQuality: undefined,
+      kindOfJob: undefined,
+      printingFront: undefined,
+      printingBack: undefined,
+      coating: undefined,
+      specialInks: undefined,
+      die: undefined,
+      assignedDieMachine: undefined,
+      hotFoilStamping: undefined,
+      emboss: undefined,
+      pasting: undefined,
+      boxMaking: undefined,
+      remarks: undefined,
+      dispatchDate: undefined,
+      workflowSteps: [],
+      linkedJobCardIds: [],
+      hasPendingInventory: false,
+      pdfDataUri: undefined,
+    
       },
   });
+  const grossQuantity = form.getValues('grossQuantity') ?? 0;
 
+  const totalQuantitySatisfied = selectedInventoryItemIds.reduce((acc, itemId) => {
+    const ups = itemUpsValues[itemId];
+    const item = allInventoryItems.find(i => i.id === itemId);
+    const stock = item?.availableStock ?? 0;
+
+    if (ups && ups > 0) {
+      acc += ups * stock;
+    }
+
+    return acc;
+  }, 0);
+  const remainingQuantity = Math.max(grossQuantity - totalQuantitySatisfied, 0);
   const applyWorkflow = useCallback((workflowSource?: { workflowSteps?: { stepSlug: string; order: number }[] }) => {
     let sourceWorkflow: { stepSlug: string; order: number }[] | undefined;
 
@@ -324,17 +345,17 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
       paperQuality: pastJobPaperQuality,
       paperGsm: pastJobUnit === 'gsm' ? job.paperGsm : undefined,
       targetPaperThicknessMm: pastJobUnit === 'mm' ? job.targetPaperThicknessMm : undefined,
-      kindOfJob: job.kindOfJob || "",
-      printingFront: job.printingFront || "",
-      printingBack: job.printingBack || "",
-      coating: job.coating || "",
+      kindOfJob: job.kindOfJob || undefined,
+      printingFront: job.printingFront || undefined,
+      printingBack: job.printingBack || undefined,
+      coating: job.coating || undefined,
       specialInks: job.specialInks,
-      die: job.die || "",
+      die: job.die || undefined,
       assignedDieMachine: job.assignedDieMachine,
-      hotFoilStamping: job.hotFoilStamping || "",
-      emboss: job.emboss || "",
-      pasting: job.pasting || "",
-      boxMaking: job.boxMaking || "",
+      hotFoilStamping: job.hotFoilStamping || undefined,
+      emboss: job.emboss || undefined,
+      pasting: job.pasting || undefined,
+      boxMaking: job.boxMaking || undefined,
       remarks: job.remarks,
       dispatchDate: undefined,
       workflowSteps: job.workflowSteps || [],
@@ -366,33 +387,44 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
   }, [currentWorkflowSteps, form]);
 
 
-  async function onSubmit(values: JobCardFormValues) {
+  const onSubmit = async (values: JobCardFormValues) => {
     setIsSubmitting(true);
+
+    if (!nextJobCardNumber) {
+      toast({
+        title: "Error",
+        description: "Job card number is not available. Please wait and try again.",
+        variant: "destructive",
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
     const valuesToSubmit = {
       ...values,
+      jobCardNumber: nextJobCardNumber, // ✅ Use the job card number from state
       workflowSteps: currentWorkflowSteps.map(s => ({ stepSlug: s.slug, order: s.order })),
       linkedJobCardIds: form.getValues('linkedJobCardIds') || [],
       pdfDataUri: currentPdfDataUri,
+      createdAt: new Date().toISOString(),
+      hasPendingInventory: (form.getValues('grossQuantity') ?? 0) > totalCoveredQuantity
     };
 
-    // Check and set hasPendingInventory based on covered quantity
-    if ((form.getValues('grossQuantity') ?? 0) > totalCoveredQuantity) {
-      valuesToSubmit.hasPendingInventory = true;
-    } else {
-      valuesToSubmit.hasPendingInventory = false;
-    }
-    setIsSubmitted(false); // Reset submission status
     const result = await createJobCard(valuesToSubmit);
     setIsSubmitting(false);
+
     if (result.success && result.jobCard) {
       toast({
         title: "Success!",
         description: result.message,
-      }); // Default variant is fine
+      });
+
       await handlePrintJobCard(result.jobCard, toast);
+
+      // Reset form and state
       form.reset({
-        jobName: initialJobName || "",
-        customerName: initialCustomerName || "",
+        jobName: initialJobName || undefined,
+        customerName: initialCustomerName || undefined,
         customerId: undefined,
         jobSizeWidth: undefined,
         jobSizeHeight: undefined,
@@ -401,31 +433,34 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
         paperGsm: undefined,
         targetPaperThicknessMm: undefined,
         paperQuality: undefined,
-        kindOfJob: "",
-        printingFront: "",
-        printingBack: "",
-        coating: "",
-        specialInks: "",
-        die: "",
-        assignedDieMachine: "",
-        hotFoilStamping: "",
-        emboss: "",
-        pasting: "",
-        boxMaking: "",
-        remarks: "",
+        kindOfJob: undefined,
+        printingFront: undefined,
+        printingBack: undefined,
+        coating: undefined,
+        specialInks: undefined,
+        die: undefined,
+        assignedDieMachine: undefined,
+        hotFoilStamping: undefined,
+        emboss: undefined,
+        pasting: undefined,
+        boxMaking: undefined,
+        remarks: undefined,
         dispatchDate: undefined,
         workflowSteps: [],
         linkedJobCardIds: [],
-        hasPendingInventory: false, // Reset pending inventory field
+        hasPendingInventory: false,
         pdfDataUri: undefined,
       });
+
       setCurrentWorkflowSteps([]);
       setCustomerInputValue(initialJobData?.customerName || initialCustomerName || "");
       setJobInputValue("");
       setSelectedPastJobId("");
       setJobsForCustomer([]);
       setCurrentPdfDataUri(undefined);
-      setIsSubmitted(true); // Set submission status to true on success
+      setIsSubmitted(true);
+
+      // Redirect to job list or confirmation
       router.push(`/jobs`);
     } else {
       toast({
@@ -434,8 +469,7 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
         variant: "destructive",
       });
     }
-  }
-
+  };
 
   type ProcessField =
     | { name: keyof JobCardFormValues; label: string; options: { value: string; label: string; }[]; }
@@ -563,511 +597,525 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
   /* ──────────────────────────────────────────────
      3. EFFECT that depends on it — place AFTER memo
   ────────────────────────────────────────────── */
+  // Reset itemUpsValues when the inventory list changes
   useEffect(() => {
-    // reset when the displayed list changes
     setItemUpsValues({});
   }, [filteredInventoryForDisplay]);
 
-  /* your calculateTotalMasterSheets and the JSX follow here */
-
+  // Calculate total master sheets for a given item
   const calculateTotalMasterSheetsNumber = (itemId: string): number => {
     const grossQuantity = form.getValues('grossQuantity');
     const ups = itemUpsValues[itemId];
 
-    if (grossQuantity !== undefined && grossQuantity !== null && ups !== undefined && ups > 0) {
+    if (grossQuantity !== undefined && grossQuantity !== null && ups && ups > 0) {
       return Math.ceil(grossQuantity / ups);
     }
-
     return 0;
   };
 
-  // Recalculate total covered quantity whenever selected items or their ups values change
+  // Reset selected items if ups is missing
   useEffect(() => {
-    let total = 0;
-    selectedInventoryItemIds.forEach(itemId => {
+    setSelectedInventoryItemIds((prevSelected) =>
+      prevSelected.filter((itemId) => {
+        const ups = itemUpsValues[itemId];
+        return ups !== undefined && ups !== null && ups > 0;
+      })
+    );
+  }, [itemUpsValues]);
+
+  // Update covered quantity (optional: if you're showing shortfall somewhere)
+  useEffect(() => {
+    let totalCovered = 0;
+    selectedInventoryItemIds.forEach((itemId) => {
       const ups = itemUpsValues[itemId];
-      if (ups !== undefined && ups !== null && ups > 0) {
-        total += ups;
+      if (ups && ups > 0) {
+        totalCovered += ups;
       }
     });
+    // You can store totalCovered in state if needed
   }, [selectedInventoryItemIds, itemUpsValues]);
 
+  // Inventory selection handler
   const handleInventorySelect = (itemId: string, isSelected: boolean) => {
-    if (isSelected) {
-      // Ensure 'No. of Ups' is entered before allowing selection
-      if (itemUpsValues[itemId] === undefined || itemUpsValues[itemId] <= 0) {
-        toast({ title: "Warning", description: "Please enter 'No. of Ups' before selecting an inventory item.", variant: "default" });
-        return; // Prevent selection if ups is not valid
-      }
-      setSelectedInventoryItemIds(prev => [...prev, itemId]);
-    } else {
-      setSelectedInventoryItemIds(prev => prev.filter(id => id !== itemId));
-    }
-  };
-
-  const calculateTotalMasterSheetsForDisplay = (itemId: string) => {
-    const grossQuantity = form.getValues('grossQuantity');
     const ups = itemUpsValues[itemId];
-
-    if (grossQuantity !== undefined && grossQuantity !== null && ups !== undefined && ups !== null && ups > 0) {
-      return Math.ceil(grossQuantity / ups).toLocaleString();
+    if (isSelected) {
+      if (!ups || ups <= 0) {
+        toast({
+          title: "Warning",
+          description: "Please enter 'No. of Ups' before selecting an inventory item.",
+          variant: "default",
+        });
+        return;
+      }
+      setSelectedInventoryItemIds((prev) => [...prev, itemId]);
+    } else {
+      setSelectedInventoryItemIds((prev) => prev.filter((id) => id !== itemId));
     }
-    return '-';
   };
+
+  // For displaying nicely formatted count
+  const calculateTotalMasterSheetsForDisplay = (itemId: string) => {
+    const count = calculateTotalMasterSheetsNumber(itemId);
+    return count > 0 ? count.toLocaleString() : "-";
+  };
+
+
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-headline">Pre-fill from Past Job</CardTitle>
-            <CardDescription className="font-body">Select a customer and one of their past jobs to quickly pre-fill this job card.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div>
+      {nextJobCardNumber ? (
+        <div className="mb-6 w-full bg-white/70 backdrop-blur-sm border border-border rounded-2xl px-4 py-3 flex flex-col sm:flex-row items-center justify-between shadow-md">
+          <div className="font-body text-sm text-muted-foreground">
+            Date: {format(new Date(), "PPP")}
+          </div>
+          <div className="font-headline text-base font-semibold text-primary">
+            Job Card Number: {nextJobCardNumber}
+          </div>
+        </div>
+      ) : (
+        <div className="mb-6 w-full text-muted-foreground text-sm font-body">
+          Loading Job Card Number...
+        </div>
+      )}
+
+
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-headline">Pre-fill from Past Job</CardTitle>
+              <CardDescription className="font-body">Select a customer and one of their past jobs to quickly pre-fill this job card.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+  control={form.control}
+  name="customerName"
+  render={({ field }) => (
+    <FormItem>
+      <FormLabel>Customer Name</FormLabel>
+      <Popover
+        open={isCustomerPopoverOpen}
+        onOpenChange={async open => {
+          setIsCustomerPopoverOpen(open);
+          if (open) {
+            try {
+              setIsLoadingCustomers(true);
+              const list = await getCustomersList();
+              setAllCustomers(list);
+              setCustomerSuggestions(list.slice(0, 10));
+            } finally {
+              setIsLoadingCustomers(false);
+            }
+          }
+        }}
+      >
+        <PopoverTrigger asChild>
+          <FormControl>
+            <Input
+              placeholder="Type or select customer"
+              {...field}
+              value={customerInputValue}
+              onChange={(e) => handleCustomerInputChange(e, field.onChange)}
+              className="font-body"
+              ref={customerInputRef}
+            />
+          </FormControl>
+        </PopoverTrigger>
+
+        <PopoverContent
+          className="w-[--radix-popover-trigger-width] p-0"
+          align="start"
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
+          <ScrollArea className="h-[200px]">
+            {customerSuggestions.length > 0 ? (
+              customerSuggestions.map(customer => (
+                <Button
+                  key={customer.id}
+                  variant="ghost"
+                  className="w-full justify-start font-normal font-body"
+                  onClick={() => handleCustomerSuggestionClick(customer, field.onChange)}
+                >
+                  {customer.fullName}
+                </Button>
+              ))
+            ) : (
+              <p className="p-4 text-sm text-muted-foreground font-body">
+                {isLoadingCustomers ? "Loading..." : customerInputValue ? "No matching customers." : "Type to search or select from list."}
+              </p>
+            )}
+          </ScrollArea>
+        </PopoverContent>
+      </Popover>
+      <FormMessage />
+    </FormItem>
+  )}
+/>
+
+
+                <FormItem>
+                  <FormLabel>Past Job for {form.getValues('customerName') || 'Selected Customer'}</FormLabel>
+                  <Popover open={isJobPopoverOpen} onOpenChange={setIsJobPopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <div className="relative">
+                          <BriefcaseIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          {isLoadingJobsForCustomer && (
+                            <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                          )}
+
+                          <Input
+                            ref={jobInputRef}
+                            type="text"
+                            placeholder={
+                              isLoadingJobsForCustomer
+                                ? "Loading jobs..."
+                                : !form.getValues("customerName")
+                                  ? "Type customer name above first"
+                                  : jobsForCustomer.length === 0
+                                    ? "No past jobs found"
+                                    : "Type to search past jobs"
+                            }
+                            value={jobInputValue}
+                            onChange={handleJobInputChange}
+                            onFocus={() => {
+                              if (form.getValues("customerName")) {
+                                if (!jobInputValue && jobsForCustomer.length > 0) {
+                                  setJobSuggestions(jobsForCustomer.slice(0, 10));
+                                }
+                                setIsJobPopoverOpen(true);
+                              }
+                            }}
+                            onPointerDownCapture={(e) => {
+                              const inputEl = e.currentTarget as HTMLInputElement;
+                              if (!isJobPopoverOpen) {
+                                e.preventDefault();
+                                if (form.getValues("customerName") && jobsForCustomer.length > 0) {
+                                  setJobSuggestions(jobsForCustomer.slice(0, 10));
+                                }
+                                setIsJobPopoverOpen(true);
+                                requestAnimationFrame(() => inputEl.focus());
+                              }
+                            }}
+                            className="pl-8 font-body"
+                          />
+
+                        </div>
+                      </FormControl>
+                    </PopoverTrigger>
+
+                    <PopoverContent
+                      className="w-[--radix-popover-trigger-width] p-0"
+                      align="start"
+                      onOpenAutoFocus={(e) => e.preventDefault()}
+                    >
+                      <ScrollArea className="h-[200px]">
+                        {jobSuggestions.length > 0 ? (
+                          jobSuggestions.map(job => (
+                            <Button
+                              key={job.id}
+                              variant="ghost"
+                              className="w-full justify-start font-normal font-body h-auto py-2 text-left"
+                              onClick={() => handleJobSuggestionClick(job)}
+                            >
+                              <div>
+                                <div>{job.jobName}</div>
+                                <div className="text-xs text-muted-foreground">{job.jobCardNumber || job.id} - {new Date(job.date).toLocaleDateString()}</div>
+                              </div>
+                            </Button>
+                          ))
+                        ) : (
+                          <p className="p-4 text-sm text-muted-foreground font-body">
+                            {!form.getValues('customerId') ? "Select a customer to see past jobs." :
+                              jobsForCustomer.length === 0 && !isLoadingJobsForCustomer ? "No past jobs found for this customer." :
+                                jobInputValue ? "No jobs match your search." :
+                                  "Type to search for jobs."
+                            }
+                          </p>
+                        )}
+                      </ScrollArea>
+                    </PopoverContent>
+                  </Popover>
+                </FormItem> 
+                   </div> 
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-headline">Paper & Quantity Specifications</CardTitle>
+              <CardDescription className="font-body">Specify the target paper and job dimensions.</CardDescription>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <FormField
                 control={form.control}
-                name="customerName"
+                name="paperQuality"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Customer Name</FormLabel>
-                    <Popover
-                      open={isCustomerPopoverOpen}
-                      onOpenChange={async open => {
-                        setIsCustomerPopoverOpen(open);
-                        if (open) {
-                          try {
-                            setIsLoadingCustomers(true);
-                            const list = await getCustomersList();
-                            setAllCustomers(list);              // refresh the cache
-                            setCustomerSuggestions(list.slice(0, 10)); // show first 10 immediately
-                          } finally {
-                            setIsLoadingCustomers(false);
-                          }
-                        }
+                    <FormLabel>Target Paper Quality</FormLabel>
+                    <Select
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        form.setValue("paperGsm", undefined);
+                        form.setValue("targetPaperThicknessMm", undefined);
                       }}
+                      value={field.value || ""}
                     >
-
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <div className="relative">
-                            {/* leading icon */}
-                            <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-
-                            <Input
-                              ref={customerInputRef}
-                              placeholder={
-                                isLoadingCustomers
-                                  ? "Loading customers..."
-                                  : "Type or select customer"
-                              }
-                              value={customerInputValue}
-                              onChange={e => handleCustomerInputChange(e, field.onChange)}
-                              onFocus={() => {
-                                if (!isLoadingCustomers) {
-                                  if (!customerInputValue && allCustomers.length > 0) {
-                                    // show first 10 when empty
-                                    setCustomerSuggestions(allCustomers.slice(0, 10));
-                                  } else if (customerInputValue) {
-                                    const filtered = allCustomers.filter(c =>
-                                      c.fullName
-                                        .toLowerCase()
-                                        .includes(customerInputValue.toLowerCase())
-                                    );
-                                    setCustomerSuggestions(filtered);
-                                  }
-                                }
-                                setIsCustomerPopoverOpen(true);
-                              }}
-                              /* prevent Radix toggle collapsing on first click */
-                              onPointerDownCapture={e => {
-                                const inputEl = e.currentTarget as HTMLInputElement;   // keep ref
-                                if (!isCustomerPopoverOpen) {                          // first click
-                                  e.preventDefault();                                  // stop Radix toggle
-                                  setCustomerSuggestions(allCustomers.slice(0, 10));   // preload list
-                                  setIsCustomerPopoverOpen(true);                      // open yourself
-                                  requestAnimationFrame(() => inputEl.focus());        // restore caret
-                                }
-                              }}
-
-
-
-                              className="pl-10 font-body"
-                              disabled={isLoadingCustomers}
-                              autoComplete="off"
-                            />
-                          </div>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent
-                        className="w-[--radix-popover-trigger-width] p-0"
-                        align="start"
-                        onOpenAutoFocus={(e) => e.preventDefault()}
-                      >
-                        <ScrollArea className="h-[200px]">
-                          {customerSuggestions.length > 0 ? (
-                            customerSuggestions.map(customer => (
-                              <Button
-                                key={customer.id}
-                                variant="ghost"
-                                className="w-full justify-start font-normal font-body"
-                                onClick={() => handleCustomerSuggestionClick(customer, field.onChange)}
-                              >
-                                {customer.fullName}
-                              </Button>
-                            ))
-                          ) : (
-                            <p className="p-4 text-sm text-muted-foreground font-body">
-                              {isLoadingCustomers ? "Loading..." : customerInputValue ? "No matching customers." : "Type to search or select from list."}
-                            </p>
-                          )}
-                        </ScrollArea>
-                      </PopoverContent>
-                    </Popover>
+                      <FormControl><SelectTrigger className="font-body"><SelectValue placeholder="Select paper quality" /></SelectTrigger></FormControl>
+                      <SelectContent className="font-body max-h-[200px]">
+                        {PAPER_QUALITY_OPTIONS.map(option => (
+                          <SelectItem key={option.value} value={option.value} className="font-body">
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-
-              <FormItem>
-                <FormLabel>Past Job for {form.getValues('customerName') || 'Selected Customer'}</FormLabel>
-                <Popover open={isJobPopoverOpen} onOpenChange={setIsJobPopoverOpen}>
-                  <PopoverTrigger asChild>
-                    <FormControl>
-                      <div className="relative">
-                        <BriefcaseIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        {isLoadingJobsForCustomer && (
-                          <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
-                        )}
-
-                        <Input
-                          ref={jobInputRef}
-                          type="text"
-                          placeholder={
-                            isLoadingJobsForCustomer
-                              ? "Loading jobs..."
-                              : !form.getValues("customerId")
-                                ? "Select customer first"
-                                : jobsForCustomer.length === 0
-                                  ? "No past jobs for this customer"
-                                  : "Type to search past job"
-                          }
-                          value={jobInputValue}
-                          onChange={handleJobInputChange}
-                          onFocus={() => {
-                            if (!isLoadingJobsForCustomer && form.getValues("customerId")) {
-                              if (!jobInputValue && jobsForCustomer.length > 0) {
-                                setJobSuggestions(jobsForCustomer.slice(0, 10));
-                              }
-                              setIsJobPopoverOpen(true);
-                            }
-                          }}
-                          onPointerDownCapture={e => {
-                            const inputEl = e.currentTarget as HTMLInputElement;   // keep ref
-                            if (!isJobPopoverOpen) {                               // first click
-                              e.preventDefault();                                  // stop Radix toggle
-                              setJobSuggestions(jobsForCustomer.slice(0, 10));     // preload list
-                              setIsJobPopoverOpen(true);                           // open yourself
-                              requestAnimationFrame(() => inputEl.focus());        // restore caret
-                            }
-                          }}
-
-
-
-                          className="pl-10 font-body"
-                          disabled={!form.getValues("customerId") || isLoadingJobsForCustomer}
-                          autoComplete="off"
-                        />
-                      </div>
-                    </FormControl>
-                  </PopoverTrigger>
-
-                  <PopoverContent
-                    className="w-[--radix-popover-trigger-width] p-0"
-                    align="start"
-                    onOpenAutoFocus={(e) => e.preventDefault()}
-                  >
-                    <ScrollArea className="h-[200px]">
-                      {jobSuggestions.length > 0 ? (
-                        jobSuggestions.map(job => (
-                          <Button
-                            key={job.id}
-                            variant="ghost"
-                            className="w-full justify-start font-normal font-body h-auto py-2 text-left"
-                            onClick={() => handleJobSuggestionClick(job)}
-                          >
-                            <div>
-                              <div>{job.jobName}</div>
-                              <div className="text-xs text-muted-foreground">{job.jobCardNumber || job.id} - {new Date(job.date).toLocaleDateString()}</div>
-                            </div>
-                          </Button>
-                        ))
-                      ) : (
-                        <p className="p-4 text-sm text-muted-foreground font-body">
-                          {!form.getValues('customerId') ? "Select a customer to see past jobs." :
-                            jobsForCustomer.length === 0 && !isLoadingJobsForCustomer ? "No past jobs found for this customer." :
-                              jobInputValue ? "No jobs match your search." :
-                                "Type to search for jobs."
-                          }
-                        </p>
-                      )}
-                    </ScrollArea>
-                  </PopoverContent>
-                </Popover>
-              </FormItem>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-headline">Paper & Quantity Specifications</CardTitle>
-            <CardDescription className="font-body">Specify the target paper and job dimensions.</CardDescription>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <FormField
-              control={form.control}
-              name="paperQuality"
-              render={({ field }) => (
+              {targetPaperUnit === 'gsm' && (
+                <FormField control={form.control} name="paperGsm" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Target Paper GSM</FormLabel>
+                    <FormControl><Input
+                      type="number" step="any" placeholder="e.g., 300" {...field}
+                      value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
+                      onChange={e => { const numValue = parseFloat(e.target.value); field.onChange(isNaN(numValue) ? undefined : numValue); }}
+                      className="font-body"
+                    /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              )}
+              {targetPaperUnit === 'mm' && (
+                <FormField control={form.control} name="targetPaperThicknessMm" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Target Paper Thickness (mm)</FormLabel>
+                    <FormControl><Input
+                      type="number" step="any" placeholder="e.g., 1.2" {...field}
+                      value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
+                      onChange={e => { const numValue = parseFloat(e.target.value); field.onChange(isNaN(numValue) ? undefined : numValue); }}
+                      className="font-body"
+                    /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              )}
+              {!targetPaperUnit && (
                 <FormItem>
-                  <FormLabel>Target Paper Quality</FormLabel>
-                  <Select
-                    onValueChange={(value) => {
-                      field.onChange(value);
-                      form.setValue("paperGsm", undefined);
-                      form.setValue("targetPaperThicknessMm", undefined);
-                    }}
-                    value={field.value || ""}
-                  >
-                    <FormControl><SelectTrigger className="font-body"><SelectValue placeholder="Select paper quality" /></SelectTrigger></FormControl>
-                    <SelectContent className="font-body max-h-[200px]">
-                      {PAPER_QUALITY_OPTIONS.map(option => (
-                        <SelectItem key={option.value} value={option.value} className="font-body">
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
+                  <FormLabel>Target Paper GSM/Thickness</FormLabel>
+                  <FormControl><Input type="text" placeholder="Select paper quality first" readOnly className="font-body bg-muted" /></FormControl>
                 </FormItem>
               )}
-            />
-            {targetPaperUnit === 'gsm' && (
-              <FormField control={form.control} name="paperGsm" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Target Paper GSM</FormLabel>
-                  <FormControl><Input
-                    type="number" step="any" placeholder="e.g., 300" {...field}
-                    value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
-                    onChange={e => { const numValue = parseFloat(e.target.value); field.onChange(isNaN(numValue) ? undefined : numValue); }}
-                    className="font-body"
-                  /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
-            )}
-            {targetPaperUnit === 'mm' && (
-              <FormField control={form.control} name="targetPaperThicknessMm" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Target Paper Thickness (mm)</FormLabel>
-                  <FormControl><Input
-                    type="number" step="any" placeholder="e.g., 1.2" {...field}
-                    value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
-                    onChange={e => { const numValue = parseFloat(e.target.value); field.onChange(isNaN(numValue) ? undefined : numValue); }}
-                    className="font-body"
-                  /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
-            )}
-            {!targetPaperUnit && (
-              <FormItem>
-                <FormLabel>Target Paper GSM/Thickness</FormLabel>
-                <FormControl><Input type="text" placeholder="Select paper quality first" readOnly className="font-body bg-muted" /></FormControl>
-              </FormItem>
-            )}
-            <div className="md:col-span-2 lg:col-span-1 grid grid-cols-2 gap-6">
-              <FormField control={form.control} name="netQuantity" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Net Quantity</FormLabel>
-                  <FormControl><Input
-                    type="number" step="any" placeholder="e.g., 1000" {...field}
-                    value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
-                    onChange={e => { const numValue = parseFloat(e.target.value); field.onChange(isNaN(numValue) ? undefined : numValue); }}
-                    className="font-body"
-                  /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
-              <FormField control={form.control} name="grossQuantity" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Gross Quantity</FormLabel>
-                  <FormControl><Input
-                    type="number" step="any" placeholder="e.g., 1100" {...field}
-                    value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
-                    onChange={e => { const numValue = parseFloat(e.target.value); field.onChange(isNaN(numValue) ? undefined : numValue); }}
-                    className="font-body"
-                  /></FormControl>
-                  <FormDescription className="text-xs">Total items for processing.</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )} />
-            </div>
-            <div className="col-span-1 md:col-span-2 lg:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
-              <FormField control={form.control} name="jobSizeWidth" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Job Size Width (in)</FormLabel>
-                  <FormControl><Input
-                    type="number" step="any" placeholder="e.g., 8.5" {...field}
-                    value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
-                    onChange={e => { const numValue = parseFloat(e.target.value); field.onChange(isNaN(numValue) ? undefined : numValue); }}
-                    className="font-body"
-                  /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
-              <FormField control={form.control} name="jobSizeHeight" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Job Size Height (in)</FormLabel>
-                  <FormControl><Input
-                    type="number" step="any" placeholder="e.g., 11" {...field}
-                    value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
-                    onChange={e => { const numValue = parseFloat(e.target.value); field.onChange(isNaN(numValue) ? undefined : numValue); }}
-                    className="font-body"
-                  /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full md:mt-0 mt-4 font-body"
-                disabled // Optimizer commented out
-              >
-                <Wand2 className="mr-2 h-4 w-4" /> Optimize Master Sheet (Coming Soon)
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-headline flex items-center"><Archive className="mr-2 h-5 w-5 text-primary" />Relevant Inventory</CardTitle>
-            <CardDescription className="font-body">
-              Shows available master sheets from inventory matching your target paper specifications.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoadingInventory ? (
-              <div className="flex items-center justify-center py-6">
-                <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
-                <p className="text-muted-foreground font-body">Loading inventory...</p>
+              <div className="md:col-span-2 lg:col-span-1 grid grid-cols-2 gap-6">
+                <FormField control={form.control} name="netQuantity" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Net Quantity</FormLabel>
+                    <FormControl><Input
+                      type="number" step="any" placeholder="e.g., 1000" {...field}
+                      value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
+                      onChange={e => { const numValue = parseFloat(e.target.value); field.onChange(isNaN(numValue) ? undefined : numValue); }}
+                      className="font-body"
+                    /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="grossQuantity" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Gross Quantity</FormLabel>
+                    <FormControl><Input
+                      type="number" step="any" placeholder="e.g., 1100" {...field}
+                      value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
+                      onChange={e => { const numValue = parseFloat(e.target.value); field.onChange(isNaN(numValue) ? undefined : numValue); }}
+                      className="font-body"
+                    /></FormControl>
+                    <FormDescription className="text-xs">Total items for processing.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )} />
               </div>
-            ) : !watchedPaperQuality ? (
-              <p className="text-muted-foreground font-body text-center py-4">Please select a 'Target Paper Quality' above to see relevant inventory.</p>
-            ) : filteredInventoryForDisplay.length === 0 ? (
-              <p className="text-muted-foreground font-body text-center py-4">
-                No master sheets found in inventory matching: <span className="font-semibold">{getPaperQualityLabel(watchedPaperQuality as PaperQualityType)}</span>
-                {targetPaperUnit === 'gsm' && watchedPaperGsm ? ` ${watchedPaperGsm}GSM` : ""}
-                {targetPaperUnit === 'mm' && watchedPaperThicknessMm ? ` ${watchedPaperThicknessMm}mm` : ""}.
-                Ensure items have positive stock and match criteria.
-              </p>
-            ) : (
-              <ScrollArea className="h-[250px] border rounded-md">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="font-headline">Item Name</TableHead>
-                      <TableHead className="font-headline">Size</TableHead>
-                      <TableHead className="font-headline">Location</TableHead>
-                      <TableHead className="font-headline text-right">No. of Ups</TableHead>
-                      <TableHead className="font-headline text-right">Total Masters Required</TableHead>
-                      <TableHead className="font-headline text-right">Available Stock</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {(() => {
-                      const grossQty = form.watch("grossQuantity") ?? 0;
-                      let remainingQty = grossQty;
+              <div className="col-span-1 md:col-span-2 lg:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+                <FormField control={form.control} name="jobSizeWidth" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Job Size Width (in)</FormLabel>
+                    <FormControl><Input
+                      type="number" step="any" placeholder="e.g., 8.5" {...field}
+                      value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
+                      onChange={e => { const numValue = parseFloat(e.target.value); field.onChange(isNaN(numValue) ? undefined : numValue); }}
+                      className="font-body"
+                    /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="jobSizeHeight" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Job Size Height (in)</FormLabel>
+                    <FormControl><Input
+                      type="number" step="any" placeholder="e.g., 11" {...field}
+                      value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)}
+                      onChange={e => { const numValue = parseFloat(e.target.value); field.onChange(isNaN(numValue) ? undefined : numValue); }}
+                      className="font-body"
+                    /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full md:mt-0 mt-4 font-body"
+                  disabled // Optimizer commented out
+                >
+                  <Wand2 className="mr-2 h-4 w-4" /> Optimize Master Sheet (Coming Soon)
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
 
-                      return filteredInventoryForDisplay.map((item) => {
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-headline flex items-center">
+                <Archive className="mr-2 h-5 w-5 text-primary" />
+                Relevant Inventory
+              </CardTitle>
+              <CardDescription className="font-body">
+                Shows available master sheets from inventory matching your target paper specifications.
+              </CardDescription>
+            </CardHeader>
+
+            <CardContent>
+              {isLoadingInventory ? (
+                <div className="flex items-center justify-center py-6">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
+                  <p className="text-muted-foreground font-body">Loading inventory...</p>
+                </div>
+              ) : !watchedPaperQuality ? (
+                <p className="text-muted-foreground font-body text-center py-4">
+                  Please select a 'Target Paper Quality' above to see relevant inventory.
+                </p>
+              ) : filteredInventoryForDisplay.length === 0 ? (
+                <p className="text-muted-foreground font-body text-center py-4">
+                  No master sheets found in inventory matching:{" "}
+                  <span className="font-semibold">
+                    {getPaperQualityLabel(watchedPaperQuality as PaperQualityType)}
+                  </span>
+                  {targetPaperUnit === "gsm" && watchedPaperGsm ? ` ${watchedPaperGsm}GSM` : ""}
+                  {targetPaperUnit === "mm" && watchedPaperThicknessMm ? ` ${watchedPaperThicknessMm}mm` : ""}.
+                  Ensure items have positive stock and match criteria.
+                </p>
+              ) : (
+                <ScrollArea className="h-[250px] border rounded-md">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="font-headline">Size</TableHead>
+                        <TableHead className="font-headline">Item Name</TableHead>
+                        <TableHead className="font-headline">Location</TableHead>
+                        <TableHead className="font-headline text-right">No. of Ups</TableHead>
+                        <TableHead className="font-headline text-right">Total Masters Required</TableHead>
+                        <TableHead className="font-headline text-right">Available Stock</TableHead>
+                        <TableHead className="font-headline text-center">Action</TableHead>
+                      </TableRow>
+                    </TableHeader>
+
+                    <TableBody>
+                      {filteredInventoryForDisplay.map((item) => {
                         const ups = itemUpsValues[item.id] ?? 0;
                         const availableStock = item.availableStock ?? 0;
+                        const grossQty = form.watch("grossQuantity") ?? 0;
 
-                        const qtyFromThisItem = Math.min(remainingQty, ups * availableStock);
-                        const mastersNeeded = ups > 0 ? Math.ceil(qtyFromThisItem / ups) : 0;
+                        // 🔁 Step 1: Find this item's position in the selection order
+                        const thisItemIndex = selectedInventoryItemIds.indexOf(item.id);
 
-                        remainingQty = Math.max(0, remainingQty - qtyFromThisItem);
+                        // 🔁 Step 2: Calculate how much quantity has already been satisfied
+                        const previouslySatisfied = selectedInventoryItemIds
+                          .slice(0, thisItemIndex)
+                          .reduce((sum, prevId) => {
+                            const prevUps = itemUpsValues[prevId] ?? 0;
+                            const prevItem = allInventoryItems.find(i => i.id === prevId);
+                            const prevAvailable = prevItem?.availableStock ?? 0;
+                            return sum + (prevUps > 0 ? prevAvailable * prevUps : 0);
+                          }, 0);
+
+                        // ✅ Step 3: Calculate what's left to fulfill
+                        const remainingToSatisfy = Math.max(grossQty - previouslySatisfied, 0);
+
+                        // ✅ Step 4: Calculate masters needed (capped by stock)
+                        const mastersNeeded = ups > 0 ? Math.min(availableStock, Math.ceil(remainingToSatisfy / ups)) : 0;
 
                         return (
                           <TableRow key={item.id}>
+                            <TableCell className="font-body min-w-[100px] text-base font-semibold">
+                              {item.type === "Master Sheet" && item.masterSheetSizeWidth && item.masterSheetSizeHeight
+                                ? `${item.masterSheetSizeWidth} x ${item.masterSheetSizeHeight} in`
+                                : "-"}
+                            </TableCell>
+
                             <TableCell className="font-body min-w-[150px]">
                               {item.paperGsm
-                                ? `${item.paperGsm}gsm ${item.paperQuality || ''}`.trim()
+                                ? `${item.paperGsm}gsm ${item.paperQuality || ""}`.trim()
                                 : item.paperThicknessMm
-                                  ? `${item.paperThicknessMm}mm ${item.paperQuality || ''}`.trim()
-                                  : '-'}
+                                  ? `${item.paperThicknessMm}mm ${item.paperQuality || ""}`.trim()
+                                  : "-"}
                             </TableCell>
-                            <TableCell className="font-body min-w-[100px]">
-                              {item.type === 'Master Sheet' && item.masterSheetSizeWidth && item.masterSheetSizeHeight
-                                ? `${item.masterSheetSizeWidth}x${item.masterSheetSizeHeight}in`
-                                : '-'}
-                            </TableCell>
-                            <TableCell className="font-body">{item.locationCode || '-'}</TableCell>
+
+                            <TableCell className="font-body">{item.locationCode || "-"}</TableCell>
 
                             <TableCell className="font-body text-right">
                               <Input
                                 type="number"
                                 placeholder="Ups"
                                 className="font-body text-right w-full !mt-0"
-                                value={itemUpsValues[item.id] ?? ''}
-                                onChange={(e) =>
+                                value={itemUpsValues[item.id] ?? ""}
+                                onChange={(e) => {
+                                  const value = parseFloat(e.target.value);
                                   setItemUpsValues({
                                     ...itemUpsValues,
-                                    [item.id]: parseFloat(e.target.value) || undefined,
-                                  })
-                                }
+                                    [item.id]: isNaN(value) ? undefined : value,
+                                  });
+                                }}
                                 onWheel={(e) => e.preventDefault()}
                               />
                             </TableCell>
 
                             <TableCell className="font-body text-right">
                               {mastersNeeded > 0 ? (
-                                <div
-                                  className={cn(
-                                    "inline-flex items-center justify-center rounded-full w-6 h-6 text-xs font-bold",
-                                    mastersNeeded > availableStock ? "bg-red-600 text-white" : "bg-green-600 text-white"
-                                  )}
-                                >
+                                <div className={cn(
+                                  "inline-flex items-center justify-center rounded-full w-12 h-6 px-2 text-xs font-bold",
+                                  mastersNeeded > availableStock
+                                    ? "bg-red-600 text-white"
+                                    : "bg-green-600 text-white"
+                                )}>
                                   {mastersNeeded}
                                 </div>
-                              ) : (
-                                "-"
-                              )}
+                              ) : "-"}
                             </TableCell>
 
                             <TableCell className="font-body text-right">
-                              {availableStock.toLocaleString()}
+                              <div className={cn(
+                                "inline-flex items-center justify-center rounded-full w-12 h-6 px-2 text-xs font-bold",
+                                availableStock < mastersNeeded
+                                  ? "bg-red-600 text-white"
+                                  : "bg-green-600 text-white"
+                              )}>
+                                {availableStock.toLocaleString()}
+                              </div>
                             </TableCell>
 
                             <TableCell className="text-center w-[120px]">
                               <Button
-                                variant={
-                                  selectedInventoryItemIds.includes(item.id) ? "ghost" : "outline"
-                                }
+                                variant={selectedInventoryItemIds.includes(item.id) ? "ghost" : "outline"}
                                 className={cn(
                                   "font-body text-xs h-8",
                                   selectedInventoryItemIds.includes(item.id) && "p-0 border-0"
                                 )}
                                 onClick={() =>
-                                  handleInventorySelect(
-                                    item.id,
-                                    !selectedInventoryItemIds.includes(item.id)
-                                  )
+                                  handleInventorySelect(item.id, !selectedInventoryItemIds.includes(item.id))
                                 }
                                 disabled={(itemUpsValues[item.id] ?? 0) <= 0}
                               >
                                 {selectedInventoryItemIds.includes(item.id) ? (
-                                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-green-500 text-white">
+                                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-green-500 text-white text-xs font-bold">
                                     {selectedInventoryItemIds.indexOf(item.id) + 1}
                                   </div>
                                 ) : (
@@ -1077,129 +1125,176 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
                             </TableCell>
                           </TableRow>
                         );
-                      });
-                    })()}
-                  </TableBody>
+                      })}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+              )}
+            </CardContent>
+          </Card>
 
 
-                </Table>
-              </ScrollArea>
-            )}
-          </CardContent>
-        </Card>
 
-        {selectedInventoryItemIds.length > 0 && (
+
           <Card>
             <CardHeader>
-              <CardTitle className="font-headline flex items-center"><Archive className="mr-2 h-5 w-5 text-primary" />Selected Inventory Items</CardTitle>
+              <CardTitle className="font-headline flex items-center">
+                <Archive className="mr-2 h-5 w-5 text-primary" />
+                Selected Inventory Items
+              </CardTitle>
               <CardDescription className="font-body">
                 These master sheets were selected for this job based on the 'No. of Ups' entered.
               </CardDescription>
             </CardHeader>
-            {/* Wrap the content in a Fragment or div */}
-            <>
-              <CardContent className="p-0"> {/* Added p-0 to CardContent */}
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="font-headline">Item Name / Size</TableHead>
-                      <TableHead className="font-headline text-right">No. of Ups</TableHead> {/* Added Closing tag */}
-                      <TableHead className="font-headline text-right">Shortfall</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {allInventoryItems
-                      .filter(item => selectedInventoryItemIds.includes(item.id)) // Keep only selected items
-                      .sort((a, b) => selectedInventoryItemIds.indexOf(a.id) - selectedInventoryItemIds.indexOf(b.id)) // Maintain selection order
 
-                      .map(item => (
-                        <TableRow key={item.id}>
-                          <TableCell className="font-body">{formatInventoryItemForDisplay(item)}</TableCell>
-                          <TableCell className="font-body text-right">{itemUpsValues[item.id] ?? '-'}</TableCell>
-                          <TableCell className={cn("font-body text-right", Math.max(0, Math.ceil((form.getValues('grossQuantity') ?? 0) / (itemUpsValues[item.id] ?? 1)) - (item.availableStock || 0)) > 0 ? "text-red-500 dark:text-red-400" : "")}>{
-                            Math.max(0, Math.ceil((form.getValues('grossQuantity') ?? 0) / (itemUpsValues[item.id] ?? 1)) - (item.availableStock || 0))
-                          }</TableCell>
-                        </TableRow>
-                      ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-              <CardContent className="pt-4 font-body text-sm">
-                <p>
-                  Remaining Quantity Needed:{' '}
-                  <span className="font-semibold">
-                    {(form.getValues('grossQuantity') ?? 0) - totalCoveredQuantity} sheets
-                  </span>
-                </p>
-                {(form.getValues('grossQuantity') ?? 0) > totalCoveredQuantity && (
-                  <p className="text-yellow-600 mt-2">Important: Selected inventory does not cover the full gross quantity. Consider ordering more inventory.</p>
-                )}
-              </CardContent>
-            </>
-          </Card>
-        )}
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-headline flex items-center"><ListOrdered className="mr-2 h-5 w-5 text-primary" />Define Job Workflow</CardTitle>
-            <CardDescription className="font-body">Click production steps to add them to this job's specific workflow in order. Click again to remove. This can be pre-filled by selecting a past job.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mb-4">
-              {PRODUCTION_PROCESS_STEPS.map((step) => {
-                const selectedStep = currentWorkflowSteps.find(s => s.slug === step.slug);
-                return (
-                  <Button
-                    key={step.slug}
-                    type="button"
-                    variant={selectedStep ? "secondary" : "outline"}
-                    onClick={() => handleWorkflowStepClick(step)}
-                    className="font-body text-xs h-auto py-2 flex flex-col items-start text-left"
-                  >
-                    <div className="flex items-center">
-                      {selectedStep && (
-                        <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mr-1.5 leading-none">
-                          {selectedStep.order}
-                        </span>
-                      )}
-                      <step.icon className={`mr-1.5 h-4 w-4 ${selectedStep ? 'text-primary' : 'text-muted-foreground'}`} />
-                      {step.name}
-                    </div>
-                  </Button>
-                );
-              })}
-            </div>
-            {currentWorkflowSteps.length > 0 && (
-              <div className="mb-4">
-                <h4 className="font-medium mb-1 text-sm font-body">Selected Workflow:</h4>
-                <div className="flex flex-wrap gap-2">
-                  {currentWorkflowSteps.sort((a, b) => a.order - b.order).map(step => (
-                    <Badge key={step.slug} variant="secondary" className="font-body">
-                      <span className="bg-primary text-primary-foreground rounded-full w-4 h-4 flex items-center justify-center text-xs font-semibold mr-1.5 leading-none">
-                        {step.order}
-                      </span>
-                      {step.name}
-                    </Badge>
-                  ))}
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="font-headline">Item Name / Size</TableHead>
+                    <TableHead className="font-headline text-right">No. of Ups</TableHead>
+                    <TableHead className="font-headline text-right">Total Masters Used</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {allInventoryItems
+                    .filter(item => selectedInventoryItemIds.includes(item.id))
+                    .sort((a, b) => selectedInventoryItemIds.indexOf(a.id) - selectedInventoryItemIds.indexOf(b.id))
+                    .map(item => (
+                      <TableRow key={item.id}>
+                        <TableCell className="font-body">{formatInventoryItemForDisplay(item)}</TableCell>
+                        <TableCell className="font-body text-right">{itemUpsValues[item.id] ?? 0}</TableCell>
+                        <TableCell className="font-body text-right">
+                          {Math.min(
+                            calculateTotalMasterSheetsNumber(item.id),
+                            item.availableStock ?? 0
+                          ).toLocaleString()}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                </TableBody>
+              </Table>
+
+
+              <div className="w-full mt-4 px-2">
+                <div className="flex flex-col md:flex-row gap-3">
+                  <div className="flex-1 rounded-xl px-4 py-3 backdrop-blur-md bg-white/10 border border-white/20 shadow-sm text-sm font-body">
+                    <span className="block text-xs text-white/70 mb-1 font-medium">Quantity Covered</span>
+                    <span className="text-base font-semibold text-white">
+                      {totalQuantitySatisfied.toLocaleString()} sheets
+                    </span>
+                  </div>
+
+                  <div className="flex-1 rounded-xl px-4 py-3 backdrop-blur-md bg-white/10 border border-white/20 shadow-sm text-sm font-body relative">
+                    <span className="block text-xs text-white/70 mb-1 font-medium">Remaining Quantity</span>
+                    <span className={cn("text-base font-semibold", remainingQuantity > 0 ? "text-red-500" : "text-white")}>
+                      {remainingQuantity.toLocaleString()} sheets
+                    </span>
+
+                    {remainingQuantity > 0 && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="absolute top-3 right-3 text-xs text-white/80 hover:text-white hover:bg-white/20 px-3 py-1 rounded-md border border-white/20"
+                        onClick={() => {
+                          const textToCopy = [
+                            `JC: ${form.getValues("jobCardNumber") ?? "N/A"}`,
+                            `Size: ${form.getValues("jobSizeWidth") ?? "?"} x ${form.getValues("jobSizeHeight") ?? "?"} in`,
+                            `Quality: ${form.getValues("paperQuality") ?? "?"} ${form.getValues("paperGsm") ?? form.getValues("targetPaperThicknessMm") ?? ""}${form.getValues("paperGsm") ? " GSM" : " mm"}`,
+                            `Quanity Required: ${remainingQuantity.toLocaleString()}`
+                          ].join("\n");
+
+                          navigator.clipboard.writeText(textToCopy);
+                        }}
+                      >
+                        Copy Order
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
-            )}
-            <Button type="button" variant="ghost" size="sm" onClick={handleClearWorkflow} className="font-body text-destructive hover:text-destructive">
-              <RotateCcw className="mr-2 h-4 w-4" /> Clear Workflow
-            </Button>
-            <FormField control={form.control} name="workflowSteps" render={({ field }) => (
-              <FormItem className="hidden"><FormMessage /></FormItem>
-            )} />
-          </CardContent>
-        </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-headline">Process Specifications</CardTitle>
-            <CardDescription className="font-body">These can be pre-filled by selecting a past job.</CardDescription>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {processFields.map((item) => {
-              if (item.type === 'input') { // Keep original line
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-headline flex items-center"><ListOrdered className="mr-2 h-5 w-5 text-primary" />Define Job Workflow</CardTitle>
+              <CardDescription className="font-body">Click production steps to add them to this job's specific workflow in order. Click again to remove. This can be pre-filled by selecting a past job.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mb-4">
+                {PRODUCTION_PROCESS_STEPS.map((step) => {
+                  const selectedStep = currentWorkflowSteps.find(s => s.slug === step.slug);
+                  return (
+                    <Button
+                      key={step.slug}
+                      type="button"
+                      variant={selectedStep ? "secondary" : "outline"}
+                      onClick={() => handleWorkflowStepClick(step)}
+                      className="font-body text-xs h-auto py-2 flex flex-col items-start text-left"
+                    >
+                      <div className="flex items-center">
+                        {selectedStep && (
+                          <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mr-1.5 leading-none">
+                            {selectedStep.order}
+                          </span>
+                        )}
+                        <step.icon className={`mr-1.5 h-4 w-4 ${selectedStep ? 'text-primary' : 'text-muted-foreground'}`} />
+                        {step.name}
+                      </div>
+                    </Button>
+                  );
+                })}
+              </div>
+              {currentWorkflowSteps.length > 0 && (
+                <div className="mb-4">
+                  <h4 className="font-medium mb-1 text-sm font-body">Selected Workflow:</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {currentWorkflowSteps.sort((a, b) => a.order - b.order).map(step => (
+                      <Badge key={step.slug} variant="secondary" className="font-body">
+                        <span className="bg-primary text-primary-foreground rounded-full w-4 h-4 flex items-center justify-center text-xs font-semibold mr-1.5 leading-none">
+                          {step.order}
+                        </span>
+                        {step.name}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <Button type="button" variant="ghost" size="sm" onClick={handleClearWorkflow} className="font-body text-destructive hover:text-destructive">
+                <RotateCcw className="mr-2 h-4 w-4" /> Clear Workflow
+              </Button>
+              <FormField control={form.control} name="workflowSteps" render={({ field }) => (
+                <FormItem className="hidden"><FormMessage /></FormItem>
+              )} />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-headline">Process Specifications</CardTitle>
+              <CardDescription className="font-body">These can be pre-filled by selecting a past job.</CardDescription>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {processFields.map((item) => {
+                if (item.type === 'input') { // Keep original line
+                  return (
+                    <FormField
+                      key={item.name}
+                      control={form.control}
+                      name={item.name as keyof JobCardFormValues}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{item.label}</FormLabel>
+                          <FormControl><Input placeholder="e.g., Pantone 185 C" {...field} value={field.value as string ?? ""} className="font-body" /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  );
+                }
                 return (
                   <FormField
                     key={item.name}
@@ -1208,92 +1303,77 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>{item.label}</FormLabel>
-                        <FormControl><Input placeholder="e.g., Pantone 185 C" {...field} value={field.value as string ?? ""} className="font-body" /></FormControl>
+                        <Select onValueChange={field.onChange} value={String(field.value || "")}>
+                          <FormControl><SelectTrigger className="font-body"><SelectValue placeholder={`Select ${item.label.toLowerCase()}`} /></SelectTrigger></FormControl>
+                          <SelectContent>
+                            {(item as { name: keyof JobCardFormValues; label: string; options: readonly { value: string; label: string; }[]; }).options.map((option: { value: string; label: string }) => (
+                              <SelectItem key={option.value} value={option.value} className="font-body">{option.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                 );
-              }
-              return (
-                <FormField
-                  key={item.name}
-                  control={form.control}
-                  name={item.name as keyof JobCardFormValues}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{item.label}</FormLabel>
-                      <Select onValueChange={field.onChange} value={String(field.value || "")}>
-                        <FormControl><SelectTrigger className="font-body"><SelectValue placeholder={`Select ${item.label.toLowerCase()}`} /></SelectTrigger></FormControl>
-                        <SelectContent>
-                          {(item as { name: keyof JobCardFormValues; label: string; options: readonly { value: string; label: string; }[]; }).options.map((option: { value: string; label: string }) => (
-                            <SelectItem key={option.value} value={option.value} className="font-body">{option.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              );
-            })}
-          </CardContent>
-        </Card>
+              })}
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-headline">Scheduling & Remarks</CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <FormField control={form.control} name="dispatchDate" render={({ field }) => (
-              <FormItem className="flex flex-col">
-                <FormLabel>Dispatch Date</FormLabel>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <FormControl><Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal font-body", !field.value && "text-muted-foreground")}>
-                      {field.value ? format(new Date(field.value), "PPP") : <span>Pick a date</span>}
-                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                    </Button></FormControl>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar mode="single" selected={field.value ? new Date(field.value) : undefined} onSelect={(date) => field.onChange(date?.toISOString())} initialFocus />
-                  </PopoverContent>
-                </Popover>
-                <FormMessage />
-              </FormItem>
-            )} />
-            <FormField control={form.control} name="remarks" render={({ field }) => (
-              <FormItem className="md:col-span-2">
-                <FormLabel>Remarks</FormLabel>
-                <FormControl><Textarea placeholder="Any additional notes or instructions for this job." {...field} value={field.value ?? ""} className="font-body" /></FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-headline">Scheduling & Remarks</CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <FormField control={form.control} name="dispatchDate" render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Dispatch Date</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl><Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal font-body", !field.value && "text-muted-foreground")}>
+                        {field.value ? format(new Date(field.value), "PPP") : <span>Pick a date</span>}
+                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                      </Button></FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar mode="single" selected={field.value ? new Date(field.value) : undefined} onSelect={(date) => field.onChange(date?.toISOString())} initialFocus />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={form.control} name="remarks" render={({ field }) => (
+                <FormItem className="md:col-span-2">
+                  <FormLabel>Remarks</FormLabel>
+                  <FormControl><Textarea placeholder="Any additional notes or instructions for this job." {...field} value={field.value ?? ""} className="font-body" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-headline">Interlinked Job Cards</CardTitle>
-            <CardDescription className="font-body">Link this job card with others for complex projects (e.g., rigid boxes).</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setIsLinkJobsModalOpen(true)}
-              className="font-body"
-            >
-              <Link2 className="mr-2 h-4 w-4" /> Link Job Cards
-            </Button>
-            {linkedJobCardIds.length > 0 && (
-              <p className="text-sm text-muted-foreground font-body mt-2">
-                Linked to: {linkedJobCardIds.length} job(s)
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-headline">Interlinked Job Cards</CardTitle>
+              <CardDescription className="font-body">Link this job card with others for complex projects (e.g., rigid boxes).</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsLinkJobsModalOpen(true)}
+                className="font-body"
+              >
+                <Link2 className="mr-2 h-4 w-4" /> Link Job Cards
+              </Button>
+              {linkedJobCardIds.length > 0 && (
+                <p className="text-sm text-muted-foreground font-body mt-2">
+                  Linked to: {linkedJobCardIds.length} job(s)
+                </p>
+              )}
+            </CardContent>
+          </Card>
+      
         {isLinkJobsModalOpen && (
           <LinkJobsModal
             isOpen={isLinkJobsModalOpen}
@@ -1310,52 +1390,63 @@ export function JobCardForm({ initialJobName, initialCustomerName, initialJobDat
 
 
         <div className="flex justify-end gap-4">
-          <Button type="button" variant="outline" onClick={() => {
-            form.reset({
-              jobName: initialJobName || "",
-              customerName: initialCustomerName || "",
-              customerId: undefined,
-              jobSizeWidth: undefined,
-              jobSizeHeight: undefined,
-              netQuantity: undefined,
-              grossQuantity: undefined,
-              paperGsm: undefined,
-              targetPaperThicknessMm: undefined,
-              paperQuality: "",
-              kindOfJob: "",
-              printingFront: "",
-              printingBack: "",
-              coating: "",
-              specialInks: "",
-              die: "",
-              assignedDieMachine: "",
-              hotFoilStamping: "",
-              emboss: "",
-              pasting: "",
-              boxMaking: "",
-              remarks: "",
-              dispatchDate: undefined,
-              workflowSteps: [],
-              linkedJobCardIds: [],
-              hasPendingInventory: false, // Reset pending inventory field
-              pdfDataUri: undefined,
-            });
-            setCurrentWorkflowSteps([]);
-            setCustomerInputValue(initialJobData?.customerName || initialCustomerName || "");
-            setJobInputValue("");
-            setSelectedPastJobId("");
-            setJobsForCustomer([]);
-            setCurrentPdfDataUri(undefined);
-          }} disabled={isSubmitting} className="font-body">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              form.reset({
+                jobName: initialJobName || undefined,
+                customerName: initialCustomerName || undefined,
+                customerId: undefined,
+                jobSizeWidth: undefined,
+                jobSizeHeight: undefined,
+                netQuantity: undefined,
+                grossQuantity: undefined,
+                paperGsm: undefined,
+                targetPaperThicknessMm: undefined,
+                paperQuality: undefined,
+                kindOfJob: undefined,
+                printingFront: undefined,
+                printingBack: undefined,
+                coating: undefined,
+                specialInks: undefined,
+                die: undefined,
+                assignedDieMachine: undefined,
+                hotFoilStamping: undefined,
+                emboss: undefined,
+                pasting: undefined,
+                boxMaking: undefined,
+                remarks: undefined,
+                dispatchDate: undefined,
+                workflowSteps: [],
+                linkedJobCardIds: [],
+                hasPendingInventory: false,
+                pdfDataUri: undefined,
+              });
+              setCurrentWorkflowSteps([]);
+              setCustomerInputValue(initialJobData?.customerName || initialCustomerName || "");
+              setJobInputValue("");
+              setSelectedPastJobId("");
+              setJobsForCustomer([]);
+              setCurrentPdfDataUri(undefined);
+            }}
+            disabled={isSubmitting}
+            className="font-body"
+          >
             Cancel
           </Button>
+
           <Button type="submit" disabled={isSubmitting} className="font-body">
-            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
+            {isSubmitting ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <PlusCircle className="mr-2 h-4 w-4" />
+            )}
             Create Job Card
           </Button>
         </div>
-      </form>
-    </Form>
-  );
+        </form>
+    </Form> 
+  </div>
+  ); 
 }
-

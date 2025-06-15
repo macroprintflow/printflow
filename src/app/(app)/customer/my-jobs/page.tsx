@@ -42,7 +42,7 @@ export default function MyJobsPage() {
   const [isLoadingJobs, setIsLoadingJobs] = useState(true);
   const [isLoadingUserData, setIsLoadingUserData] = useState(false);
   const [currentUserDetails, setCurrentUserDetails] = useState<CurrentUserDetails | null>(null);
-  
+
   const [searchQuery, setSearchQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
@@ -119,10 +119,10 @@ export default function MyJobsPage() {
     } else if (user) {
       const fallbackIdentifier = (
         currentUserDetails?.displayName ||
-        user.displayName || 
+        user.displayName ||
         user.email
       )?.toLowerCase();
-      
+
       if (fallbackIdentifier) {
         return allJobs.filter(job => job.customerName?.toLowerCase() === fallbackIdentifier);
       }
@@ -133,8 +133,8 @@ export default function MyJobsPage() {
 
   const processAndGroupJobs = useCallback((jobsToProcess: JobCardData[], active: boolean): DisplayableJobItem[] => {
     let filteredCustomerJobs = jobsToProcess.filter(job => {
-        const isActiveStatus = job.status !== "Completed" && job.status !== "Billed";
-        return active ? isActiveStatus : !isActiveStatus;
+      const isActiveStatus = job.status !== "Completed" && job.status !== "Billed";
+      return active ? isActiveStatus : !isActiveStatus;
     });
 
     const componentJobIds = new Set<string>();
@@ -158,18 +158,18 @@ export default function MyJobsPage() {
           .map(linkedId => allJobs.find(j => j.id === linkedId))
           .filter((j): j is JobCardData => j !== undefined);
       }
-      
+
       const isGroup = componentJobs.length > 0;
 
       // Apply search query
       if (searchQuery.trim() !== "") {
         const lowerQuery = searchQuery.toLowerCase();
         const mainJobMatches = mainJob.jobName.toLowerCase().includes(lowerQuery) ||
-                              (mainJob.jobCardNumber && mainJob.jobCardNumber.toLowerCase().includes(lowerQuery)) ||
-                              (mainJob.status && mainJob.status.toLowerCase().includes(lowerQuery));
-        
+          (mainJob.jobCardNumber && mainJob.jobCardNumber.toLowerCase().includes(lowerQuery)) ||
+          (mainJob.status && mainJob.status.toLowerCase().includes(lowerQuery));
+
         if (!mainJobMatches && isGroup) {
-          const componentMatches = componentJobs.some(comp => 
+          const componentMatches = componentJobs.some(comp =>
             comp.jobName.toLowerCase().includes(lowerQuery) ||
             (comp.jobCardNumber && comp.jobCardNumber.toLowerCase().includes(lowerQuery))
           );
@@ -178,7 +178,7 @@ export default function MyJobsPage() {
           return; // Skip if single job doesn't match
         }
       }
-      
+
       displayableItems.push({
         id: mainJob.id!,
         isGroup: isGroup,
@@ -196,10 +196,16 @@ export default function MyJobsPage() {
         valA = new Date(a.mainJob.createdAt || a.mainJob.date);
         valB = new Date(b.mainJob.createdAt || b.mainJob.date);
       } else {
-        valA = a.mainJob[sortKey as keyof JobCardData] || "";
-        valB = b.mainJob[sortKey as keyof JobCardData] || "";
+        const rawValA = a.mainJob[sortKey as keyof JobCardData];
+        valA = (typeof rawValA === "string" || typeof rawValA === "number" || rawValA instanceof Date)
+          ? rawValA
+          : undefined;
+        const rawValB = b.mainJob[sortKey as keyof JobCardData];
+        valB = (typeof rawValB === "string" || typeof rawValB === "number" || rawValB instanceof Date)
+          ? rawValB
+          : undefined;
       }
-      
+
       if (valA instanceof Date && valB instanceof Date) {
         return sortDirection === "asc" ? valA.getTime() - valB.getTime() : valB.getTime() - valA.getTime();
       }
@@ -207,7 +213,7 @@ export default function MyJobsPage() {
         return sortDirection === "asc" ? valA.localeCompare(valB) : valB.localeCompare(valA);
       }
       if (typeof valA === 'number' && typeof valB === 'number') {
-         return sortDirection === "asc" ? valA - valB : valB - valA;
+        return sortDirection === "asc" ? valA - valB : valB - valA;
       }
       return 0;
     });
@@ -224,7 +230,7 @@ export default function MyJobsPage() {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
     } else {
       setSortKey(key);
-      setSortDirection("asc"); 
+      setSortDirection("asc");
     }
   };
 
@@ -257,27 +263,27 @@ export default function MyJobsPage() {
       </Card>
     );
   }
-  
+
   const renderJobRow = (job: JobCardData, isComponentJob: boolean = false) => (
     <TableRow key={job.id} className={isComponentJob ? "bg-muted/30 hover:bg-muted/50" : ""}>
       <TableCell className={`font-mono text-xs ${isComponentJob ? 'pl-8' : ''}`}>{job.jobCardNumber || job.id}</TableCell>
       <TableCell className="font-medium">{job.jobName}</TableCell>
       <TableCell className="text-xs">{format(new Date(job.createdAt || job.date), "dd MMM yyyy")}</TableCell>
       <TableCell>
-          <Badge variant={job.status === "Completed" || job.status === "Billed" ? "secondary" : "default"}>{job.status || "N/A"}</Badge>
+        <Badge variant={job.status === "Completed" || job.status === "Billed" ? "secondary" : "default"}>{job.status || "N/A"}</Badge>
       </TableCell>
       <TableCell className="text-xs">{job.dispatchDate ? format(new Date(job.dispatchDate), "dd MMM yyyy") : "N/A"}</TableCell>
       <TableCell className="text-right space-x-1">
-          <Button variant="outline" size="sm" onClick={() => openJobDetailModal(job)}>
-              <Eye className="mr-1 h-3 w-3" /> Details
+        <Button variant="outline" size="sm" onClick={() => openJobDetailModal(job)}>
+          <Eye className="mr-1 h-3 w-3" /> Details
+        </Button>
+        {!isComponentJob && (
+          <Button asChild variant="outline" size="sm">
+            <Link href={`/jobs/new?fromCustomerJobId=${job.id}`}>
+              <RefreshCw className="mr-1 h-3 w-3" /> Re-order
+            </Link>
           </Button>
-          {!isComponentJob && (
-             <Button asChild variant="outline" size="sm">
-                <Link href={`/jobs/new?fromCustomerJobId=${job.id}`}>
-                    <RefreshCw className="mr-1 h-3 w-3" /> Re-order
-                </Link>
-             </Button>
-          )}
+        )}
       </TableCell>
     </TableRow>
   );
@@ -286,7 +292,7 @@ export default function MyJobsPage() {
     if (items.length === 0 && !searchQuery) {
       return (
         <div className="text-center py-12">
-          <Image src={`https://placehold.co/300x200.png?text=No+${tableTitle.replace(/\s/g, '+')}`} alt={`No ${tableTitle}`} width={300} height={200} className="mb-6 rounded-lg mx-auto" data-ai-hint="empty state document"/>
+          <Image src={`https://placehold.co/300x200.png?text=No+${tableTitle.replace(/\s/g, '+')}`} alt={`No ${tableTitle}`} width={300} height={200} className="mb-6 rounded-lg mx-auto" data-ai-hint="empty state document" />
           <h3 className="text-xl font-semibold mb-2 font-headline">No {tableTitle} Found</h3>
           <p className="text-muted-foreground font-body">You currently don't have any {tableTitle.toLowerCase()}.</p>
         </div>
@@ -303,9 +309,9 @@ export default function MyJobsPage() {
     }
 
     return (
-      <Accordion 
-        type="multiple" 
-        value={openAccordionItems} 
+      <Accordion
+        type="multiple"
+        value={openAccordionItems}
         onValueChange={setOpenAccordionItems}
         className="w-full"
       >
@@ -335,38 +341,38 @@ export default function MyJobsPage() {
                 <TableRow>
                   <TableCell colSpan={5} className="p-0">
                     <AccordionTrigger className="w-full hover:no-underline px-4 py-3">
-                       <div className="flex items-center justify-between w-full">
-                         <div className="flex items-center">
-                            <LinkIconLucide className="h-4 w-4 mr-2 text-primary" />
-                            <span className="font-medium">{item.mainJob.jobName}</span>
-                            <span className="text-xs text-muted-foreground ml-2">({item.mainJob.jobCardNumber || item.mainJob.id}) - Click to expand</span>
-                         </div>
-                         <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-180" />
-                       </div>
+                      <div className="flex items-center justify-between w-full">
+                        <div className="flex items-center">
+                          <LinkIconLucide className="h-4 w-4 mr-2 text-primary" />
+                          <span className="font-medium">{item.mainJob.jobName}</span>
+                          <span className="text-xs text-muted-foreground ml-2">({item.mainJob.jobCardNumber || item.mainJob.id}) - Click to expand</span>
+                        </div>
+                        <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                      </div>
                     </AccordionTrigger>
                   </TableCell>
                   <TableCell className="text-right space-x-1 p-0 pr-4">
-                     <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); openJobDetailModal(item.mainJob); }}>
-                        <Eye className="mr-1 h-3 w-3" /> Main Details
+                    <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); openJobDetailModal(item.mainJob); }}>
+                      <Eye className="mr-1 h-3 w-3" /> Main Details
                     </Button>
                     <Button asChild variant="outline" size="sm">
-                        <Link href={`/jobs/new?fromCustomerJobId=${item.mainJob.id}`}>
-                            <RefreshCw className="mr-1 h-3 w-3" /> Re-order Group
-                        </Link>
+                      <Link href={`/jobs/new?fromCustomerJobId=${item.mainJob.id}`}>
+                        <RefreshCw className="mr-1 h-3 w-3" /> Re-order Group
+                      </Link>
                     </Button>
                   </TableCell>
                 </TableRow>
               </TableBody></Table>
               <AccordionContent className="p-0">
                 <div className="pl-4 pr-2 py-2 bg-muted/20">
-                    <Table>
-                        <TableHeader className="sr-only">
-                            <TableRow><TableHead>Comp. Job No.</TableHead><TableHead>Comp. Job Name</TableHead><TableHead>Comp. Date</TableHead><TableHead>Comp. Status</TableHead><TableHead>Comp. Dispatch</TableHead><TableHead>Comp. Actions</TableHead></TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {item.componentJobs.map(compJob => renderJobRow(compJob, true))}
-                        </TableBody>
-                    </Table>
+                  <Table>
+                    <TableHeader className="sr-only">
+                      <TableRow><TableHead>Comp. Job No.</TableHead><TableHead>Comp. Job Name</TableHead><TableHead>Comp. Date</TableHead><TableHead>Comp. Status</TableHead><TableHead>Comp. Dispatch</TableHead><TableHead>Comp. Actions</TableHead></TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {item.componentJobs.map(compJob => renderJobRow(compJob, true))}
+                    </TableBody>
+                  </Table>
                 </div>
               </AccordionContent>
             </AccordionItem>
@@ -387,7 +393,7 @@ export default function MyJobsPage() {
           <div className="flex flex-col sm:flex-row items-center gap-4 mb-6">
             <div className="relative w-full sm:flex-grow">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search by Job Name, No, Status..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10 w-full font-body h-11"/>
+              <Input placeholder="Search by Job Name, No, Status..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10 w-full font-body h-11" />
               {searchQuery && <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setSearchQuery("")} aria-label="Clear search"><XCircle className="h-4 w-4 text-muted-foreground" /></Button>}
             </div>
             <div className="flex gap-2 flex-shrink-0 w-full sm:w-auto justify-end">
@@ -398,8 +404,8 @@ export default function MyJobsPage() {
           </div>
           <Tabs defaultValue="active" className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-4">
-              <TabsTrigger value="active" className="font-body flex items-center gap-2"><Briefcase className="h-4 w-4"/>Active Jobs</TabsTrigger>
-              <TabsTrigger value="past" className="font-body flex items-center gap-2"><History className="h-4 w-4"/>Past Jobs</TabsTrigger>
+              <TabsTrigger value="active" className="font-body flex items-center gap-2"><Briefcase className="h-4 w-4" />Active Jobs</TabsTrigger>
+              <TabsTrigger value="past" className="font-body flex items-center gap-2"><History className="h-4 w-4" />Past Jobs</TabsTrigger>
             </TabsList>
             <TabsContent value="active">
               {renderJobsDisplay(activeJobs, "Active Jobs")}

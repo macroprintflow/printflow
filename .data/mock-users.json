@@ -4,7 +4,7 @@
     "email": "kuvam@macroprinters.com",
     "displayName": "Kuvam Sharma (Admin)",
     "role": "Admin",
-    "linkedCustomerId": "mock-1"
+    "linkedCustomerId": "mock-2"
   },
   {
     "id": "7D2yhdRVz5TcAskwWmb1gZaVyVi2",
@@ -17,6 +17,7 @@
     "id": "rInB76wTNWbPrddxhZYMxK0IGV13",
     "email": "kuvamsharma99@icloud.com",
     "displayName": "Macro Printers",
-    "role": "Customer"
+    "role": "Customer",
+    "linkedCustomerId": "mock-2"
   }
 ]

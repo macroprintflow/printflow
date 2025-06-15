@@ -55,7 +55,12 @@ type PaperQualityValue = typeof PAPER_QUALITY_OPTIONS[number]['value'];
 export type PaperQualityType = PaperQualityValue;
 
 // Ensure paperQualityEnumValues is defined before JobCardSchema
-const paperQualityEnumValues = PAPER_QUALITY_OPTIONS.map(opt => opt.value) as [string, ...string[]];
+export const paperQualityEnumValues = PAPER_QUALITY_OPTIONS.map(opt => opt.value) as [string, ...string[]];
+
+// --- HELPER FUNCTION: Only allows valid paper qualities ---
+export function asPaperQuality(val: any): PaperQualityType | undefined {
+  return (PAPER_QUALITY_OPTIONS.some(opt => opt.value === val) ? val : undefined) as PaperQualityType | undefined;
+}
 
 export function getPaperQualityLabel(value: PaperQualityType): string {
   const option = PAPER_QUALITY_OPTIONS.find(opt => opt.value === value);
@@ -93,6 +98,7 @@ export const WorkflowStepSchema = z.object({
   stepSlug: z.string(),
   order: z.number().int().positive(),
 });
+
 export type WorkflowStep = z.infer<typeof WorkflowStepSchema>;
 
 export type JobCardData = {
@@ -121,17 +127,17 @@ export type JobCardData = {
   sheetsPerMasterSheet?: number;
   totalMasterSheetsNeeded?: number;
 
-  kindOfJob: 'METPET' | 'NORMAL' | 'NO_PRINTING' | '';
-  printingFront: 'SM74' | 'SORSZ' | 'DOMINANT' | 'NO_PRINTING' | '';
-  printingBack: 'SM74' | 'SORSZ' | 'DOMINANT' | 'NO_PRINTING' | '';
-  coating: 'TEXTURE_UV' | 'VARNISH_GLOSS' | 'VARNISH_MATT' | 'UV_ONLY' | 'NO_COATING' | '';
+  kindOfJob: 'METPET' | 'NORMAL' | 'NO_PRINTING' | undefined;
+  printingFront: 'SM74' | 'SORSZ' | 'DOMINANT' | 'NO_PRINTING' | undefined;
+  printingBack: 'SM74' | 'SORSZ' | 'DOMINANT' | 'NO_PRINTING' | undefined;
+  coating: 'TEXTURE_UV' | 'VARNISH_GLOSS' | 'VARNISH_MATT' | 'UV_ONLY' | 'NO_COATING' | undefined;
   specialInks?: string;
-  die: 'NEW' | 'OLD' | '';
-  assignedDieMachine?: 'Machine1' | 'Machine2' | 'Machine3' | 'Machine4' | '';
-  hotFoilStamping: 'GOLDEN' | 'SILVER' | 'COPPER' | 'NO_LEAF' | '';
-  emboss: 'YES' | 'NO' | '';
-  pasting: 'YES' | 'NO' | '';
-  boxMaking: 'MACHINE' | 'MANUAL' | 'COMBINED' | '';
+  die: 'NEW' | 'OLD' | undefined;
+  assignedDieMachine?: 'Machine1' | 'Machine2' | 'Machine3' | 'Machine4' | undefined;
+  hotFoilStamping: 'GOLDEN' | 'SILVER' | 'COPPER' | 'NO_LEAF' | undefined;
+  emboss: 'YES' | 'NO' | undefined;
+  pasting: 'YES' | 'NO' | undefined;
+  boxMaking: 'MACHINE' | 'MANUAL' | 'COMBINED' | undefined;
   remarks?: string;
   dispatchDate?: string;
 
@@ -163,9 +169,11 @@ export type JobTemplateData = {
 
 
 export const JobCardSchema = z.object({
+  jobCardNumber: z.string().optional(),
+  currentDepartment: z.string().optional(), // for Zod
   jobName: z.string().min(1, "Job name is required"),
-  customerName: z.string().min(1, "Customer name is required"), // Will be derived from selected customer
-  customerId: z.string().optional(), // ID of the selected customer
+  customerName: z.string().min(1, "Customer name is required"),
+  customerId: z.string().optional(),
 
   jobSizeWidth: z.coerce.number().positive("Job width (in) must be positive"),
   jobSizeHeight: z.coerce.number().positive("Job height (in) must be positive"),
@@ -175,7 +183,7 @@ export const JobCardSchema = z.object({
 
   paperGsm: z.coerce.number().optional(),
   targetPaperThicknessMm: z.coerce.number().optional(),
-  paperQuality: z.enum(paperQualityEnumValues).refine(val => val !== '', { message: "Paper Quality is required" }),
+  paperQuality: z.enum(paperQualityEnumValues), // REQUIRED (remove .refine!)
 
   masterSheetSizeWidth: z.coerce.number().optional(),
   masterSheetSizeHeight: z.coerce.number().optional(),
@@ -184,21 +192,21 @@ export const JobCardSchema = z.object({
   selectedMasterSheetGsm: z.coerce.number().optional(),
   selectedMasterSheetThicknessMm: z.coerce.number().optional(),
   selectedMasterSheetQuality: z.enum(paperQualityEnumValues).optional(),
-  sourceInventoryItemId: z.string().optional(), // This might need review based on your inventory flow
+  sourceInventoryItemId: z.string().optional(),
   sheetsPerMasterSheet: z.coerce.number().optional(),
   totalMasterSheetsNeeded: z.coerce.number().optional(),
 
-  kindOfJob: z.enum(['METPET', 'NORMAL', 'NO_PRINTING', '']).default('').optional(),
-  printingFront: z.enum(['SM74', 'SORSZ', 'DOMINANT', 'NO_PRINTING', '']).default('').optional(),
-  printingBack: z.enum(['SM74', 'SORSZ', 'DOMINANT', 'NO_PRINTING', '']).default('').optional(),
-  coating: z.enum(['TEXTURE_UV', 'VARNISH_GLOSS', 'VARNISH_MATT', 'UV_ONLY', 'NO_COATING', '']).default('').optional(),
+  kindOfJob: z.enum(['METPET', 'NORMAL', 'NO_PRINTING']).optional(),
+  printingFront: z.enum(['SM74', 'SORSZ', 'DOMINANT', 'NO_PRINTING']).optional(),
+  printingBack: z.enum(['SM74', 'SORSZ', 'DOMINANT', 'NO_PRINTING']).optional(),
+  coating: z.enum(['TEXTURE_UV', 'VARNISH_GLOSS', 'VARNISH_MATT', 'UV_ONLY', 'NO_COATING']).optional(),
   specialInks: z.string().optional(),
-  die: z.enum(['NEW', 'OLD', '']).default('').optional(),
-  assignedDieMachine: z.enum(['Machine1', 'Machine2', 'Machine3', 'Machine4', '']).default('').optional(),
-  hotFoilStamping: z.enum(['GOLDEN', 'SILVER', 'COPPER', 'NO_LEAF', '']).default('').optional(),
-  emboss: z.enum(['YES', 'NO', '']).default('').optional(),
-  pasting: z.enum(['YES', 'NO', '']).default('').optional(),
-  boxMaking: z.enum(['MACHINE', 'MANUAL', 'COMBINED', '']).default('').optional(),
+  die: z.enum(['NEW', 'OLD']).optional(),
+  assignedDieMachine: z.enum(['Machine1', 'Machine2', 'Machine3', 'Machine4']).optional(),
+  hotFoilStamping: z.enum(['GOLDEN', 'SILVER', 'COPPER', 'NO_LEAF']).optional(),
+  emboss: z.enum(['YES', 'NO']).optional(),
+  pasting: z.enum(['YES', 'NO']).optional(),
+  boxMaking: z.enum(['MACHINE', 'MANUAL', 'COMBINED']).optional(),
   remarks: z.string().optional(),
   dispatchDate: z.string().optional(),
   workflowSteps: z.array(WorkflowStepSchema).optional(),
@@ -215,24 +223,26 @@ export const JobCardSchema = z.object({
   }
 });
 
+
 export type JobCardFormValues = z.infer<typeof JobCardSchema>;
 
 
 
 export const JobTemplateSchema = z.object({
   name: z.string().min(1, "Template name is required"),
-  paperQuality: z.enum(paperQualityEnumValues).optional(), // Use defined enum values
-  kindOfJob: z.enum(['METPET', 'NORMAL', 'NO_PRINTING', '']).default('').optional(),
-  printingFront: z.enum(['SM74', 'SORSZ', 'DOMINANT', 'NO_PRINTING', '']).default('').optional(),
-  printingBack: z.enum(['SM74', 'SORSZ', 'DOMINANT', 'NO_PRINTING', '']).default('').optional(),
-  coating: z.enum(['TEXTURE_UV', 'VARNISH_GLOSS', 'VARNISH_MATT', 'UV_ONLY', 'NO_COATING', '']).default('').optional(),
-  die: z.enum(['NEW', 'OLD', '']).default('').optional(),
-  hotFoilStamping: z.enum(['GOLDEN', 'SILVER', 'COPPER', 'NO_LEAF', '']).default('').optional(),
-  emboss: z.enum(['YES', 'NO', '']).default('').optional(),
-  pasting: z.enum(['YES', 'NO', '']).default('').optional(),
-  boxMaking: z.enum(['MACHINE', 'MANUAL', 'COMBINED', '']).default('').optional(),
+  paperQuality: z.enum(paperQualityEnumValues).optional(),
+  kindOfJob: z.enum(['METPET', 'NORMAL', 'NO_PRINTING']).default('NORMAL').optional(),
+  printingFront: z.enum(['SM74', 'SORSZ', 'DOMINANT', 'NO_PRINTING']).default('NO_PRINTING').optional(),
+  printingBack: z.enum(['SM74', 'SORSZ', 'DOMINANT', 'NO_PRINTING']).default('NO_PRINTING').optional(),
+  coating: z.enum(['TEXTURE_UV', 'VARNISH_GLOSS', 'VARNISH_MATT', 'UV_ONLY', 'NO_COATING']).default('NO_COATING').optional(),
+  die: z.enum(['NEW', 'OLD']).default('NEW').optional(),
+  hotFoilStamping: z.enum(['GOLDEN', 'SILVER', 'COPPER', 'NO_LEAF']).default('NO_LEAF').optional(),
+  emboss: z.enum(['YES', 'NO']).default('NO').optional(),
+  pasting: z.enum(['YES', 'NO']).default('NO').optional(),
+  boxMaking: z.enum(['MACHINE', 'MANUAL', 'COMBINED']).default('MACHINE').optional(),
   predefinedWorkflow: z.array(WorkflowStepSchema).optional(),
 });
+
 
 export type JobTemplateFormValues = z.infer<typeof JobTemplateSchema>;
 

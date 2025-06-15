@@ -30,17 +30,17 @@ export function JobTemplateForm() {
   const form = useForm<JobTemplateFormValues>({
     resolver: zodResolver(JobTemplateSchema),
     defaultValues: {
-      name: "",
-      paperQuality: "",
-      kindOfJob: "",
-      printingFront: "",
-      printingBack: "",
-      coating: "",
-      die: "",
-      hotFoilStamping: "",
-      emboss: "",
-      pasting: "",
-      boxMaking: "",
+      name: undefined,
+      paperQuality: undefined,
+      kindOfJob: undefined,
+      printingFront: undefined,
+      printingBack: undefined,
+      coating: undefined,
+      die: undefined,
+      hotFoilStamping: undefined,
+      emboss: undefined,
+      pasting: undefined,
+      boxMaking: undefined,
       predefinedWorkflow: [],
     },
   });
@@ -179,7 +179,7 @@ export function JobTemplateForm() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>{item.label}</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || ""}>
+                  <Select onValueChange={field.onChange} value={field.value || undefined}>
                     <FormControl><SelectTrigger className="font-body"><SelectValue placeholder={`Select ${item.label.toLowerCase()}`} /></SelectTrigger></FormControl>
                     <SelectContent>
                       {item.options.map(option => (

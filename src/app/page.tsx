@@ -19,6 +19,7 @@ export default function HomePage() {
       }
     }
   }, [user, loading, router]);
+  
 
   // Show a loading indicator while auth state is being determined
   return (

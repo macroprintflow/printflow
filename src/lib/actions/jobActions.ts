@@ -1,11 +1,52 @@
-
 'use server';
 
-import type { JobCardFormValues, JobCardData, JobTemplateData, JobTemplateFormValues, InventoryItem, PaperQualityType, InventorySuggestion, InventoryItemFormValues, InventoryItemType, ItemGroupType, UnitValue, OptimizeInventoryOutput, InventoryAdjustment, InventoryAdjustmentReasonValue, WorkflowStep, InventoryAdjustmentItemFormValues, DesignSubmission, SubmitDesignInput, PlateTypeValue, ColorProfileValue, InventoryCategory } from '@/lib/definitions';
-import { PAPER_QUALITY_OPTIONS, getPaperQualityLabel, INVENTORY_ADJUSTMENT_REASONS, KAPPA_MDF_QUALITIES, getPaperQualityUnit } from '@/lib/definitions';
+// TypeScript types
+import type {
+  JobCardFormValues, JobTemplateFormValues, 
+  InventorySuggestion, InventoryItemFormValues, InventoryItemType, ItemGroupType, UnitValue,
+  OptimizeInventoryOutput, InventoryAdjustmentReasonValue, WorkflowStep,
+  SubmitDesignInput, PlateTypeValue, ColorProfileValue,
+  PaperQualityType, InventoryCategory, InventoryItem, InventoryAdjustment, InventoryAdjustmentItemFormValues, JobCardData, JobTemplateData, DesignSubmission
+} from '@/lib/definitions';
+import { deleteField } from "firebase/firestore";
+import {
+  addDoc,
+  doc,
+  setDoc,
+  updateDoc,
+  increment,
+  runTransaction,
+  serverTimestamp,
+} from "firebase/firestore";
+// Helper functions & constants for paper quality, inventory, etc.
+import {
+  asPaperQuality,
+  getPaperQualityLabel,
+  getPaperQualityUnit,
+  INVENTORY_ADJUSTMENT_REASONS,
+  KAPPA_MDF_QUALITIES,
+  PAPER_QUALITY_OPTIONS,
+} from '@/lib/definitions';
+
 import { calculateUps } from '@/lib/calculateUps';
 import { revalidatePath } from 'next/cache';
-// Removed fs and path imports
+import { getDB } from "@/lib/firebase/clientApp";
+import { collection, getDocs, orderBy, query, where } from "firebase/firestore";
+
+// ---- TYPE GUARD for Paper Quality ----
+function isPaperQuality(val: any): val is PaperQualityType {
+  return PAPER_QUALITY_OPTIONS.some(opt => opt.value === val);
+}
+
+// ---- TYPE GUARD for Inventory Category ----
+const INVENTORY_CATEGORIES = [
+  "ALL", "PAPER", "INKS", "PLASTIC_TRAY", "GLASS_JAR", "MAGNET", "OTHER"
+] as const;
+type InventoryCategoryType = typeof INVENTORY_CATEGORIES[number];
+
+function isInventoryCategory(val: any): val is InventoryCategoryType {
+  return INVENTORY_CATEGORIES.includes(val);
+}
 
 // --- In-Memory Global Stores and Counters ---
 declare global {
@@ -22,6 +63,7 @@ declare global {
   var __jobSeriesLetter__: string | undefined;
   var __jobSeriesCounter__: number | undefined;
 }
+
 
 // --- Initialize Global Stores and Counters (In-Memory) ---
 function initializeInMemoryStores() {
@@ -91,7 +133,6 @@ function generateJobCardNumber(): string {
 
 export async function createJobCard(data: JobCardFormValues): Promise<{ success: boolean; message: string; jobCard?: JobCardData }> {
   try {
-    // Ensure stores are initialized (should be by module load)
     if (!global.__jobCards__) global.__jobCards__ = [];
     if (global.__jobCounter__ === undefined) global.__jobCounter__ = 1;
     if (!global.__inventoryItemsStore__) global.__inventoryItemsStore__ = [];
@@ -99,27 +140,78 @@ export async function createJobCard(data: JobCardFormValues): Promise<{ success:
     if (global.__adjustmentCounter__ === undefined) global.__adjustmentCounter__ = 1;
 
     const currentJobCounter = global.__jobCounter__;
-    const newJobCard: JobCardData = {
-      ...data,
-      id: currentJobCounter.toString(),
-      jobCardNumber: generateJobCardNumber(),
-      date: new Date().toISOString().split('T')[0],
-      cuttingLayoutDescription: data.cuttingLayoutDescription,
-      sheetsPerMasterSheet: data.sheetsPerMasterSheet,
-      totalMasterSheetsNeeded: data.totalMasterSheetsNeeded,
-      paperGsm: KAPPA_MDF_QUALITIES.includes(data.paperQuality as PaperQualityType) ? undefined : data.paperGsm,
-      targetPaperThicknessMm: KAPPA_MDF_QUALITIES.includes(data.paperQuality as PaperQualityType) ? data.targetPaperThicknessMm : undefined,
-      selectedMasterSheetGsm: KAPPA_MDF_QUALITIES.includes(data.selectedMasterSheetQuality as PaperQualityType) ? undefined : data.selectedMasterSheetGsm,
-      selectedMasterSheetThicknessMm: KAPPA_MDF_QUALITIES.includes(data.selectedMasterSheetQuality as PaperQualityType) ? data.selectedMasterSheetThicknessMm : undefined,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      status: 'Pending Planning',
-      workflowSteps: data.workflowSteps || [],
-      pdfDataUri: data.pdfDataUri,
-    };
+
+    // --- Validate/cast all paper-related union types! ---
+    const mainPaperQuality = asPaperQuality(data.paperQuality);
+if (!mainPaperQuality) {
+  throw new Error("Invalid or missing paperQuality");
+}
+
+const selSheetQuality: PaperQualityType | undefined = isPaperQuality(data.selectedMasterSheetQuality)
+  ? data.selectedMasterSheetQuality
+  : undefined;
+
+const isKappa = KAPPA_MDF_QUALITIES.includes(mainPaperQuality);
+const isSelKappa = selSheetQuality ? KAPPA_MDF_QUALITIES.includes(selSheetQuality) : false;
+
+const newJobCard: JobCardData = {
+  id: currentJobCounter.toString(),
+  jobCardNumber: generateJobCardNumber(),
+  date: new Date().toISOString().split('T')[0],
+
+  // Form values or defaults
+  jobName: data.jobName,
+  customerName: data.customerName,
+  jobSizeWidth: data.jobSizeWidth,
+  jobSizeHeight: data.jobSizeHeight,
+  netQuantity: data.netQuantity,
+  grossQuantity: data.grossQuantity,
+  paperQuality: mainPaperQuality ?? "SBS", // default fallback if needed
+
+  // Add optional fields if they exist in data (or provide safe defaults)
+  customerId: data.customerId,
+  masterSheetSizeWidth: data.masterSheetSizeWidth,
+  masterSheetSizeHeight: data.masterSheetSizeHeight,
+  paperGsm: data.paperGsm,
+  targetPaperThicknessMm: data.targetPaperThicknessMm,
+  wastagePercentage: data.wastagePercentage,
+  cuttingLayoutDescription: data.cuttingLayoutDescription,
+
+  selectedMasterSheetGsm: data.selectedMasterSheetGsm,
+  selectedMasterSheetThicknessMm: data.selectedMasterSheetThicknessMm,
+  selectedMasterSheetQuality: asPaperQuality(data.selectedMasterSheetQuality),
+  sourceInventoryItemId: data.sourceInventoryItemId,
+  sheetsPerMasterSheet: data.sheetsPerMasterSheet,
+  totalMasterSheetsNeeded: data.totalMasterSheetsNeeded,
+
+  // Workflow/production fields (required, so supply blank if not used yet)
+  kindOfJob: data.kindOfJob ?? undefined,
+  printingFront: data.printingFront ?? undefined,
+  printingBack: data.printingBack ?? undefined,
+  coating: data.coating ?? undefined,
+  die: data.die ?? undefined,
+  hotFoilStamping: data.hotFoilStamping ?? undefined,
+  emboss: data.emboss ?? undefined,
+  pasting: data.pasting ?? undefined,
+  boxMaking: data.boxMaking ?? undefined,
+
+  specialInks: data.specialInks,
+  assignedDieMachine: data.assignedDieMachine,
+  remarks: data.remarks,
+  dispatchDate: data.dispatchDate,
+  linkedJobCardIds: data.linkedJobCardIds,
+  currentDepartment: data.currentDepartment,
+  status: "Pending Planning",
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+  workflowSteps: data.workflowSteps || [],
+  pdfDataUri: data.pdfDataUri,
+  hasPendingInventory: data.hasPendingInventory,
+};
     global.__jobCards__.push(newJobCard);
     global.__jobCounter__ = currentJobCounter + 1;
 
+    // Deduct stock if applicable
     if (data.sourceInventoryItemId && data.totalMasterSheetsNeeded && data.totalMasterSheetsNeeded > 0) {
       const itemExists = global.__inventoryItemsStore__.some(item => item.id === data.sourceInventoryItemId);
       if (itemExists) {
@@ -133,12 +225,9 @@ export async function createJobCard(data: JobCardFormValues): Promise<{ success:
           notes: `Used for job: ${newJobCard.jobName}`,
         };
         global.__inventoryAdjustmentsStore__.push(adjustment);
-      } else {
-        console.warn(`[JobActions] Inventory item ID ${data.sourceInventoryItemId} not found for stock deduction for job ${newJobCard.jobCardNumber}. Stock not deducted.`);
       }
     }
 
-    console.log('[JobActions] Created job card (in-memory):', newJobCard.jobCardNumber);
     revalidatePath('/jobs');
     revalidatePath('/jobs/new');
     revalidatePath('/inventory', 'layout');
@@ -146,7 +235,6 @@ export async function createJobCard(data: JobCardFormValues): Promise<{ success:
     revalidatePath('/customer/my-jobs');
     return { success: true, message: 'Job card created successfully! (In-memory)', jobCard: newJobCard };
   } catch (error) {
-    console.error('[JobActions Error] Error creating job card (in-memory):', error);
     const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred.';
     return { success: false, message: `Failed to create job card: ${errorMessage}` };
   }
@@ -190,7 +278,9 @@ export async function getJobTemplates(): Promise<JobTemplateData[]> {
   return [...global.__jobTemplatesStore__];
 }
 
-export async function createJobTemplate(data: JobTemplateFormValues): Promise<{ success: boolean; message: string; template?: JobTemplateData }> {
+export async function createJobTemplate(
+  data: JobTemplateFormValues
+): Promise<{ success: boolean; message: string; template?: JobTemplateData }> {
   try {
     if (!global.__jobTemplatesStore__) global.__jobTemplatesStore__ = [];
     if (global.__templateCounter__ === undefined) global.__templateCounter__ = 1;
@@ -200,6 +290,7 @@ export async function createJobTemplate(data: JobTemplateFormValues): Promise<{ 
       ...data,
       id: `template${currentTemplateCounter}`,
       predefinedWorkflow: data.predefinedWorkflow || [],
+      paperQuality: asPaperQuality(data.paperQuality), // <<------ THIS LINE IS NEW!
     };
     global.__jobTemplatesStore__.push(newTemplate);
     global.__templateCounter__ = currentTemplateCounter + 1;
@@ -233,237 +324,466 @@ export async function getJobsByCustomerName(customerName: string): Promise<JobCa
 }
 
 function generateItemTypeKey(data: InventoryItemFormValues): string {
-    const quality = data.paperQuality as PaperQualityType;
-    const unit = getPaperQualityUnit(quality);
-    if (data.category === 'PAPER') {
-        const width = data.paperMasterSheetSizeWidth || 0;
-        const height = data.paperMasterSheetSizeHeight || 0;
-        if (unit === 'mm') {
-            const thickness = data.paperThicknessMm || 0;
-            return `paper_${quality}_${thickness}mm_${width.toFixed(2)}x${height.toFixed(2)}`.toLowerCase();
-        } else {
-            const gsm = data.paperGsm || 0;
-            return `paper_${quality}_${gsm}gsm_${width.toFixed(2)}x${height.toFixed(2)}`.toLowerCase();
-        }
-    } else if (data.category === 'INKS') {
-        const inkName = data.inkName || 'unknown_ink';
-        return `ink_${inkName}`.toLowerCase();
-    } else {
-        const itemName = data.itemName || 'unknown_item';
-        return `other_${data.category}_${itemName}`.toLowerCase().replace(/\s+/g, '_');
-    }
+  const quality = asPaperQuality(data.paperQuality);
+  if (data.category === 'PAPER') {
+      if (!quality) {
+          throw new Error("paperQuality is required and must be valid for PAPER category in generateItemTypeKey!");
+      }
+      const unit = getPaperQualityUnit(quality);
+      const width = data.paperMasterSheetSizeWidth || 0;
+      const height = data.paperMasterSheetSizeHeight || 0;
+      if (unit === 'mm') {
+          const thickness = data.paperThicknessMm || 0;
+          return `paper_${quality}_${thickness}mm_${width.toFixed(2)}x${height.toFixed(2)}`.toLowerCase();
+      } else {
+          const gsm = data.paperGsm || 0;
+          return `paper_${quality}_${gsm}gsm_${width.toFixed(2)}x${height.toFixed(2)}`.toLowerCase();
+      }
+  } else if (data.category === 'INKS') {
+      const inkName = data.inkName || 'unknown_ink';
+      return `ink_${inkName}`.toLowerCase();
+  } else {
+      const itemName = data.itemName || 'unknown_item';
+      return `other_${data.category}_${itemName}`.toLowerCase().replace(/\s+/g, '_');
+  }
+}
+function isSameInventoryItem(
+  item: InventoryItem,
+  form: InventoryItemFormValues,
+  computedKey: string
+): boolean {
+  const quality = asPaperQuality(item.paperQuality);
+  if (!quality) return false;
+
+  const unit = getPaperQualityUnit(quality);
+
+  if (form.category === "PAPER" && item.type === "Master Sheet") {
+    const key =
+      unit === "mm"
+        ? `paper_${quality}_${item.paperThicknessMm}mm_${item.masterSheetSizeWidth?.toFixed(
+            2
+          )}x${item.masterSheetSizeHeight?.toFixed(2)}`
+        : `paper_${quality}_${item.paperGsm}gsm_${item.masterSheetSizeWidth?.toFixed(
+            2
+          )}x${item.masterSheetSizeHeight?.toFixed(2)}`;
+    return key.toLowerCase() === computedKey;
+  }
+
+  if (form.category === "INKS" && item.type === "Ink") {
+    return `ink_${item.name}`.toLowerCase() === computedKey;
+  }
+
+  if (form.category !== "PAPER" && form.category !== "INKS") {
+    const normalized = (item.name || "unknown_item")
+      .toLowerCase()
+      .replace(/\s+/g, "_");
+    const cat = item.itemGroup === "Other Stock" ? "OTHER" : item.itemGroup;
+    return `other_${cat}_${normalized}`.toLowerCase() === computedKey;
+  }
+
+  return false;
 }
 
-export async function addInventoryItem(data: InventoryItemFormValues): Promise<{ success: boolean; message: string; item?: InventoryItem }> {
+/* =======================================================================
+   Helper ②  – build all fields for a NEW inventory item
+   ======================================================================= */
+function buildItemFields(data: InventoryItemFormValues) {
+  let itemType: InventoryItemType = "Other";
+  let itemGroup: ItemGroupType    = "Other Stock";
+  let specificName                = data.itemName;
+  let specificSpecification       = data.itemSpecification || "";
+
+  let masterSheetSizeWidth_val    : number | undefined;
+  let masterSheetSizeHeight_val   : number | undefined;
+  let paperGsm_val                : number | undefined;
+  let paperThicknessMm_val        : number | undefined;
+  let paperQuality_val            : PaperQualityType | undefined;
+
+  let qualityLabel = "";
+  let unit: "mm" | "gsm" | null = null;
+
+  /* ------------ PAPER ------------ */
+  if (data.category === "PAPER") {
+    masterSheetSizeWidth_val  = data.paperMasterSheetSizeWidth;
+    masterSheetSizeHeight_val = data.paperMasterSheetSizeHeight;
+    paperQuality_val          = asPaperQuality(data.paperQuality);
+
+    if (!paperQuality_val) {
+      throw new Error("paperQuality is required and must be valid for PAPER category!");
+    }
+
+    itemType     = "Master Sheet";
+    qualityLabel = getPaperQualityLabel(paperQuality_val);
+    itemGroup    = qualityLabel as ItemGroupType;
+    unit         = getPaperQualityUnit(paperQuality_val);
+
+    if (unit === "mm") {
+      paperThicknessMm_val = data.paperThicknessMm;
+      specificName = `${masterSheetSizeWidth_val?.toFixed(
+        2
+      )}x${masterSheetSizeHeight_val?.toFixed(2)}in - ${paperThicknessMm_val}mm`;
+    } else {
+      paperGsm_val = data.paperGsm;
+      specificName = `${masterSheetSizeWidth_val?.toFixed(
+        2
+      )}x${masterSheetSizeHeight_val?.toFixed(2)}in - ${paperGsm_val}GSM`;
+    }
+
+    specificSpecification = `${qualityLabel} ${
+      unit === "mm"
+        ? (paperThicknessMm_val ?? "") + "mm"
+        : (paperGsm_val ?? "") + "GSM"
+    }, ${masterSheetSizeWidth_val?.toFixed(2)}in x ${masterSheetSizeHeight_val?.toFixed(
+      2
+    )}in`;
+  }
+
+  /* ------------ INKS ------------ */
+  else if (data.category === "INKS") {
+    itemType               = "Ink";
+    itemGroup              = "Inks";
+    specificName           = data.inkName || "";
+    specificSpecification  = data.inkSpecification || "N/A";
+  }
+
+  /* ------------ OTHER CATEGORIES ------------ */
+  else {
+    specificName = data.itemName;
+    itemType =
+      data.category === "PLASTIC_TRAY"
+        ? "Plastic Tray"
+        : data.category === "GLASS_JAR"
+        ? "Glass Jar"
+        : data.category === "MAGNET"
+        ? "Magnet"
+        : "Other";
+
+    itemGroup =
+      data.category === "PLASTIC_TRAY"
+        ? "Plastic Trays"
+        : data.category === "GLASS_JAR"
+        ? "Glass Jars"
+        : data.category === "MAGNET"
+        ? "Magnets"
+        : "Other Stock";
+  }
+
+  return {
+    itemType,
+    itemGroup,
+    specificName,
+    specificSpecification,
+    masterSheetSizeWidth_val,
+    masterSheetSizeHeight_val,
+    paperGsm_val,
+    paperThicknessMm_val,
+    paperQuality_val,
+  };
+}
+export async function addInventoryItem(
+  data: InventoryItemFormValues
+): Promise<{ success: boolean; message: string; item?: InventoryItem }> {
   try {
-    if (!global.__inventoryItemsStore__) global.__inventoryItemsStore__ = [];
-    if (global.__inventoryCounter__ === undefined) global.__inventoryCounter__ = 1;
-    if (!global.__inventoryAdjustmentsStore__) global.__inventoryAdjustmentsStore__ = [];
-    if (global.__adjustmentCounter__ === undefined) global.__adjustmentCounter__ = 1;
 
-    const itemTypeKey = generateItemTypeKey(data);
-    let existingItem = global.__inventoryItemsStore__.find(item => {
-        const quality = item.paperQuality as PaperQualityType;
-        const unit = getPaperQualityUnit(quality);
-        if (item.type === 'Master Sheet' && data.category === 'PAPER') {
-            let existingKey = '';
-            if (unit === 'mm') {
-                existingKey = `paper_${quality}_${item.paperThicknessMm}mm_${item.masterSheetSizeWidth?.toFixed(2)}x${item.masterSheetSizeHeight?.toFixed(2)}`.toLowerCase();
-            } else {
-                existingKey = `paper_${quality}_${item.paperGsm}gsm_${item.masterSheetSizeWidth?.toFixed(2)}x${item.masterSheetSizeHeight?.toFixed(2)}`.toLowerCase();
-            }
-            return existingKey === itemTypeKey;
-        } else if (item.type === 'Ink' && data.category === 'INKS') {
-            const existingKey = `ink_${item.name}`.toLowerCase();
-            return existingKey === itemTypeKey;
-        } else if (data.category !== 'PAPER' && data.category !== 'INKS') {
-             const normalizedItemName = (item.name || "unknown_item").toLowerCase().replace(/\s+/g, '_');
-             const originalCategoryGuess = item.itemGroup === 'Other Stock' ? 'OTHER' : item.itemGroup;
-             const existingKey = `other_${originalCategoryGuess}_${normalizedItemName}`.toLowerCase();
-             return existingKey === itemTypeKey;
-        }
-        return false;
-    });
+    const db = getDB();
+    const inventoryItemsCollection = collection(db, "inventoryItems");
+    /* ─── In-memory store boot-strapping ────────────────────────── */
+    global.__inventoryItemsStore__        ??= [];
+    global.__inventoryAdjustmentsStore__  ??= [];
+    global.__inventoryCounter__           ??= 1;
+    global.__adjustmentCounter__          ??= 1;
 
+    /* ─── 0. Locate existing item in memory ─────────────────────── */
+    const itemTypeKey  = generateItemTypeKey(data);
+    const existingItem = global.__inventoryItemsStore__
+      .find(item => isSameInventoryItem(item, data, itemTypeKey));
+
+    /* ─── 1. Create-or-update inventory item ────────────────────── */
     let inventoryItemId: string;
-    let adjustmentReason: InventoryAdjustmentReasonValue = 'INITIAL_STOCK';
-    let itemForMessage: InventoryItem;
+    let adjustmentReason: InventoryAdjustmentReasonValue = "INITIAL_STOCK";
+    let itemForMessage:  InventoryItem;
 
+    
+
+    /* ---------- UPDATE existing item ---------- */
     if (existingItem) {
-      inventoryItemId = existingItem.id;
-      adjustmentReason = 'PURCHASE_RECEIVED';
-      if (data.reorderPoint && (!existingItem.reorderPoint || data.reorderPoint > existingItem.reorderPoint)) {
+      inventoryItemId  = existingItem.id;
+      adjustmentReason = "PURCHASE_RECEIVED";
+
+      if (data.reorderPoint !== undefined &&
+          (existingItem.reorderPoint === undefined || data.reorderPoint > existingItem.reorderPoint)) {
         existingItem.reorderPoint = data.reorderPoint;
       }
       if (data.locationCode) existingItem.locationCode = data.locationCode;
+
       itemForMessage = existingItem;
+
+      /* Build update object without undefined */
+      const updates: Record<string, any> = { updatedAt: serverTimestamp() };
+      updates.reorderPoint = existingItem.reorderPoint ?? deleteField();
+      updates.locationCode = existingItem.locationCode ?? deleteField();
+
+      await setDoc(
+        doc(db, "inventoryItems", inventoryItemId),
+        updates,
+        { merge: true }
+      );
+      
+      /* 🔍 DEBUG */
+      console.log("[addInventoryItem] upserted doc:", inventoryItemId);
     } else {
+      /* ---------- CREATE new item ---------- */
       const currentInventoryCounter = global.__inventoryCounter__++;
       inventoryItemId = `inv${currentInventoryCounter}`;
-      let itemType: InventoryItemType = 'Other';
-      let itemGroup: ItemGroupType = 'Other Stock';
-      let specificName = data.itemName;
-      let specificSpecification = data.itemSpecification || '';
-      let masterSheetSizeWidth_val: number | undefined = undefined;
-      let masterSheetSizeHeight_val: number | undefined = undefined;
-      let paperGsm_val: number | undefined = undefined;
-      let paperThicknessMm_val: number | undefined = undefined;
-      let paperQuality_val: PaperQualityType | undefined = undefined;
 
-      if (data.category === 'PAPER') {
-        masterSheetSizeWidth_val = data.paperMasterSheetSizeWidth;
-        masterSheetSizeHeight_val = data.paperMasterSheetSizeHeight;
-        paperQuality_val = data.paperQuality as PaperQualityType;
-        itemType = 'Master Sheet';
-        const qualityLabel = getPaperQualityLabel(paperQuality_val);
-        itemGroup = qualityLabel as ItemGroupType;
-        const unit = getPaperQualityUnit(paperQuality_val);
-        if (unit === 'mm') {
-            paperThicknessMm_val = data.paperThicknessMm;
-            specificName = `${masterSheetSizeWidth_val?.toFixed(2)}x${masterSheetSizeHeight_val?.toFixed(2)}in - ${paperThicknessMm_val}mm`;
-        } else {
-            paperGsm_val = data.paperGsm;
-            specificName = `${masterSheetSizeWidth_val?.toFixed(2)}x${masterSheetSizeHeight_val?.toFixed(2)}in - ${paperGsm_val}GSM`;
-        }
-        specificSpecification = `${qualityLabel} ${unit === 'mm' ? paperThicknessMm_val + 'mm' : paperGsm_val + 'GSM'}, ${masterSheetSizeWidth_val?.toFixed(2)}in x ${masterSheetSizeHeight_val?.toFixed(2)}in`;
-      } else if (data.category === 'INKS') {
-        itemType = 'Ink'; itemGroup = 'Inks'; specificName = data.inkName!; specificSpecification = data.inkSpecification || 'N/A';
-      } else {
-        specificName = data.itemName;
-        itemType = data.category === 'PLASTIC_TRAY' ? 'Plastic Tray' : data.category === 'GLASS_JAR' ? 'Glass Jar' : data.category === 'MAGNET' ? 'Magnet' : 'Other';
-        itemGroup = data.category === 'PLASTIC_TRAY' ? 'Plastic Trays' : data.category === 'GLASS_JAR' ? 'Glass Jars' : data.category === 'MAGNET' ? 'Magnets' : 'Other Stock';
-      }
+      const {
+        itemType, itemGroup, specificName, specificSpecification,
+        masterSheetSizeWidth_val, masterSheetSizeHeight_val,
+        paperGsm_val, paperThicknessMm_val, paperQuality_val,
+      } = buildItemFields(data);
 
-      const newItemMaster: InventoryItem = {
-        id: inventoryItemId, name: specificName, type: itemType, itemGroup: itemGroup, specification: specificSpecification,
-        paperGsm: paperGsm_val, paperThicknessMm: paperThicknessMm_val, paperQuality: paperQuality_val,
-        masterSheetSizeWidth: masterSheetSizeWidth_val, masterSheetSizeHeight: masterSheetSizeHeight_val,
-        unit: data.unit as UnitValue, reorderPoint: data.reorderPoint, purchaseBillNo: data.purchaseBillNo,
-        vendorName: data.vendorName === 'OTHER' ? data.otherVendorName : data.vendorName,
-        dateOfEntry: data.dateOfEntry, locationCode: data.locationCode,
+      const base: Partial<InventoryItem> = {
+        id   : inventoryItemId,
+        name : specificName,
+        type : itemType,
+        itemGroup,
+        specification        : specificSpecification,
+        masterSheetSizeWidth : masterSheetSizeWidth_val,
+        masterSheetSizeHeight: masterSheetSizeHeight_val,
+        paperGsm             : paperGsm_val,
+        paperThicknessMm     : paperThicknessMm_val,
+        paperQuality         : paperQuality_val,
+        availableStock       : data.quantity ?? 0,
+        locationCode         : data.locationCode,
+        purchaseBillNo       : data.purchaseBillNo,
+        vendorName           : data.vendorName === "OTHER" ? data.otherVendorName : data.vendorName,
+        dateOfEntry          : data.dateOfEntry,
+        unit                 : data.unit as UnitValue,
+      
       };
+      if (data.reorderPoint !== undefined) base.reorderPoint = data.reorderPoint;
+
+      const newItemMaster = base as InventoryItem;
+
       global.__inventoryItemsStore__.push(newItemMaster);
+      await setDoc(doc(db, "inventoryItems", inventoryItemId), newItemMaster);
+
       itemForMessage = newItemMaster;
+
+      /* 🔍 DEBUG */
+      console.log("[addInventoryItem] created:", inventoryItemId);
     }
 
-    if (data.quantity > 0) {
-        const adjustment: InventoryAdjustment = {
-            id: `adj${global.__adjustmentCounter__++}`, inventoryItemId: inventoryItemId, date: data.dateOfEntry,
-            quantityChange: data.quantity, reason: adjustmentReason,
-            reference: data.purchaseBillNo || (adjustmentReason === 'INITIAL_STOCK' ? 'Initial Entry' : 'Stock Added'),
-            notes: adjustmentReason === 'INITIAL_STOCK' ? 'Initial stock.' : `Bill: ${data.purchaseBillNo || 'N/A'}`,
-            vendorName: data.vendorName === 'OTHER' ? data.otherVendorName : data.vendorName,
-            purchaseBillNo: data.purchaseBillNo,
-        };
-        global.__inventoryAdjustmentsStore__.push(adjustment);
-    } else if (adjustmentReason === 'INITIAL_STOCK' && data.quantity === 0) {
-        const adjustment: InventoryAdjustment = {
-            id: `adj${global.__adjustmentCounter__++}`, inventoryItemId: inventoryItemId, date: data.dateOfEntry,
-            quantityChange: 0, reason: 'INITIAL_STOCK', reference: 'Item type defined',
-            notes: 'Zero initial stock.',
-            vendorName: data.vendorName === 'OTHER' ? data.otherVendorName : data.vendorName,
-            purchaseBillNo: data.purchaseBillNo,
-        };
-        global.__inventoryAdjustmentsStore__.push(adjustment);
+
+ /* ================================================================
+   2.  Create inventory adjustment (memory + Firestore)
+   ================================================================ */
+if (
+  data.quantity > 0 ||                     // normal stock-in
+  (adjustmentReason === "INITIAL_STOCK" && data.quantity === 0)
+) {
+  const adj: InventoryAdjustment = {
+    id             : `adj${global.__adjustmentCounter__++}`,
+    inventoryItemId,
+    date           : data.dateOfEntry,
+    quantityChange : data.quantity,
+    reason         : adjustmentReason,
+    reference      :
+      data.purchaseBillNo ||
+      (adjustmentReason === "INITIAL_STOCK" ? "Initial Entry" : "Stock Added"),
+    notes          :
+      adjustmentReason === "INITIAL_STOCK"
+        ? "Initial stock."
+        : `Bill: ${data.purchaseBillNo || "N/A"}`,
+    vendorName     : data.vendorName === "OTHER"
+                      ? data.otherVendorName
+                      : data.vendorName,
+    purchaseBillNo : data.purchaseBillNo,
+        
+  };
+
+  /* 🔍 DEBUG: confirm the adjustment object & ID */
+  console.log("[applyInventoryAdjustments] adj object →", adj);
+
+  /* ── in-memory log ───────────────────────────────────────────── */
+  global.__inventoryAdjustmentsStore__.push(adj);
+
+  /* ── Firestore transaction: verify doc, increment stock, add adj ─ */
+  const itemRef = doc(db, "inventoryItems", inventoryItemId);
+  const adjCol  = collection(db, "inventoryAdjustments");
+
+  await runTransaction(db, async (tx) => {
+    /* 1️⃣ ensure the inventory document exists */
+    const snap = await tx.get(itemRef);
+    if (!snap.exists()) {
+      throw new Error(`Inventory document ${inventoryItemId} not found`);
     }
 
-    console.log(`[JobActions] Inventory item ${itemForMessage.name} ${existingItem ? 'updated' : 'created'} (in-memory).`);
-    revalidatePath('/inventory', 'layout');
-    return { success: true, message: `Stock updated for: ${itemForMessage.name} (In-memory). Quantity added: ${data.quantity}`, item: itemForMessage };
+    /* 2️⃣ increment availableStock */
+    tx.update(itemRef, {
+      availableStock: increment(data.quantity),
+      updatedAt     : serverTimestamp(),   // omit if not in your interface
+    });
+
+    /* 3️⃣ add adjustment document with auto-generated ID */
+    tx.set(doc(adjCol), adj);
+  });
+}
+
+/* ----------------------------------------------------------------
+   3.  Finish response & invalidate cache
+   ---------------------------------------------------------------- */
+console.log(
+  `[JobActions] Inventory item ${itemForMessage.name} ${
+    existingItem ? "updated" : "created"
+  } (Firestore + memory).`
+);
+revalidatePath("/inventory", "layout");
+
+    /* ─── success ─────────────────────────────────────────────── */
+    return {
+      success : true,
+      message : `Stock updated for: ${itemForMessage.name}. Quantity added: ${data.quantity}`,
+      item    : itemForMessage,
+    };
+
   } catch (error) {
-    console.error('[JobActions Error] Error adding/updating inventory item (in-memory):', error);
-    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred.';
-    return { success: false, message: `Failed to update stock: ${errorMessage}` };
+    console.error("[JobActions Error] addInventoryItem:", error);
+    const msg = error instanceof Error ? error.message : "Unexpected error.";
+    return { success: false, message: `Failed to update stock: ${msg}` };
   }
 }
 
-export async function getInventoryItems(categoryFilter?: InventoryCategory): Promise<InventoryItem[]> {
-  // Ensure stores are initialized
-  if (!global.__inventoryItemsStore__) global.__inventoryItemsStore__ = [];
-  if (!global.__inventoryAdjustmentsStore__) global.__inventoryAdjustmentsStore__ = [];
+/* =======================================================================
+   getInventoryItems – reads from Firestore and applies category filter
+   ======================================================================= */
+export async function getInventoryItems(
+  categoryFilter: InventoryCategoryType = "ALL"
+): Promise<InventoryItem[]> {
+  const db      = getDB();
+  const colRef  = collection(db, "inventoryItems");
+  const snap    = await getDocs(colRef);
 
-  const itemsWithStock = global.__inventoryItemsStore__.map(item => {
-    const adjustments = global.__inventoryAdjustmentsStore__!.filter(adj => adj.inventoryItemId === item.id);
-    const availableStock = adjustments.reduce((sum, adj) => sum + adj.quantityChange, 0);
-    return { ...item, availableStock };
+  /* ---- map + validate paperQuality ---------------------------------- */
+  let items: InventoryItem[] = snap.docs.map((doc) => {
+    const data = doc.data();
+    const validatedPaperQuality = isPaperQuality(data.paperQuality)
+      ? data.paperQuality
+      : undefined;
+
+    return {
+      ...data,
+      id: doc.id,
+      paperQuality: validatedPaperQuality,
+    } as InventoryItem;
   });
-  
-  if (!categoryFilter || categoryFilter === "ALL") {
-    return itemsWithStock;
+
+  /* ---- optional category filtering ---------------------------------- */
+  if (categoryFilter !== "ALL") {
+    items = items.filter((item) => {
+      switch (categoryFilter as InventoryCategory) {
+        case "PAPER":
+          return item.type === "Master Sheet";
+        case "INKS":
+          return item.itemGroup === "Inks";
+        case "PLASTIC_TRAY":
+          return item.itemGroup === "Plastic Trays";
+        case "GLASS_JAR":
+          return item.itemGroup === "Glass Jars";
+        case "MAGNET":
+          return item.itemGroup === "Magnets";
+        case "OTHER":
+          return item.itemGroup === "Other Stock";
+        default:
+          return false;
+      }
+    });
   }
-  
-  return itemsWithStock.filter(item => {
-    if (categoryFilter === 'PAPER') return item.type === 'Master Sheet';
-    if (categoryFilter === 'INKS') return item.itemGroup === 'Inks'; // or item.type === 'Ink'
-    if (categoryFilter === 'PLASTIC_TRAY') return item.itemGroup === 'Plastic Trays';
-    if (categoryFilter === 'GLASS_JAR') return item.itemGroup === 'Glass Jars';
-    if (categoryFilter === 'MAGNET') return item.itemGroup === 'Magnets';
-    if (categoryFilter === 'OTHER') return item.itemGroup === 'Other Stock';
-    return false;
-  });
+
+  return items;
 }
 
-export async function getInventoryAdjustmentsForItem(inventoryItemId: string): Promise<InventoryAdjustment[]> {
-  if (!global.__inventoryAdjustmentsStore__) global.__inventoryAdjustmentsStore__ = [];
-  return global.__inventoryAdjustmentsStore__
-    .filter(adj => adj.inventoryItemId === inventoryItemId)
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+export async function getInventoryAdjustmentsForItem(
+  inventoryItemId: string
+): Promise<InventoryAdjustment[]> {
+  const db       = getDB();
+  const colRef   = collection(db, "inventoryAdjustments");
+  const q        = query(colRef,
+                         where("inventoryItemId", "==", inventoryItemId),
+                         orderBy("date", "desc"));
+  const snapshot = await getDocs(q);
+
+  return snapshot.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+  }) as InventoryAdjustment);
 }
+
+/* ------------------------------------------------------------------ */
+/* ------------------------------------------------------------------ */
+/* Inventory Adjustments: Apply batch                                 */
+/* ------------------------------------------------------------------ */
+
 
 export async function applyInventoryAdjustments(
-  adjustments: Array<Omit<InventoryAdjustmentItemFormValues, 'itemNameFull'>>
-): Promise<{ success: boolean; message: string; errors?: { itemIndex: number; message: string }[] }> {
-  if (!global.__inventoryItemsStore__) global.__inventoryItemsStore__ = [];
-  if (!global.__inventoryAdjustmentsStore__) global.__inventoryAdjustmentsStore__ = [];
-  if (global.__adjustmentCounter__ === undefined) global.__adjustmentCounter__ = 1;
+  adjustments: Array<Omit<InventoryAdjustmentItemFormValues, "itemNameFull">>
+): Promise<{
+  success: boolean;
+  message: string;
+  errors?: { itemIndex: number; message: string }[];
+}> {
+  const db     = getDB();
+  const adjCol = collection(db, "inventoryAdjustments");
+  const errors: { itemIndex: number; message: string }[] = [];
 
-  const batchErrors: { itemIndex: number; message: string }[] = [];
   for (let i = 0; i < adjustments.length; i++) {
-    const adjItem = adjustments[i];
-    const inventoryItem = global.__inventoryItemsStore__.find(item => item.id === adjItem.inventoryItemId);
-    if (!inventoryItem) {
-      batchErrors.push({ itemIndex: i, message: `Inv. item ID ${adjItem.inventoryItemId} not found.` });
+    const adj = adjustments[i];
+
+    /* ── basic validation ───────────────────────────────────────── */
+    if (!adj.inventoryItemId) {
+      errors.push({ itemIndex: i, message: "Missing inventoryItemId." });
       continue;
     }
-    if (adjItem.quantityChange === 0) {
-        batchErrors.push({ itemIndex: i, message: `Qty change for ${inventoryItem.name} cannot be zero.` });
-        continue;
+    if (adj.quantityChange === 0) {
+      errors.push({ itemIndex: i, message: "Qty change cannot be zero." });
+      continue;
     }
-    const newAdjustmentRecord: InventoryAdjustment = {
-      id: `adj${global.__adjustmentCounter__++}`, inventoryItemId: adjItem.inventoryItemId, date: new Date().toISOString(),
-      quantityChange: adjItem.quantityChange, reason: adjItem.reason,
-      notes: adjItem.notes || `Adj: ${getInventoryAdjustmentReasonLabel(adjItem.reason)}`,
-      reference: `ADJ-${new Date().toISOString().substring(0, 10)}-${global.__adjustmentCounter__}`,
-    };
-    global.__inventoryAdjustmentsStore__.push(newAdjustmentRecord);
+
+    /* ── Firestore transaction: create adj + update stock ───────── */
+    try {
+      await runTransaction(db, async (tx) => {
+        /* 1️⃣  create adjustment document */
+        await addDoc(adjCol, {
+          ...adj,
+          date     : new Date().toISOString(),
+          createdAt: serverTimestamp(),
+        });
+
+        /* 2️⃣  increment availableStock in inventoryItems doc */
+        const itemRef = doc(db, "inventoryItems", adj.inventoryItemId);
+        tx.update(itemRef, {
+          availableStock: increment(adj.quantityChange),
+          updatedAt     : serverTimestamp(),   // remove if not in your type
+        });
+      });
+    } catch (err: any) {
+      errors.push({
+        itemIndex: i,
+        message  : err?.message ?? "Transaction failed",
+      });
+    }
+  }
+ 
+  if (errors.length) {
+    return { success: false, message: "Some adjustments failed.", errors };
   }
 
-  if (batchErrors.length > 0) {
-    return { success: false, message: "Some adjustments failed.", errors: batchErrors };
-  }
-  console.log(`[JobActions] Applied ${adjustments.length} adjustments (in-memory).`);
-  revalidatePath('/inventory', 'layout');
-  return { success: true, message: `${adjustments.length} inventory adjustment(s) applied successfully (In-memory).` };
-}
-
-// Design Submission Actions (In-Memory)
-export async function addDesignSubmissionInternal(
-  submissionDetails: Omit<DesignSubmission, 'id' | 'status' | 'date' | 'uploader'>
-): Promise<DesignSubmission> {
-  if (!global.__designSubmissionsStore__) global.__designSubmissionsStore__ = [];
-  if (global.__designSubmissionCounter__ === undefined) global.__designSubmissionCounter__ = 1;
-
-  const newId = `ds-${global.__designSubmissionCounter__++}`;
-  const newSubmission: DesignSubmission = {
-    ...submissionDetails, id: newId, status: "pending",
-    date: new Date().toISOString(), uploader: "Current User (mock)",
+  return {
+    success: true,
+    message: `${adjustments.length} inventory adjustment(s) applied successfully.`,
   };
-  global.__designSubmissionsStore__.push(newSubmission);
-  console.log('[JobActions] Added design submission (in-memory):', newSubmission.id);
-  revalidatePath('/for-approval');
-  revalidatePath('/jobs/new');
-  return newSubmission;
 }
+
 
 export async function updateDesignSubmissionStatus(
   id: string,

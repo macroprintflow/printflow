@@ -1,29 +1,11 @@
 [
   {
     "id": "mock-1",
-    "fullName": "kuvam",
-    "email": "test@gmail.com",
-    "phoneNumber": {
-      "countryCode": "+91",
-      "number": "9815000749"
-    },
-    "address": {
-      "street": "123",
-      "city": "Ludhiana",
-      "state": "Punjab",
-      "zipCode": "141012",
-      "country": "India"
-    },
-    "createdAt": "2025-06-08T17:24:17.654Z",
-    "updatedAt": "2025-06-08T17:24:17.654Z"
-  },
-  {
-    "id": "mock-2",
     "fullName": "Macro Print Pack",
     "email": "kuvamsharma99@icloud.com",
     "phoneNumber": {
       "countryCode": "+91",
-      "number": "9815000749"
+      "number": "8872336333"
     },
     "address": {
       "street": "190",
@@ -32,25 +14,7 @@
       "zipCode": "141012",
       "country": "India (भारत)"
     },
-    "createdAt": "2025-06-11T20:01:10.649Z",
-    "updatedAt": "2025-06-11T20:01:10.649Z"
-  },
-  {
-    "id": "mock-3",
-    "fullName": "kuvam2",
-    "email": "",
-    "phoneNumber": {
-      "countryCode": "+91",
-      "number": ""
-    },
-    "address": {
-      "street": "",
-      "city": "Ludhiana",
-      "state": "Punjab",
-      "zipCode": "141012",
-      "country": "India (भारत)"
-    },
-    "createdAt": "2025-06-11T20:59:08.269Z",
-    "updatedAt": "2025-06-11T20:59:08.269Z"
+    "createdAt": "2025-06-14T12:46:10.495Z",
+    "updatedAt": "2025-06-14T12:46:10.495Z"
   }
 ]

@@ -75,7 +75,7 @@ function calculateMacroStaggeredUpsFixedInternal(
   jobW: number, jobH: number, sheetW: number, sheetH: number
 ) {
   let bestUps = 0;
-  let bestDesc = "";
+  let bestDesc = undefined;
   const eps = epsilon; 
   console.log(`[StaggeredCalc] Input: jobW=${jobW}, jobH=${jobH}, sheetW=${sheetW}, sheetH=${sheetH}`);
 
@@ -165,7 +165,7 @@ function calculateMaxGuillotineUps(jobW: number, jobH: number, sheetW: number, s
 
       const remainderW = sheetW - strip1Width;
       let upsInRemainder = 0;
-      let remainderLayoutDesc = "";
+      let remainderLayoutDesc = undefined;
       if (remainderW >= Math.min(jobW, jobH) - epsilon) {
         for (const remOrient of orientations) {
           if(remOrient.w <=0 || remOrient.h <=0) continue;
@@ -194,7 +194,7 @@ function calculateMaxGuillotineUps(jobW: number, jobH: number, sheetW: number, s
 
       const remainderH = sheetH - strip1Height;
       let upsInRemainder = 0;
-      let remainderLayoutDesc = "";
+      let remainderLayoutDesc = undefined;
       if (remainderH >= Math.min(jobW, jobH) - epsilon) {
         for (const remOrient of orientations) {
           if(remOrient.w <=0 || remOrient.h <=0) continue;

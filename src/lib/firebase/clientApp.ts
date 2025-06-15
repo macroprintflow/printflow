@@ -1,36 +1,58 @@
+// src/lib/firebase/clientApp.ts
 
-import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
+import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
+import { getFirestore, type Firestore } from "firebase/firestore";
 import { getAuth, type Auth } from "firebase/auth";
-import { getFirestore, type Firestore } from "firebase/firestore"; // Added Firestore
 
+// --- ENVIRONMENT VALIDATION (Warn for missing variables) ---
+const requiredEnvVars = [
+  "NEXT_PUBLIC_FIREBASE_API_KEY",
+  "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN",
+  "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET",
+  "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID",
+  "NEXT_PUBLIC_FIREBASE_APP_ID",
+  "NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID",
+];
+for (const key of requiredEnvVars) {
+  if (!process.env[key]) {
+    console.warn(`[Firebase Config Warning] Missing environment variable: ${key}`);
+  }
+}
+
+// --- FIREBASE CONFIGURATION ---
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN!,
+  projectId: "printflow-x947t", // Ensure your actual projectId
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET!,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID!,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID!,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID!,
 };
 
-// Log the loaded configuration to help debug
-console.log("[Firebase ClientApp] Loaded Firebase Config:", firebaseConfig);
-
-if (!firebaseConfig.projectId) {
-  console.error("[Firebase ClientApp] CRITICAL: Firebase projectId is missing in the configuration. Firestore operations will likely fail or hang. Check your .env file and Next.js setup.");
-}
-
-let app: FirebaseApp;
-if (!getApps().length) {
-  app = initializeApp(firebaseConfig);
-  console.log("[Firebase ClientApp] Firebase app initialized.");
+// --- INITIALIZE OR GET EXISTING APP ---
+let clientApp: FirebaseApp;
+if (getApps().length === 0) {
+  clientApp = initializeApp(firebaseConfig);
+  console.info("[Firebase] Initialized new app instance.");
 } else {
-  app = getApps()[0];
-  console.log("[Firebase ClientApp] Using existing Firebase app instance.");
+  clientApp = getApp();
 }
 
-const auth: Auth = getAuth(app);
-const db: Firestore = getFirestore(app); 
-console.log("[Firebase ClientApp] Firestore instance initialized:", db ? "Successfully obtained Firestore instance." : "Failed to obtain Firestore instance.");
+// --- FIRESTORE AND AUTH EXPORTS ---
+export const db: Firestore = getFirestore(clientApp, "macroprintflow");
+export const auth: Auth = getAuth(clientApp);
 
-export { app, auth, db };
+// --- COMPATIBILITY HELPERS (for legacy code) ---
+/** Returns Firestore instance. Prefer `db` for new code. */
+export function getDB(): Firestore {
+  return db;
+}
+
+/** Returns Auth instance. Prefer `auth` for new code. */
+export function getAuthInstance(): Auth {
+  return auth;
+}
+
+// --- EXPORT APP IF NEEDED (rarely used directly) ---
+export { clientApp };

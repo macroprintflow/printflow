@@ -63,7 +63,7 @@ const CurrentItemPaperFields = ({ form, onFormChange }: { form: UseFormReturn<Pa
             field.onChange(value);
             form.setValue("paperGsm", undefined);
             form.setValue("paperThicknessMm", undefined);
-          }} value={field.value || ""}>
+          }} value={field.value || undefined}>
             <FormControl>
                 <SelectTrigger className="font-body h-11">
                   <SelectValue placeholder="Select paper quality" />
@@ -260,10 +260,10 @@ const deriveItemNameInternal = (values: Partial<InventoryItemFormValues>): strin
 
 export default function NewPurchasePage() {
   const router = useRouter();
-  const [purchaseBillNo, setPurchaseBillNo] = useState("");
-  const [purchaseDate, setPurchaseDate] = useState<Date | undefined>(new Date());
-  const [purchaseVendor, setPurchaseVendor] = useState<string | undefined>(undefined);
-  const [otherPurchaseVendor, setOtherPurchaseVendor] = useState("");
+  const [purchaseBillNo, setPurchaseBillNo] = useState('');
+  const [purchaseDate, setPurchaseDate] = useState<Date | undefined>(new Date()); // Keep undefined as it represents no date selected
+  const [purchaseVendor, setPurchaseVendor] = useState<string | undefined>(undefined); // Keep undefined as it represents no vendor selected
+  const [otherPurchaseVendor, setOtherPurchaseVendor] = useState('');
   const [otherVendorError, setOtherVendorError] = useState<string | null>(null);
 
   const [itemsInPurchaseList, setItemsInPurchaseList] = useState<PurchaseListItem[]>([]);
@@ -281,19 +281,19 @@ export default function NewPurchasePage() {
       unit: "pieces" as UnitValue, 
       paperMasterSheetSizeWidth: undefined,
       paperMasterSheetSizeHeight: undefined,
-      paperQuality: "",
+      paperQuality: undefined,
       paperGsm: undefined,
       paperThicknessMm: undefined,
-      inkName: "",
-      inkSpecification: "",
-      itemName: "", 
-      itemSpecification: "",
+      inkName: undefined,
+      inkSpecification: undefined,
+      itemName: undefined, 
+      itemSpecification: undefined,
       reorderPoint: undefined,
-      locationCode: "",
+      locationCode: undefined,
     },
   });
 
-  const [derivedCurrentItemName, setDerivedCurrentItemName] = useState("");
+  const [derivedCurrentItemName, setDerivedCurrentItemName] = useState('');
 
   const handleCurrentItemFormChange = useCallback(() => {
     setDerivedCurrentItemName(deriveItemNameInternal(currentItemForm.getValues()));
@@ -351,7 +351,7 @@ export default function NewPurchasePage() {
 const newCategory: Category | null = currentItemForm.getValues().category as Category; 
       
       let defaultUnit: UnitValue;
-      let autoItemName = "";
+      let autoItemName = undefined;
 
       switch (newCategory) {
         case 'PAPER':
@@ -376,7 +376,7 @@ const newCategory: Category | null = currentItemForm.getValues().category as Cat
            break;
         case 'OTHER':
            defaultUnit = 'pieces';
-           autoItemName = ""; 
+           autoItemName = undefined; 
            break;
         default:
           defaultUnit = 'units';
@@ -388,18 +388,18 @@ const newCategory: Category | null = currentItemForm.getValues().category as Cat
         unit: defaultUnit as UnitValue,
         paperMasterSheetSizeWidth: newCategory === 'PAPER' ? currentItemValues.paperMasterSheetSizeWidth : undefined,
         paperMasterSheetSizeHeight: newCategory === 'PAPER' ? currentItemValues.paperMasterSheetSizeHeight : undefined,
-        paperQuality: newCategory === 'PAPER' ? currentItemValues.paperQuality : "",
+        paperQuality: newCategory === 'PAPER' ? currentItemValues.paperQuality : undefined,
         paperGsm: newCategory === 'PAPER' ? currentItemValues.paperGsm : undefined,
         paperThicknessMm: newCategory === 'PAPER' ? currentItemValues.paperThicknessMm : undefined,
-        inkName: newCategory === 'INKS' ? currentItemValues.inkName : "",
-        inkSpecification: newCategory === 'INKS' ? currentItemValues.inkSpecification : "",
+        inkName: newCategory === 'INKS' ? currentItemValues.inkName : undefined,
+        inkSpecification: newCategory === 'INKS' ? currentItemValues.inkSpecification : undefined,
         itemName: autoItemName, 
-        itemSpecification: "",
+        itemSpecification: undefined,
         reorderPoint: undefined, 
-        locationCode: "",
+        locationCode: undefined,
       });
       setCurrentItemCategory(newCategory || null);
-      setDerivedCurrentItemName(""); 
+      setDerivedCurrentItemName('');
     });
   };
 
@@ -408,15 +408,15 @@ const newCategory: Category | null = currentItemForm.getValues().category as Cat
   };
 
   const resetPage = () => {
-    setPurchaseBillNo("");
+    setPurchaseBillNo(''); // Changed from undefined to ''
     setPurchaseDate(new Date());
-    setPurchaseVendor(undefined);
-    setOtherPurchaseVendor("");
+    setPurchaseVendor(undefined); // Keep as undefined
+    setOtherPurchaseVendor(''); // or setOtherPurchaseVendor(null);
     setOtherVendorError(null);
     setItemsInPurchaseList([]);
     
     const currentCategory = currentItemForm.getValues().category;
-    let autoItemName = "";
+    let autoItemName = undefined;
     let defaultUnit: UnitValue = 'pieces';
 
     if (currentCategory) {
@@ -436,7 +436,7 @@ const newCategory: Category | null = currentItemForm.getValues().category as Cat
            defaultUnit = 'pieces';
            break;
         case 'OTHER':
-          autoItemName = "";
+          autoItemName = undefined;
           defaultUnit = 'pieces';
           break;
         default: defaultUnit = 'units';
@@ -449,18 +449,18 @@ const newCategory: Category | null = currentItemForm.getValues().category as Cat
         unit: defaultUnit,
         paperMasterSheetSizeWidth: undefined,
         paperMasterSheetSizeHeight: undefined,
-        paperQuality: "",
+        paperQuality: undefined,
         paperGsm: undefined,
         paperThicknessMm: undefined,
-        inkName: "",
-        inkSpecification: "",
+        inkName: undefined,
+        inkSpecification: undefined,
         itemName: autoItemName, 
-        itemSpecification: "",
+        itemSpecification: undefined,
         reorderPoint: undefined,
-        locationCode: "",
+        locationCode: undefined,
     });
-    setCurrentItemCategory(null);
-    setDerivedCurrentItemName("");
+    setCurrentItemCategory(null); // Keep null for state that's not bound to input value
+    setDerivedCurrentItemName(''); // Change to ''
     setIsSubmittingPurchase(false);
     setNextDisplayId(1);
   };
@@ -494,7 +494,7 @@ const newCategory: Category | null = currentItemForm.getValues().category as Cat
           purchaseBillNo: purchaseBillNo,
           dateOfEntry: purchaseDate.toISOString(),
           vendorName: purchaseVendor,
-          otherVendorName: purchaseVendor === 'OTHER' ? otherPurchaseVendor : "",
+          otherVendorName: purchaseVendor === 'OTHER' ? otherPurchaseVendor : undefined,
           itemName: item.itemName || item.displayName, 
         };
         return addInventoryItem(itemDataForAction);
@@ -577,7 +577,7 @@ const newCategory: Category | null = currentItemForm.getValues().category as Cat
                 </div>
                  <div className="space-y-2">
                   <Label htmlFor="purchaseVendorSelect">Vendor Name (Optional)</Label>
-                  <Select onValueChange={setPurchaseVendor} value={purchaseVendor || ""}>
+                  <Select onValueChange={setPurchaseVendor} value={purchaseVendor || undefined}>
                     <SelectTrigger id="purchaseVendorSelect" className="font-body h-11 px-3">
                         <SelectValue placeholder="Select vendor" />
                     </SelectTrigger>
@@ -617,7 +617,7 @@ const newCategory: Category | null = currentItemForm.getValues().category as Cat
                           setCurrentItemCategory(isValidCategory ? value as InventoryCategory : null);
 
                           let defaultUnit: UnitValue;
-                          let autoItemName = "";
+                          let autoItemName = undefined;
                           const newCategoryValue = value as InventoryCategory;
 
                           switch (newCategoryValue) {
@@ -643,31 +643,31 @@ const newCategory: Category | null = currentItemForm.getValues().category as Cat
                                 break;
                             case 'OTHER':
                                defaultUnit = 'pieces';
-                               autoItemName = ""; 
+                               autoItemName = undefined; 
                                break;
                             default:
                               defaultUnit = 'units';
-                              autoItemName = "";
+                              autoItemName = undefined;
                           }
                           
                           currentItemForm.reset({
                             category: newCategoryValue, 
                             paperMasterSheetSizeWidth: undefined,
                             paperMasterSheetSizeHeight: undefined,
-                            paperQuality: "",
+                            paperQuality: undefined,
                             paperGsm: undefined,
                             paperThicknessMm: undefined,
-                            inkName: "",
-                            inkSpecification: "",
+                            inkName: undefined,
+                            inkSpecification: undefined,
                             itemName: autoItemName, 
-                            itemSpecification: "",
+                            itemSpecification: undefined,
                             quantity: undefined, 
                             unit: defaultUnit, 
                             reorderPoint: undefined,
-                            locationCode: "",
+                            locationCode: undefined,
                           });
                           handleCurrentItemFormChange(); 
-                        }} value={field.value || ""}>
+                        }} value={field.value || undefined}>
                         <FormControl>
                           <SelectTrigger className="font-body h-11">
                             <SelectValue placeholder="Select item category" />
